@@ -10,7 +10,7 @@ import { Tracking } from './components/Tracking';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ServiceMap } from './components/ServiceMap';
 import { PRODUCTS } from './constants';
-import { Package, MapPin, Navigation, ArrowRight, Map as MapIcon, User as UserIcon } from 'lucide-react';
+import { Package, MapPin, Navigation, ArrowRight, Map as MapIcon, User as UserIcon, ClipboardList } from 'lucide-react';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -59,8 +59,24 @@ const App: React.FC = () => {
   }, [users]);
 
   // --- Auth Handlers ---
-  const handleLogin = (loggedInUser: User) => {
-    setUser(loggedInUser);
+  const handleLogin = (email: string) => {
+    const foundUser = users.find(u => u.email === email);
+    if (foundUser) {
+      setUser(foundUser);
+      return true;
+    }
+    return false;
+  };
+
+  const handleRegister = (name: string, email: string) => {
+    if (users.some(u => u.email === email)) {
+      return false;
+    }
+    const newUser: User = { name, email, role: 'user' };
+    const updatedUsers = [...users, newUser];
+    setUsers(updatedUsers);
+    setUser(newUser);
+    return true;
   };
 
   const handleLogout = () => {
@@ -173,7 +189,7 @@ const App: React.FC = () => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'En Proceso' } : o));
   };
 
-  if (!user) return <Login onLogin={handleLogin} />;
+  if (!user) return <Login onLogin={handleLogin} onRegister={handleRegister} />;
 
   // Logic to filter orders for the view based on role
   const visibleOrders = orders.filter(o => 
@@ -308,8 +324,5 @@ const OrdersList: React.FC<{ orders: Order[], currentUser: User }> = ({ orders, 
     </div>
   );
 }
-
-// Ensure proper imports for icons used in the list
-import { ClipboardList } from 'lucide-react';
 
 export default App;
