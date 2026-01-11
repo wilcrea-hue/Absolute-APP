@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { Product, Order, User, WorkflowStageKey, StageData, Signature } from '../types';
 import { Package, Users, ClipboardList, Plus, Edit2, Trash2, Check, Calendar, ChevronDown, ChevronUp, Clock, User as UserIcon, Camera, X, PenTool } from 'lucide-react';
 import { SignaturePad } from './SignaturePad';
+import { UserManagement } from './UserManagement';
 
 interface AdminDashboardProps {
   currentUser: User;
@@ -13,7 +15,8 @@ interface AdminDashboardProps {
   onDeleteProduct: (id: string) => void;
   onUpdateOrderDates: (id: string, start: string, end: string) => void;
   onApproveOrder: (id: string) => void;
-  onToggleUserRole: (email: string) => void;
+  onToggleUserRole: (email: string) => void; // Keep for backward compatibility if needed
+  onChangeUserRole?: (email: string, newRole: 'admin' | 'user' | 'logistics') => void;
   onUpdateStage: (orderId: string, stageKey: WorkflowStageKey, data: StageData) => void;
 }
 
@@ -36,6 +39,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onUpdateOrderDates,
   onApproveOrder,
   onToggleUserRole,
+  onChangeUserRole,
   onUpdateStage,
 }) => {
   const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'users'>(
@@ -503,44 +507,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {/* USERS TAB */}
         {activeTab === 'users' && !isLogistics && (
-            <div>
-                 <h3 className="font-bold text-lg mb-6">Gestión de Usuarios</h3>
-                 <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="bg-gray-100 border-b">
-                            <th className="p-3 font-medium text-gray-600">Email</th>
-                            <th className="p-3 font-medium text-gray-600">Nombre</th>
-                            <th className="p-3 font-medium text-gray-600">Rol Actual</th>
-                            <th className="p-3 font-medium text-gray-600 text-right">Permisos</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {users.map(user => (
-                            <tr key={user.email} className="border-b hover:bg-gray-50">
-                                <td className="p-3">{user.email}</td>
-                                <td className="p-3">{user.name}</td>
-                                <td className="p-3">
-                                    <span className={`px-2 py-1 rounded text-xs font-bold uppercase 
-                                        ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : ''}
-                                        ${user.role === 'logistics' ? 'bg-orange-100 text-orange-800' : ''}
-                                        ${user.role === 'user' ? 'bg-gray-100 text-gray-800' : ''}
-                                    `}>
-                                        {user.role}
-                                    </span>
-                                </td>
-                                <td className="p-3 text-right">
-                                    <button 
-                                        onClick={() => onToggleUserRole(user.email)}
-                                        className="text-sm underline text-brand-600 hover:text-brand-900"
-                                    >
-                                        {user.role === 'admin' ? 'Revocar Admin' : 'Hacer Admin'}
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+            <UserManagement 
+              users={users} 
+              currentUser={currentUser} 
+              onChangeUserRole={onChangeUserRole || ((email, role) => onToggleUserRole(email))} 
+            />
         )}
       </div>
 

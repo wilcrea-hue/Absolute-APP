@@ -10,13 +10,13 @@ import { Tracking } from './components/Tracking';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ServiceMap } from './components/ServiceMap';
 import { PRODUCTS } from './constants';
-import { Package, MapPin, Navigation, ArrowRight, Map as MapIcon } from 'lucide-react';
+import { Package, MapPin, Navigation, ArrowRight, Map as MapIcon, User as UserIcon } from 'lucide-react';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   
-  // Persisted States
+  // --- Persisted States ---
   const [orders, setOrders] = useState<Order[]>(() => {
     const saved = localStorage.getItem('absolute_orders');
     return saved ? JSON.parse(saved) : [];
@@ -27,14 +27,21 @@ const App: React.FC = () => {
     return saved ? parseInt(saved, 10) : 1;
   });
 
-  const [products, setProducts] = useState<Product[]>(PRODUCTS);
-  const [users, setUsers] = useState<User[]>([
-    { email: 'admin@absolute.com', name: 'Administrador Principal', role: 'admin' },
-    { email: 'logistics@absolute.com', name: 'Encargado Logística', role: 'logistics' },
-    { email: 'user@absolute.com', name: 'Usuario Demo', role: 'user' }
-  ]);
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('absolute_inventory');
+    return saved ? JSON.parse(saved) : PRODUCTS;
+  });
 
-  // Sync to LocalStorage
+  const [users, setUsers] = useState<User[]>(() => {
+    const saved = localStorage.getItem('absolute_users');
+    return saved ? JSON.parse(saved) : [
+      { email: 'admin@absolute.com', name: 'Administrador Principal', role: 'admin' },
+      { email: 'logistics@absolute.com', name: 'Encargado Logística', role: 'logistics' },
+      { email: 'user@absolute.com', name: 'Usuario Demo', role: 'user' }
+    ];
+  });
+
+  // --- Sync to LocalStorage ---
   useEffect(() => {
     localStorage.setItem('absolute_orders', JSON.stringify(orders));
   }, [orders]);
@@ -42,6 +49,14 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('absolute_order_counter', orderCounter.toString());
   }, [orderCounter]);
+
+  useEffect(() => {
+    localStorage.setItem('absolute_inventory', JSON.stringify(products));
+  }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('absolute_users', JSON.stringify(users));
+  }, [users]);
 
   // --- Auth Handlers ---
   const handleLogin = (loggedInUser: User) => {
@@ -51,6 +66,28 @@ const App: React.FC = () => {
   const handleLogout = () => {
     setUser(null);
     setCart([]);
+  };
+
+  // --- Inventory Handlers ---
+  const handleAddProduct = (newProduct: Product) => {
+    setProducts(prev => [...prev, newProduct]);
+  };
+
+  const handleUpdateProduct = (updatedProduct: Product) => {
+    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+  };
+
+  const handleDeleteProduct = (id: string) => {
+    if (window.confirm("¿Está seguro de que desea eliminar este artículo del inventario?")) {
+      setProducts(prev => prev.filter(p => p.id !== id));
+    }
+  };
+
+  const handleChangeUserRole = (email: string, newRole: 'admin' | 'user' | 'logistics') => {
+    setUsers(prev => prev.map(u => u.email === email ? { ...u, role: newRole } : u));
+    if (user && user.email === email) {
+      setUser({ ...user, role: newRole });
+    }
   };
 
   // --- Cart Handlers ---
@@ -74,9 +111,10 @@ const App: React.FC = () => {
   };
 
   const updateQuantity = (id: string, qty: number) => {
-    setCart(prev => prev.map(item => item.id === id ? { ...item, quantity: qty } : item));
+    setCart(prev => prev.map(item => id === item.id ? { ...item, quantity: qty } : item));
   };
 
+  // --- Order Handlers ---
   const createOrder = (startDate: string, endDate: string, destination: string) => {
     if (!user) return;
     
@@ -102,6 +140,14 @@ const App: React.FC = () => {
       }
     };
     
+    setProducts(prev => prev.map(p => {
+      const cartItem = cart.find(ci => ci.id === p.id);
+      if (cartItem) {
+        return { ...p, stock: Math.max(0, p.stock - cartItem.quantity) };
+      }
+      return p;
+    }));
+
     setOrders(prev => [newOrder, ...prev]);
     setOrderCounter(prev => prev + 1);
     setCart([]);
@@ -129,20 +175,30 @@ const App: React.FC = () => {
 
   if (!user) return <Login onLogin={handleLogin} />;
 
+  // Logic to filter orders for the view based on role
+  const visibleOrders = orders.filter(o => 
+    user.role === 'admin' || user.role === 'logistics' || o.userEmail === user.email
+  );
+
   return (
     <HashRouter>
       <Layout user={user} cartCount={cart.reduce((a, b) => a + b.quantity, 0)} onLogout={handleLogout}>
         <Routes>
           <Route path="/" element={<Catalog products={products} onAddToCart={addToCart} />} />
           <Route path="/cart" element={<Cart items={cart} onRemove={removeFromCart} onUpdateQuantity={updateQuantity} onCheckout={createOrder} />} />
-          <Route path="/orders" element={<OrdersList orders={orders} />} />
+          <Route path="/orders" element={<OrdersList orders={visibleOrders} currentUser={user} />} />
           <Route path="/orders/:id" element={<Tracking orders={orders} onUpdateStage={handleUpdateStage} />} />
           <Route path="/admin" element={
             <AdminDashboard 
               currentUser={user} products={products} orders={orders} users={users}
-              onAddProduct={() => {}} onUpdateProduct={() => {}} onDeleteProduct={() => {}}
-              onUpdateOrderDates={() => {}} onApproveOrder={handleApproveOrder} onToggleUserRole={() => {}} 
-              onChangeUserRole={() => {}} onUpdateStage={handleUpdateStage}
+              onAddProduct={handleAddProduct} 
+              onUpdateProduct={handleUpdateProduct} 
+              onDeleteProduct={handleDeleteProduct}
+              onUpdateOrderDates={() => {}} 
+              onApproveOrder={handleApproveOrder} 
+              onToggleUserRole={() => {}} 
+              onChangeUserRole={handleChangeUserRole}
+              onUpdateStage={handleUpdateStage}
             />
           } />
           <Route path="/logistics-map" element={<ServiceMap />} />
@@ -153,26 +209,40 @@ const App: React.FC = () => {
   );
 };
 
-const OrdersList: React.FC<{ orders: Order[] }> = ({ orders }) => {
+// Subcomponent for the list, now role-aware
+const OrdersList: React.FC<{ orders: Order[], currentUser: User }> = ({ orders, currentUser }) => {
+  const isAdminOrLogistics = currentUser.role === 'admin' || currentUser.role === 'logistics';
+
   if (orders.length === 0) {
     return (
       <div className="text-center py-20 bg-white rounded-xl border border-dashed flex flex-col items-center">
         <Package className="h-12 w-12 text-gray-300 mb-4" />
         <h3 className="text-lg font-bold text-gray-900">No hay pedidos registrados</h3>
-        <p className="text-gray-500">Los nuevos pedidos aparecerán aquí con numeración consecutiva.</p>
+        <p className="text-gray-500">
+          {isAdminOrLogistics 
+            ? "Aún no se han generado órdenes en el sistema global." 
+            : "Todavía no has realizado ninguna reserva. ¡Ve al catálogo!"}
+        </p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gestión de Pedidos</h2>
-          <p className="text-gray-500 text-sm">Listado oficial de órdenes secuenciales.</p>
+          <h2 className="text-2xl font-bold text-gray-900">
+            {isAdminOrLogistics ? 'Gestión Global de Pedidos' : 'Mis Pedidos'}
+          </h2>
+          <p className="text-gray-500 text-sm">
+            {isAdminOrLogistics 
+              ? 'Vista completa de todas las operaciones logísticas.' 
+              : 'Historial personal de tus solicitudes y eventos.'}
+          </p>
         </div>
-        <div className="bg-brand-900 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg">
-          Total: {orders.length}
+        <div className="bg-brand-900 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg flex items-center">
+          <ClipboardList size={16} className="mr-2" />
+          {isAdminOrLogistics ? 'Total Sistema' : 'Mis Reservas'}: {orders.length}
         </div>
       </div>
       
@@ -185,6 +255,11 @@ const OrdersList: React.FC<{ orders: Order[] }> = ({ orders }) => {
                   {order.id}
                 </span>
                 <h3 className="font-bold text-gray-900">{order.destinationLocation}</h3>
+                {isAdminOrLogistics && (
+                  <p className="text-[10px] text-brand-600 font-bold flex items-center mt-1">
+                    <UserIcon size={10} className="mr-1" /> {order.userEmail}
+                  </p>
+                )}
                 <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mt-1">Registrado: {new Date(order.createdAt).toLocaleDateString()}</p>
               </div>
               <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider
@@ -233,5 +308,8 @@ const OrdersList: React.FC<{ orders: Order[] }> = ({ orders }) => {
     </div>
   );
 }
+
+// Ensure proper imports for icons used in the list
+import { ClipboardList } from 'lucide-react';
 
 export default App;
