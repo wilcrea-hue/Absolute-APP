@@ -14,6 +14,7 @@ import {
 import { User } from '../types';
 import { Link, useLocation } from 'react-router-dom';
 import { LOGO_URL } from '../constants';
+import { Footer } from './Footer';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -110,8 +111,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto h-[calc(100vh-64px)] md:h-screen">
-        {children}
+      <main className="flex-1 overflow-y-auto h-[calc(100vh-64px)] md:h-screen flex flex-col">
+        <div className="p-4 md:p-8 flex-1">
+          {children}
+        </div>
+        <Footer />
       </main>
 
       {/* Overlay for mobile */}
