@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Category, Product } from '../types';
 // Add Package to the imports from lucide-react
@@ -9,7 +8,7 @@ interface CatalogProps {
   onAddToCart: (product: Product) => void;
 }
 
-const CATEGORIES: Category[] = ['Arquitectura Efímera', 'Mobiliario', 'Electrónica', 'Decoración', 'Servicios'];
+const CATEGORIES: Category[] = ['Mobiliario', 'Electrónica', 'Arquitectura Efímera', 'Decoración', 'Servicios'];
 
 export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
   const [selectedCategory, setSelectedCategory] = useState<Category | 'Todos'>('Todos');

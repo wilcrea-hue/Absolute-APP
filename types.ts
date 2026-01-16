@@ -1,5 +1,5 @@
 
-export type Category = 'Arquitectura Efímera' | 'Mobiliario' | 'Electrónica' | 'Decoración' | 'Servicios';
+export type Category = 'Mobiliario' | 'Electrónica' | 'Arquitectura Efímera' | 'Decoración' | 'Servicios';
 
 export interface Product {
   id: string;
