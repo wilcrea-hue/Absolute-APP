@@ -1,7 +1,8 @@
+
 import { Product } from './types';
 
-// Logo URL externa
-export const LOGO_URL = "https://absolutecompany.co/app/imagenes/logo2.png";
+// Logo actualizado basado en la imagen proporcionada
+export const LOGO_URL = "https://absolutecompany.co/app/imagenes/logo4.png";
 
 export const PRODUCTS: Product[] = [
   // Arquitectura Efímera

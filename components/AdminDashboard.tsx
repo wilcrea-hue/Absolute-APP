@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
-import { Product, Order, User, WorkflowStageKey, StageData, Signature } from '../types';
-import { Package, Users, ClipboardList, Plus, Edit2, Trash2, Check, Calendar, ChevronDown, ChevronUp, Clock, User as UserIcon, Camera, X, PenTool } from 'lucide-react';
+import { Product, Order, User, WorkflowStageKey, StageData, Signature, OrderStatus } from '../types';
+// Added Info to the imports
+import { Package, Users, ClipboardList, Plus, Edit2, Trash2, Check, Calendar, ChevronDown, ChevronUp, Clock, User as UserIcon, Camera, X, PenTool, Eye, CheckCircle, Info } from 'lucide-react';
 import { SignaturePad } from './SignaturePad';
 import { UserManagement } from './UserManagement';
 
@@ -15,7 +15,7 @@ interface AdminDashboardProps {
   onDeleteProduct: (id: string) => void;
   onUpdateOrderDates: (id: string, start: string, end: string) => void;
   onApproveOrder: (id: string) => void;
-  onToggleUserRole: (email: string) => void; // Keep for backward compatibility if needed
+  onToggleUserRole: (email: string) => void;
   onChangeUserRole?: (email: string, newRole: 'admin' | 'user' | 'logistics') => void;
   onUpdateStage: (orderId: string, stageKey: WorkflowStageKey, data: StageData) => void;
 }
@@ -46,15 +46,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     currentUser.role === 'logistics' ? 'orders' : 'inventory'
   );
   
-  // Inventory State
-  const [isEditingProduct, setIsEditingProduct] = useState<string | null>(null); // 'new' or id
+  const [isEditingProduct, setIsEditingProduct] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
-
-  // Order Expansion State
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
-
-  // Stage Editing State
-  const [editingStage, setEditingStage] = useState<{orderId: string, stageKey: WorkflowStageKey} | null>(null);
+  const [editingStage, setEditingStage] = useState<{orderId: string, stageKey: WorkflowStageKey, readOnly: boolean} | null>(null);
   const [tempStageData, setTempStageData] = useState<StageData | null>(null);
   const [isSignaturePadOpen, setIsSignaturePadOpen] = useState<'signature' | 'receivedBy' | null>(null);
 
@@ -64,29 +59,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setEditForm(product);
     } else {
       setIsEditingProduct('new');
-      setEditForm({
-        name: '',
-        category: 'Arquitectura Efímera',
-        description: '',
-        image: 'https://example.com/new_product.png',
-        stock: 10
-      });
+      setEditForm({ name: '', category: 'Arquitectura Efímera', description: '', image: '', stock: 10 });
     }
   };
-
-  // Auto-open "New Product" form if it's the first time viewing inventory as admin
-  useEffect(() => {
-    if (activeTab === 'inventory' && !isEditingProduct && currentUser.role === 'admin') {
-      startEdit();
-    }
-  }, [activeTab]);
 
   useEffect(() => {
     if (editingStage) {
         const order = orders.find(o => o.id === editingStage.orderId);
-        if (order) {
-            setTempStageData(JSON.parse(JSON.stringify(order.workflow[editingStage.stageKey])));
-        }
+        if (order) setTempStageData(JSON.parse(JSON.stringify(order.workflow[editingStage.stageKey])));
     } else {
         setTempStageData(null);
         setIsSignaturePadOpen(null);
@@ -96,214 +76,137 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const toggleOrderExpanded = (orderId: string) => {
     setExpandedOrders(prev => {
       const next = new Set(prev);
-      if (next.has(orderId)) {
-        next.delete(orderId);
-      } else {
-        next.add(orderId);
-      }
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
       return next;
     });
   };
 
   const saveProduct = () => {
-    if (isEditingProduct === 'new') {
-        const newProduct = {
-            ...editForm,
-            id: Math.random().toString(36).substr(2, 9),
-        } as Product;
-        onAddProduct(newProduct);
-    } else {
-        onUpdateProduct(editForm as Product);
-    }
+    if (isEditingProduct === 'new') onAddProduct({ ...editForm, id: Math.random().toString(36).substr(2, 9) } as Product);
+    else onUpdateProduct(editForm as Product);
     setIsEditingProduct(null);
   };
 
-  // Order Edit State
   const [editingOrderDates, setEditingOrderDates] = useState<string | null>(null);
   const [tempDates, setTempDates] = useState({ start: '', end: '' });
 
-  // Stage Handlers
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!tempStageData || !e.target.files) return;
+      if (!tempStageData || !e.target.files || editingStage?.readOnly) return;
       const file = e.target.files[0];
       const reader = new FileReader();
-      reader.onloadend = () => {
-          const result = reader.result as string;
-          setTempStageData({ ...tempStageData, photos: [...tempStageData.photos, result] });
-      };
+      reader.onloadend = () => setTempStageData({ ...tempStageData, photos: [...tempStageData.photos, reader.result as string] });
       reader.readAsDataURL(file);
   };
 
   const handleSaveSignature = (sig: Signature) => {
-      if (!tempStageData || !isSignaturePadOpen) return;
+      if (!tempStageData || !isSignaturePadOpen || editingStage?.readOnly) return;
       setTempStageData({ ...tempStageData, [isSignaturePadOpen]: sig });
       setIsSignaturePadOpen(null);
   };
 
   const handleSaveStage = () => {
-      if (editingStage && tempStageData) {
+      if (editingStage && tempStageData && !editingStage.readOnly) {
           onUpdateStage(editingStage.orderId, editingStage.stageKey, tempStageData);
           setEditingStage(null);
       }
   };
 
   const handleCompleteStage = () => {
-      if (editingStage && tempStageData) {
-          const completedData: StageData = {
-              ...tempStageData,
-              status: 'completed',
-              timestamp: new Date().toISOString()
-          };
-          onUpdateStage(editingStage.orderId, editingStage.stageKey, completedData);
+      if (editingStage && tempStageData && !editingStage.readOnly) {
+          onUpdateStage(editingStage.orderId, editingStage.stageKey, { ...tempStageData, status: 'completed', timestamp: new Date().toISOString() });
           setEditingStage(null);
       }
   };
 
   const isLogistics = currentUser.role === 'logistics';
+  const isAdmin = currentUser.role === 'admin';
 
   return (
-    <div className="space-y-6 relative">
+    <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-        <h2 className="text-2xl font-bold text-gray-900">
-            {isLogistics ? 'Gestión de Flujo Logístico' : 'Panel de Administración'}
-        </h2>
+        <div>
+           <h2 className="text-2xl font-black text-brand-900 uppercase tracking-tight">Panel de Control</h2>
+           <p className="text-xs text-slate-500 font-medium">{isLogistics ? 'Supervisión de Flujos de Carga' : 'Gestión Corporativa de Recursos'}</p>
+        </div>
       </div>
 
-      {/* Tabs - Only show for Admin */}
       {!isLogistics && (
-        <div className="flex border-b bg-white rounded-t-lg px-2 pt-2">
-            <button
-            onClick={() => setActiveTab('inventory')}
-            className={`px-6 py-3 font-medium text-sm flex items-center space-x-2 rounded-t-lg transition-colors ${
-                activeTab === 'inventory' 
-                ? 'bg-brand-900 text-white' 
-                : 'text-gray-500 hover:bg-gray-100'
-            }`}
-            >
-            <Package size={18} />
-            <span>Inventario</span>
-            </button>
-            <button
-            onClick={() => setActiveTab('orders')}
-            className={`px-6 py-3 font-medium text-sm flex items-center space-x-2 rounded-t-lg transition-colors ${
-                activeTab === 'orders' 
-                ? 'bg-brand-900 text-white' 
-                : 'text-gray-500 hover:bg-gray-100'
-            }`}
-            >
-            <ClipboardList size={18} />
-            <span>Pedidos ({orders.length})</span>
-            </button>
-            <button
-            onClick={() => setActiveTab('users')}
-            className={`px-6 py-3 font-medium text-sm flex items-center space-x-2 rounded-t-lg transition-colors ${
-                activeTab === 'users' 
-                ? 'bg-brand-900 text-white' 
-                : 'text-gray-500 hover:bg-gray-100'
-            }`}
-            >
-            <Users size={18} />
-            <span>Usuarios</span>
-            </button>
+        <div className="flex space-x-2 bg-slate-200/50 p-1.5 rounded-[1.5rem] w-fit border border-slate-200 shadow-inner">
+            <button onClick={() => setActiveTab('inventory')} className={`px-6 py-3 rounded-[1.25rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'inventory' ? 'bg-[#000033] text-white shadow-xl scale-105' : 'text-slate-500 hover:bg-white/50'}`}>Inventario</button>
+            <button onClick={() => setActiveTab('orders')} className={`px-6 py-3 rounded-[1.25rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'orders' ? 'bg-[#000033] text-white shadow-xl scale-105' : 'text-slate-500 hover:bg-white/50'}`}>Pedidos ({orders.length})</button>
+            <button onClick={() => setActiveTab('users')} className={`px-6 py-3 rounded-[1.25rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'users' ? 'bg-[#000033] text-white shadow-xl scale-105' : 'text-slate-500 hover:bg-white/50'}`}>Usuarios</button>
         </div>
       )}
 
-      <div className="bg-white rounded-b-lg shadow-sm border p-6 min-h-[500px]">
-        
-        {/* INVENTORY TAB */}
+      <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-8 min-h-[500px]">
         {activeTab === 'inventory' && !isLogistics && (
           <div>
-             <div className="flex justify-between items-center mb-6">
-                <h3 className="font-bold text-lg">Gestión de Productos</h3>
-                <button 
-                  onClick={() => startEdit()}
-                  className="bg-green-600 text-white px-4 py-2 rounded flex items-center space-x-2 hover:bg-green-700"
-                >
-                  <Plus size={16} />
-                  <span>Nuevo Producto</span>
-                </button>
+             <div className="flex justify-between items-center mb-8">
+                <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest flex items-center"><Package size={18} className="mr-2 text-brand-400" /> Stock de Artículos</h3>
+                <button onClick={() => startEdit()} className="bg-brand-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-900 flex items-center shadow-lg"><Plus size={16} className="mr-2" /> Nuevo Ítem</button>
              </div>
 
              {isEditingProduct && (
-               <div className="mb-8 bg-gray-50 p-6 rounded-lg border border-dashed border-gray-300">
-                  <h4 className="font-bold mb-4">{isEditingProduct === 'new' ? 'Agregar Producto' : 'Editar Producto'}</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label className="block text-sm text-gray-600 mb-1">Nombre</label>
-                        <input 
-                            className="w-full border rounded px-3 py-2" 
-                            value={editForm.name || ''} 
-                            onChange={e => setEditForm({...editForm, name: e.target.value})}
-                        />
+               <div className="mb-8 bg-slate-50 p-8 rounded-[2rem] border-2 border-dashed border-slate-200 animate-in zoom-in-95">
+                  <h4 className="font-black text-brand-900 mb-6 uppercase tracking-widest text-xs">{isEditingProduct === 'new' ? 'Alta de Producto' : 'Modificación de Artículo'}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre</label>
+                        <input className="w-full border-2 border-slate-100 rounded-xl px-4 py-3 focus:border-brand-900 outline-none text-sm font-bold" value={editForm.name || ''} onChange={e => setEditForm({...editForm, name: e.target.value})} />
                     </div>
-                     <div>
-                        <label className="block text-sm text-gray-600 mb-1">Categoría</label>
-                        <select 
-                            className="w-full border rounded px-3 py-2"
-                            value={editForm.category || ''}
-                            onChange={e => setEditForm({...editForm, category: e.target.value as any})}
-                        >
-                            {['Arquitectura Efímera', 'Mobiliario', 'Electrónica', 'Decoración', 'Servicios'].map(c => (
-                                <option key={c} value={c}>{c}</option>
-                            ))}
+                     <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Categoría</label>
+                        <select className="w-full border-2 border-slate-100 rounded-xl px-4 py-3 focus:border-brand-900 outline-none text-sm font-bold bg-white" value={editForm.category || ''} onChange={e => setEditForm({...editForm, category: e.target.value as any})}>
+                            {['Arquitectura Efímera', 'Mobiliario', 'Electrónica', 'Decoración', 'Servicios'].map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                     </div>
-                     <div className="md:col-span-2">
-                        <label className="block text-sm text-gray-600 mb-1">Descripción</label>
-                        <textarea 
-                            className="w-full border rounded px-3 py-2"
-                            value={editForm.description || ''}
-                            onChange={e => setEditForm({...editForm, description: e.target.value})}
-                        />
+                     <div className="md:col-span-2 space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descripción</label>
+                        <textarea className="w-full border-2 border-slate-100 rounded-xl px-4 py-3 focus:border-brand-900 outline-none text-sm font-bold bg-white min-h-[100px]" value={editForm.description || ''} onChange={e => setEditForm({...editForm, description: e.target.value})} />
                     </div>
-                    <div>
-                        <label className="block text-sm text-gray-600 mb-1">Stock</label>
-                        <input 
-                            type="number"
-                            className="w-full border rounded px-3 py-2" 
-                            value={editForm.stock || 0} 
-                            onChange={e => setEditForm({...editForm, stock: Number(e.target.value)})}
-                        />
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Stock</label>
+                        <input type="number" className="w-full border-2 border-slate-100 rounded-xl px-4 py-3 focus:border-brand-900 outline-none text-sm font-bold bg-white" value={editForm.stock || 0} onChange={e => setEditForm({...editForm, stock: Number(e.target.value)})} />
                     </div>
-                    <div>
-                        <label className="block text-sm text-gray-600 mb-1">URL Imagen</label>
-                        <input 
-                            className="w-full border rounded px-3 py-2" 
-                            value={editForm.image || ''} 
-                            onChange={e => setEditForm({...editForm, image: e.target.value})}
-                        />
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">URL Imagen</label>
+                        <input className="w-full border-2 border-slate-100 rounded-xl px-4 py-3 focus:border-brand-900 outline-none text-sm font-bold bg-white" value={editForm.image || ''} onChange={e => setEditForm({...editForm, image: e.target.value})} />
                     </div>
                   </div>
-                  <div className="flex justify-end space-x-2">
-                      <button onClick={() => setIsEditingProduct(null)} className="px-4 py-2 text-gray-600 bg-white border rounded">Cancelar</button>
-                      <button onClick={saveProduct} className="px-4 py-2 bg-brand-900 text-white rounded">Guardar</button>
+                  <div className="flex justify-end space-x-3">
+                      <button onClick={() => setIsEditingProduct(null)} className="px-6 py-3 text-slate-500 font-black text-[10px] uppercase tracking-widest hover:text-slate-700 transition-colors">Cancelar</button>
+                      <button onClick={saveProduct} className="px-8 py-3 bg-[#000033] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl active:scale-95">Guardar Cambios</button>
                   </div>
                </div>
              )}
 
-             <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="bg-gray-100 border-b">
-                            <th className="p-3 font-medium text-gray-600">Imagen</th>
-                            <th className="p-3 font-medium text-gray-600">Nombre</th>
-                            <th className="p-3 font-medium text-gray-600">Categoría</th>
-                            <th className="p-3 font-medium text-gray-600">Stock</th>
-                            <th className="p-3 font-medium text-gray-600 text-right">Acciones</th>
+             <div className="overflow-x-auto no-scrollbar">
+                <table className="w-full text-left">
+                    <thead className="bg-slate-50/50">
+                        <tr className="border-b border-slate-100">
+                            <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Artículo</th>
+                            <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoría</th>
+                            <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Stock</th>
+                            <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-slate-50">
                         {products.map(p => (
-                            <tr key={p.id} className="border-b hover:bg-gray-50">
-                                <td className="p-3">
-                                    <img src={p.image} className="w-10 h-10 object-cover rounded bg-gray-200" alt="" />
+                            <tr key={p.id} className="group hover:bg-slate-50/50 transition-colors">
+                                <td className="p-5">
+                                    <div className="flex items-center space-x-4">
+                                        <div className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden border border-slate-200">
+                                            <img src={p.image} className="w-full h-full object-cover" alt="" />
+                                        </div>
+                                        <span className="font-bold text-sm text-slate-900 group-hover:text-brand-900">{p.name}</span>
+                                    </div>
                                 </td>
-                                <td className="p-3 font-medium">{p.name}</td>
-                                <td className="p-3 text-sm text-gray-500">{p.category}</td>
-                                <td className="p-3">{p.stock}</td>
-                                <td className="p-3 text-right space-x-2">
-                                    <button onClick={() => startEdit(p)} className="text-blue-600 hover:text-blue-800"><Edit2 size={18} /></button>
-                                    <button onClick={() => onDeleteProduct(p.id)} className="text-red-600 hover:text-red-800"><Trash2 size={18} /></button>
+                                <td className="p-5"><span className="text-xs font-black text-slate-400 uppercase tracking-widest">{p.category}</span></td>
+                                <td className="p-5 text-center font-black text-brand-900">{p.stock}</td>
+                                <td className="p-5 text-right space-x-3">
+                                    <button onClick={() => startEdit(p)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-all"><Edit2 size={18} /></button>
+                                    <button onClick={() => onDeleteProduct(p.id)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={18} /></button>
                                 </td>
                             </tr>
                         ))}
@@ -313,191 +216,82 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* ORDERS TAB */}
         {activeTab === 'orders' && (
             <div>
-                 <h3 className="font-bold text-lg mb-6">{isLogistics ? 'Pedidos Activos' : 'Gestión de Pedidos'}</h3>
+                 <div className="flex items-center justify-between mb-8">
+                    <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest flex items-center"><ClipboardList size={18} className="mr-2 text-brand-400" /> Operaciones Activas</h3>
+                 </div>
                  <div className="space-y-4">
-                    {orders.length === 0 && <p className="text-gray-500">No hay pedidos registrados.</p>}
+                    {orders.length === 0 && <div className="p-12 text-center text-slate-400 text-sm font-bold">No hay pedidos registrados en el sistema.</div>}
                     {orders.map(order => {
                       const isExpanded = expandedOrders.has(order.id);
-                      const totalItems = order.items.reduce((acc, item) => acc + item.quantity, 0);
+                      const isOwnOrder = order.userEmail === currentUser.email;
+                      const canManageWorkflow = isLogistics || (isAdmin && isOwnOrder);
                       
                       return (
-                        <div key={order.id} className="border rounded-lg bg-white hover:shadow-md transition-shadow overflow-hidden">
-                            <div 
-                                className="p-4 flex flex-col md:flex-row justify-between md:items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                                onClick={() => toggleOrderExpanded(order.id)}
-                            >
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">#{order.id}</span>
-                                        <span className="text-sm text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</span>
+                        <div key={order.id} className="border border-slate-100 rounded-[2rem] bg-white hover:shadow-2xl hover:shadow-slate-200/50 transition-all overflow-hidden group">
+                            <div className="p-6 md:p-8 flex flex-col md:flex-row justify-between md:items-center gap-6 cursor-pointer" onClick={() => toggleOrderExpanded(order.id)}>
+                                <div className="flex items-center space-x-6">
+                                    <div className="w-16 h-16 bg-slate-50 rounded-2xl flex flex-col items-center justify-center text-brand-900 border border-slate-100 group-hover:bg-brand-900 group-hover:text-white transition-colors">
+                                        <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Ord</p>
+                                        <p className="font-black text-xs">#{order.id.split('-')[1]}</p>
                                     </div>
-                                    <div className="font-medium mt-1">{order.userEmail}</div>
-                                    <div className="text-sm text-gray-500 mt-1 flex items-center">
-                                      <Package size={14} className="mr-1" />
-                                      {totalItems} artículos en total
+                                    <div>
+                                        <p className="text-sm font-black text-slate-900">{order.destinationLocation}</p>
+                                        <p className="text-[10px] font-black text-brand-500 uppercase tracking-[0.2em] mt-1">{order.userEmail}</p>
                                     </div>
                                 </div>
                                 
-                                <div className="flex items-center gap-4">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase border
-                                        ${order.status === 'Pendiente' ? 'bg-yellow-50 text-yellow-800 border-yellow-200' : ''}
-                                        ${order.status === 'En Proceso' ? 'bg-blue-50 text-blue-800 border-blue-200' : ''}
-                                        ${order.status === 'Entregado' ? 'bg-purple-50 text-purple-800 border-purple-200' : ''}
-                                        ${order.status === 'Finalizado' ? 'bg-green-50 text-green-800 border-green-200' : ''}
-                                        ${order.status === 'Cancelado' ? 'bg-red-50 text-red-800 border-red-200' : ''}
-                                    `}>
-                                        {order.status}
-                                    </span>
+                                <div className="flex items-center gap-6">
+                                    <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border
+                                        ${order.status === 'Pendiente' ? 'bg-yellow-50 text-yellow-800 border-yellow-200' : 'bg-brand-50 text-brand-900 border-brand-200'}
+                                    `}>{order.status}</div>
                                     
-                                    {order.status === 'Pendiente' && !isLogistics && (
-                                        <button 
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              onApproveOrder(order.id);
-                                            }}
-                                            className="flex items-center space-x-1 bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm"
-                                        >
-                                            <Check size={14} />
-                                            <span>Aprobar</span>
-                                        </button>
+                                    {order.status === 'Pendiente' && isAdmin && (
+                                        <button onClick={(e) => { e.stopPropagation(); onApproveOrder(order.id); }} className="bg-emerald-500 text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg active:scale-95 flex items-center"><Check size={14} className="mr-2" /> Aprobar</button>
                                     )}
-                                    
-                                    {isExpanded ? <ChevronUp className="text-gray-400" /> : <ChevronDown className="text-gray-400" />}
+                                    <div className="p-2 rounded-full bg-slate-50 text-slate-400 group-hover:bg-brand-400 group-hover:text-brand-900 transition-colors">{isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}</div>
                                 </div>
                             </div>
 
                             {isExpanded && (
-                                <div className="border-t bg-gray-50 p-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                                        <div>
-                                            <h4 className="text-sm font-semibold text-gray-500 mb-2 uppercase">Productos</h4>
-                                            <ul className="text-sm space-y-1 bg-white p-4 rounded border shadow-sm">
-                                                {order.items.map((item, i) => (
-                                                    <li key={i} className="flex justify-between items-center border-b last:border-0 py-2">
-                                                        <div className="flex items-center gap-2">
-                                                            <img src={item.image} alt={item.name} className="w-8 h-8 rounded object-cover border" />
-                                                            <span>{item.name}</span>
-                                                        </div>
-                                                        <span className="text-gray-500 font-mono">x{item.quantity}</span>
-                                                    </li>
-                                                ))}
-                                                <li className="flex justify-between pt-2 mt-2 border-t font-bold">
-                                                    <span>Total Unidades</span>
-                                                    <span>{totalItems}</span>
-                                                </li>
-                                            </ul>
+                                <div className="border-t border-slate-100 bg-slate-50/30 p-8 animate-in slide-in-from-top-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-10">
+                                        <div className="space-y-4">
+                                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center ml-1"><Package size={14} className="mr-2" /> Listado de Activos</h4>
+                                            <div className="bg-white rounded-[1.5rem] border border-slate-100 overflow-hidden">
+                                                <ul className="divide-y divide-slate-50">
+                                                    {order.items.map((item, i) => (
+                                                        <li key={i} className="px-5 py-3 flex justify-between items-center text-xs">
+                                                            <div className="flex items-center space-x-3">
+                                                                <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 overflow-hidden"><img src={item.image} className="w-full h-full object-cover" alt="" /></div>
+                                                                <span className="font-bold text-slate-700">{item.name}</span>
+                                                            </div>
+                                                            <span className="font-black text-brand-900 bg-brand-50 px-2.5 py-1 rounded-lg">x{item.quantity}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h4 className="text-sm font-semibold text-gray-500 mb-2 uppercase flex items-center">
-                                                <Calendar size={14} className="mr-1"/> Fechas
-                                            </h4>
-                                            
-                                            {editingOrderDates === order.id ? (
-                                                <div className="flex flex-col space-y-2 bg-white p-4 rounded border shadow-sm">
-                                                    <div className="flex gap-2">
-                                                        <input 
-                                                            type="date" 
-                                                            className="border rounded px-2 py-1 text-sm w-full"
-                                                            value={tempDates.start}
-                                                            onChange={e => setTempDates({...tempDates, start: e.target.value})}
-                                                        />
-                                                        <input 
-                                                            type="date" 
-                                                            className="border rounded px-2 py-1 text-sm w-full"
-                                                            value={tempDates.end}
-                                                            onChange={e => setTempDates({...tempDates, end: e.target.value})}
-                                                        />
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        <button 
-                                                            onClick={() => {
-                                                                onUpdateOrderDates(order.id, tempDates.start, tempDates.end);
-                                                                setEditingOrderDates(null);
-                                                            }}
-                                                            className="bg-brand-900 text-white px-3 py-1 rounded text-xs flex-1 hover:bg-brand-800"
-                                                        >
-                                                            Guardar
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => setEditingOrderDates(null)}
-                                                            className="bg-gray-200 text-gray-700 px-3 py-1 rounded text-xs hover:bg-gray-300"
-                                                        >
-                                                            Cancelar
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="flex justify-between items-center bg-white p-4 rounded border shadow-sm">
-                                                    <div className="text-sm">
-                                                        <div><span className="text-gray-500">Inicio:</span> {order.startDate}</div>
-                                                        <div><span className="text-gray-500">Fin:</span> {order.endDate}</div>
-                                                    </div>
-                                                    {!isLogistics && (
-                                                        <button 
-                                                            onClick={() => {
-                                                                setEditingOrderDates(order.id);
-                                                                setTempDates({ start: order.startDate, end: order.endDate });
-                                                            }}
-                                                            className="text-blue-600 p-2 hover:bg-blue-50 rounded"
-                                                        >
-                                                            <Edit2 size={16} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            )}
+                                        <div className="space-y-4">
+                                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center ml-1"><Calendar size={14} className="mr-2" /> Cronograma</h4>
+                                            <div className="bg-white rounded-[1.5rem] border border-slate-100 p-6 flex flex-col justify-center space-y-4">
+                                                <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inicio Montaje</span><span className="text-xs font-black text-slate-900">{order.startDate}</span></div>
+                                                <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fin Operación</span><span className="text-xs font-black text-slate-900">{order.endDate}</span></div>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    {/* Workflow Summary */}
-                                    <div className="pt-6 border-t">
-                                        <h4 className="text-sm font-semibold text-gray-500 mb-4 uppercase flex items-center">
-                                            <ClipboardList size={14} className="mr-1"/> Estado del Flujo (Click para gestionar)
-                                        </h4>
-                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                                    <div className="pt-8 border-t border-slate-200">
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center"><CheckCircle size={14} className="mr-2" /> {canManageWorkflow ? 'Gestión de Hitos Operativos' : 'Visualización de Progreso'}</h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                                             {WORKFLOW_STEPS.map((step) => {
                                                 const stepData = order.workflow[step.key];
                                                 const isCompleted = stepData?.status === 'completed';
-                                                
                                                 return (
-                                                    <div 
-                                                        key={step.key} 
-                                                        onClick={() => setEditingStage({ orderId: order.id, stageKey: step.key })}
-                                                        className={`p-3 rounded-lg border text-xs flex flex-col justify-between min-h-[100px] transition-all cursor-pointer hover:shadow-md ${
-                                                            isCompleted 
-                                                                ? 'bg-green-50 border-green-200 hover:bg-green-100' 
-                                                                : 'bg-white border-gray-100 hover:bg-gray-50'
-                                                        }`}
-                                                    >
-                                                        <div>
-                                                            <div className="font-bold text-gray-700 mb-2 truncate" title={step.label}>
-                                                                {step.label}
-                                                            </div>
-                                                            {isCompleted ? (
-                                                                <div className="flex items-center text-green-700 font-medium mb-1">
-                                                                    <Check size={12} className="mr-1" /> Completado
-                                                                </div>
-                                                            ) : (
-                                                                <div className="text-gray-400 italic">Pendiente</div>
-                                                            )}
-                                                        </div>
-                                                        
-                                                        {isCompleted && stepData && (
-                                                            <div className="mt-2 pt-2 border-t border-green-100">
-                                                                <div className="flex items-center text-gray-600 mb-1" title={stepData.signature?.name}>
-                                                                    <UserIcon size={10} className="mr-1 opacity-70" />
-                                                                    <span className="truncate">{stepData.signature?.name || 'Admin'}</span>
-                                                                </div>
-                                                                <div className="flex items-center text-gray-500" title={stepData.timestamp}>
-                                                                    <Clock size={10} className="mr-1 opacity-70" />
-                                                                    <span className="font-mono text-[10px]">
-                                                                        {stepData.timestamp ? new Date(stepData.timestamp).toLocaleString('es-ES', {month:'numeric', day:'numeric', hour: '2-digit', minute:'2-digit'}) : ''}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        )}
+                                                    <div key={step.key} onClick={() => setEditingStage({ orderId: order.id, stageKey: step.key, readOnly: !canManageWorkflow })} className={`p-5 rounded-[1.5rem] border-2 text-[10px] flex flex-col justify-between min-h-[120px] transition-all cursor-pointer hover:scale-105 ${isCompleted ? 'bg-emerald-50 border-emerald-100' : 'bg-white border-slate-100'}`}>
+                                                        <div className="font-black text-slate-900 uppercase tracking-widest leading-tight">{step.label}</div>
+                                                        <div className="mt-4 flex items-center font-black uppercase tracking-widest ${isCompleted ? 'text-emerald-600' : 'text-slate-300'}">{isCompleted ? <Check size={14} className="mr-1.5" /> : null}{isCompleted ? 'OK' : 'PDTE'}</div>
                                                     </div>
                                                 );
                                             })}
@@ -512,143 +306,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
         )}
 
-        {/* USERS TAB */}
-        {activeTab === 'users' && !isLogistics && (
-            <UserManagement 
-              users={users} 
-              currentUser={currentUser} 
-              onChangeUserRole={onChangeUserRole || ((email, role) => onToggleUserRole(email))} 
-            />
-        )}
+        {activeTab === 'users' && !isLogistics && <UserManagement users={users} currentUser={currentUser} onChangeUserRole={onChangeUserRole || ((email, role) => onToggleUserRole(email))} />}
       </div>
 
-      {/* Edit Stage Modal */}
       {editingStage && tempStageData && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
-                  <div className="p-6 border-b flex justify-between items-center">
-                      <h3 className="text-xl font-bold text-gray-900">
-                          Editar Etapa: {WORKFLOW_STEPS.find(s => s.key === editingStage.stageKey)?.label}
-                      </h3>
-                      <button onClick={() => setEditingStage(null)} className="text-gray-400 hover:text-gray-600">
-                          <X size={24} />
-                      </button>
+          <div className="fixed inset-0 bg-brand-900/90 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in">
+              <div className="bg-white rounded-[3rem] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-white/20">
+                  <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                      <div><h3 className="text-sm font-black text-brand-900 uppercase tracking-widest">{editingStage.readOnly ? 'Detalles Operativos' : 'Gestión de Etapa'}</h3><p className="text-[10px] text-slate-400 font-bold uppercase mt-1">{WORKFLOW_STEPS.find(s => s.key === editingStage.stageKey)?.label}</p></div>
+                      <button onClick={() => setEditingStage(null)} className="p-2 hover:bg-slate-200 rounded-xl transition-all"><X size={24} className="text-slate-400" /></button>
                   </div>
                   
-                  <div className="p-6 space-y-6 flex-1">
-                      {/* Photos */}
-                      <div>
-                          <h4 className="font-bold text-gray-700 mb-3 flex items-center">
-                              <Camera className="mr-2" size={18} /> Evidencia Fotográfica
-                          </h4>
-                          <div className="grid grid-cols-3 gap-3 mb-3">
-                              {tempStageData.photos.map((photo, i) => (
-                                  <img key={i} src={photo} className="w-full h-24 object-cover rounded border" alt="" />
-                              ))}
-                              <label className="border-2 border-dashed border-gray-300 rounded flex flex-col items-center justify-center h-24 cursor-pointer hover:bg-gray-50">
-                                  <Plus className="text-gray-400" />
-                                  <span className="text-xs text-gray-500 mt-1">Agregar</span>
-                                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-                              </label>
-                          </div>
-                      </div>
-
-                      {/* Signatures */}
-                      <div>
-                          <h4 className="font-bold text-gray-700 mb-3 flex items-center">
-                              <PenTool className="mr-2" size={18} /> Firmas
-                          </h4>
-                          
-                          <div className="grid md:grid-cols-2 gap-4">
-                              {/* Authorized By */}
-                              <div className="border p-4 rounded-lg">
-                                  <div className="text-sm font-semibold mb-2 text-gray-600">Autorizado / Entregado por</div>
-                                  {tempStageData.signature ? (
-                                      <div className="bg-gray-50 p-2 rounded">
-                                          <img src={tempStageData.signature.dataUrl} className="h-16 w-auto mb-2 mix-blend-multiply" alt="Firma" />
-                                          <div className="text-xs font-bold">{tempStageData.signature.name}</div>
-                                          <button 
-                                              onClick={() => setTempStageData({...tempStageData, signature: undefined})}
-                                              className="text-xs text-red-500 mt-2 underline"
-                                          >
-                                              Eliminar Firma
-                                          </button>
-                                      </div>
-                                  ) : (
-                                      <button 
-                                          onClick={() => setIsSignaturePadOpen('signature')}
-                                          className="w-full py-6 border-2 border-dashed rounded text-gray-400 text-sm hover:bg-gray-50"
-                                      >
-                                          + Agregar Firma
-                                      </button>
-                                  )}
-                              </div>
-
-                              {/* Received By */}
-                              {['coord_to_client', 'client_to_coord', 'coord_to_bodega'].includes(editingStage.stageKey) && (
-                                  <div className="border p-4 rounded-lg">
-                                      <div className="text-sm font-semibold mb-2 text-gray-600">Recibido por</div>
-                                      {tempStageData.receivedBy ? (
-                                          <div className="bg-gray-50 p-2 rounded">
-                                              <img src={tempStageData.receivedBy.dataUrl} className="h-16 w-auto mb-2 mix-blend-multiply" alt="Firma" />
-                                              <div className="text-xs font-bold">{tempStageData.receivedBy.name}</div>
-                                              <button 
-                                                  onClick={() => setTempStageData({...tempStageData, receivedBy: undefined})}
-                                                  className="text-xs text-red-500 mt-2 underline"
-                                              >
-                                                  Eliminar Firma
-                                              </button>
-                                          </div>
-                                      ) : (
-                                          <button 
-                                              onClick={() => setIsSignaturePadOpen('receivedBy')}
-                                              className="w-full py-6 border-2 border-dashed rounded text-gray-400 text-sm hover:bg-gray-50"
-                                          >
-                                              + Agregar Firma
-                                          </button>
-                                      )}
-                                  </div>
-                              )}
-                          </div>
-                      </div>
-
-                      {/* Signature Pad Modal Overlay inside Modal */}
-                      {isSignaturePadOpen && (
-                          <div className="fixed inset-0 z-[60] bg-black bg-opacity-25 flex items-center justify-center p-4">
-                              <div className="bg-white p-4 rounded-lg shadow-2xl max-w-lg w-full">
-                                  <SignaturePad 
-                                      label={isSignaturePadOpen === 'signature' ? 'Autorizado / Entregado por' : 'Recibido por'}
-                                      onSave={handleSaveSignature}
-                                      onCancel={() => setIsSignaturePadOpen(null)}
-                                  />
-                              </div>
-                          </div>
-                      )}
-
+                  <div className="p-8 space-y-8 flex-1 overflow-y-auto no-scrollbar">
+                      {editingStage.readOnly && <div className="bg-brand-50 border border-brand-100 p-4 rounded-2xl flex items-center space-x-3"><Info size={18} className="text-brand-900" /><p className="text-[10px] text-brand-900 font-black uppercase tracking-tight">Acceso de solo lectura: Solo personal encargado o el creador del pedido pueden modificar este flujo.</p></div>}
+                      <div className="space-y-4"><h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center ml-1"><Camera className="mr-2" size={14} /> Registro Fotográfico</h4><div className="grid grid-cols-3 gap-4">{tempStageData.photos.map((photo, i) => <div key={i} className="relative group rounded-2xl overflow-hidden border border-slate-100 h-24 shadow-sm"><img src={photo} className="w-full h-full object-cover" alt="" /></div>)}{!editingStage.readOnly && <label className="border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center h-24 cursor-pointer hover:bg-slate-50 transition-colors"><Plus className="text-slate-300" size={24} /><input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} /></label>}</div></div>
+                      <div className="space-y-4"><h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center ml-1"><PenTool className="mr-2" size={14} /> Validación de Firmas</h4><div className="grid md:grid-cols-2 gap-4"><div className="border-2 border-slate-100 p-6 rounded-[1.5rem] bg-slate-50/30 text-center"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Autorizado por</p>{tempStageData.signature ? <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100"><img src={tempStageData.signature.dataUrl} className="h-16 w-auto mx-auto mb-2 mix-blend-multiply" alt="" /><p className="text-[10px] font-black text-brand-900 uppercase tracking-widest">{tempStageData.signature.name}</p></div> : !editingStage.readOnly ? <button onClick={() => setIsSignaturePadOpen('signature')} className="w-full py-6 border-2 border-dashed border-slate-200 rounded-xl text-slate-300 font-black text-[10px] uppercase tracking-widest hover:border-brand-900 hover:text-brand-900 transition-all">+ Firmar</button> : <p className="text-[10px] italic text-slate-300 py-4 uppercase font-black">Pendiente</p>}</div><div className="border-2 border-slate-100 p-6 rounded-[1.5rem] bg-slate-50/30 text-center"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Recibido por</p>{tempStageData.receivedBy ? <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100"><img src={tempStageData.receivedBy.dataUrl} className="h-16 w-auto mx-auto mb-2 mix-blend-multiply" alt="" /><p className="text-[10px] font-black text-brand-900 uppercase tracking-widest">{tempStageData.receivedBy.name}</p></div> : !editingStage.readOnly ? <button onClick={() => setIsSignaturePadOpen('receivedBy')} className="w-full py-6 border-2 border-dashed border-slate-200 rounded-xl text-slate-300 font-black text-[10px] uppercase tracking-widest hover:border-brand-900 hover:text-brand-900 transition-all">+ Firmar</button> : <p className="text-[10px] italic text-slate-300 py-4 uppercase font-black">Pendiente</p>}</div></div></div>
                   </div>
 
-                  <div className="p-6 border-t bg-gray-50 flex justify-between items-center">
-                      <div className="text-sm text-gray-500">
-                          Estado: <span className={`font-bold ${tempStageData.status === 'completed' ? 'text-green-600' : 'text-yellow-600'}`}>
-                              {tempStageData.status === 'completed' ? 'Completado' : 'Pendiente'}
-                          </span>
-                      </div>
-                      <div className="space-x-3">
-                          <button 
-                              onClick={handleSaveStage}
-                              className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-white"
-                          >
-                              Guardar (Sin completar)
-                          </button>
-                          <button 
-                              onClick={handleCompleteStage}
-                              className="px-4 py-2 bg-brand-900 text-white rounded hover:bg-brand-800 shadow-md"
-                          >
-                              {tempStageData.status === 'completed' ? 'Actualizar Datos' : 'Completar Etapa'}
-                          </button>
-                      </div>
+                  <div className="p-8 border-t border-slate-100 bg-slate-50 flex flex-col md:flex-row justify-between items-center gap-4">
+                      <div className="text-[10px] font-black uppercase tracking-[0.2em]">{tempStageData.status === 'completed' ? <span className="text-emerald-500 flex items-center"><CheckCircle size={14} className="mr-1.5" /> Etapa Cerrada</span> : <span className="text-slate-400">Estado: Pendiente</span>}</div>
+                      <div className="flex space-x-3 w-full md:w-auto">{!editingStage.readOnly ? <><button onClick={handleSaveStage} className="flex-1 md:flex-none px-6 py-4 bg-white border-2 border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">Guardar Borrador</button><button onClick={handleCompleteStage} className="flex-1 md:flex-none px-8 py-4 bg-[#000033] text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-xl active:scale-95">Finalizar Etapa</button></> : <button onClick={() => setEditingStage(null)} className="w-full md:w-auto px-10 py-4 bg-[#000033] text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-xl">Cerrar</button>}</div>
                   </div>
               </div>
+
+              {isSignaturePadOpen && <div className="fixed inset-0 z-[110] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white p-8 rounded-[3rem] shadow-2xl max-w-lg w-full border border-slate-100"><SignaturePad label={isSignaturePadOpen === 'signature' ? 'Autorización de Entrega' : 'Constancia de Recepción'} onSave={handleSaveSignature} onCancel={() => setIsSignaturePadOpen(null)} /></div></div>}
           </div>
       )}
     </div>

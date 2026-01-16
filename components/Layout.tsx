@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   LayoutGrid, 
@@ -33,16 +32,16 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
       <Link
         to={to}
         onClick={() => setIsMobileMenuOpen(false)}
-        className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+        className={`flex items-center space-x-4 px-5 py-4 rounded-2xl transition-all duration-300 ${
           isActive 
-            ? 'bg-brand-900 text-white' 
-            : 'text-gray-600 hover:bg-gray-100'
+            ? 'bg-[#000033] text-white shadow-[0_10px_30px_-5px_rgba(0,0,51,0.4)] scale-[1.02]' 
+            : 'text-slate-600 hover:bg-slate-100 hover:text-brand-900 hover:translate-x-1'
         }`}
       >
-        <Icon size={20} />
-        <span className="font-medium">{label}</span>
+        <Icon size={20} className={isActive ? 'text-brand-400' : ''} />
+        <span className="font-extrabold text-sm tracking-tight">{label}</span>
         {to === '/cart' && cartCount > 0 && (
-          <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+          <span className="ml-auto bg-brand-400 text-brand-900 text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm">
             {cartCount}
           </span>
         )}
@@ -51,77 +50,87 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
-      {/* Mobile Header */}
-      <div className="md:hidden bg-white border-b p-4 flex justify-between items-center sticky top-0 z-20">
-        <div className="flex items-center gap-2">
-          <img src={LOGO_URL} alt="Logo" className="h-8 w-auto object-contain" />
-          <span className="font-bold text-xl text-brand-900">ABSOLUTE</span>
+    <div className="min-h-screen bg-[#f1f5f9] flex flex-col md:flex-row font-sans selection:bg-brand-400">
+      {/* Mobile Header with brand color */}
+      <div className="md:hidden bg-[#000033] border-b border-white/5 p-4 flex justify-between items-center sticky top-0 z-50 shadow-xl">
+        <div className="flex items-center h-9">
+          <img src={LOGO_URL} alt="ABSOLUTE" className="h-full w-auto object-contain" />
         </div>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-          {isMobileMenuOpen ? <X /> : <Menu />}
+        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-white p-2 active:scale-90 transition-transform">
+          {isMobileMenuOpen ? <X size={26} /> : <Menu size={26} />}
         </button>
       </div>
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-10 w-64 bg-white border-r shadow-lg transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:h-screen
+        fixed inset-y-0 left-0 z-50 w-80 bg-white border-r border-slate-200 shadow-[20px_0_50px_-10px_rgba(0,0,0,0.05)] transform transition-transform duration-500 ease-in-out md:translate-x-0 md:static md:h-screen flex flex-col
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="p-6 border-b">
-          <div className="flex items-center gap-3 mb-2">
-            <img src={LOGO_URL} alt="Logo" className="h-10 w-auto object-contain" />
-            <h1 className="text-2xl font-black text-brand-900 tracking-tighter">ABSOLUTE</h1>
+        <div className="p-10 border-b border-slate-50 flex flex-col items-center bg-gradient-to-b from-slate-50/50 to-transparent">
+          <Link to="/" className="w-full max-w-[210px] mb-6 transform hover:scale-105 transition-transform duration-300">
+            <img src={LOGO_URL} alt="ABSOLUTE Logo" className="w-full h-auto object-contain drop-shadow-sm" />
+          </Link>
+          <div className="w-full">
+             <div className="flex items-center justify-center px-4 py-2 bg-slate-900 rounded-2xl shadow-inner">
+                <div className="w-2 h-2 bg-brand-400 rounded-full mr-3 animate-pulse"></div>
+                <p className="text-[10px] font-black text-white uppercase tracking-[0.3em]">Gestión Inteligente</p>
+             </div>
           </div>
-          <p className="text-xs text-gray-500">Inventario & Eventos</p>
         </div>
 
-        <div className="p-4 space-y-2">
-          {user.role !== 'logistics' && <NavItem to="/" icon={LayoutGrid} label="Catálogo" />}
-          {user.role !== 'logistics' && <NavItem to="/cart" icon={ShoppingCart} label="Reservar / Pedido" />}
-          {user.role !== 'logistics' && <NavItem to="/orders" icon={ClipboardList} label="Mis Pedidos" />}
+        <div className="p-6 space-y-2 flex-1 overflow-y-auto no-scrollbar">
+          <div className="mb-4">
+             <p className="px-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mb-4">Principal</p>
+             {user.role !== 'logistics' && <NavItem to="/" icon={LayoutGrid} label="Catálogo Global" />}
+             {user.role !== 'logistics' && <NavItem to="/cart" icon={ShoppingCart} label="Configurar Pedido" />}
+             {user.role !== 'logistics' && <NavItem to="/orders" icon={ClipboardList} label="Mis Reservas" />}
+          </div>
           
-          {(user.role === 'admin' || user.role === 'logistics') && (
-             <>
-               <NavItem to="/admin" icon={ShieldCheck} label={user.role === 'admin' ? "Administrador" : "Gestión Logística"} />
-               <NavItem to="/logistics-map" icon={Map} label="Logística de Rutas" />
-             </>
-          )}
+          <div className="pt-4">
+             <p className="px-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mb-4">Administración</p>
+             {(user.role === 'admin' || user.role === 'logistics') && (
+                <>
+                  <NavItem to="/admin" icon={ShieldCheck} label={user.role === 'admin' ? "Panel de Control" : "Flujo Logístico"} />
+                  <NavItem to="/logistics-map" icon={Map} label="Logística Nacional" />
+                </>
+             )}
+          </div>
         </div>
 
-        <div className="absolute bottom-0 w-full p-4 border-t bg-gray-50">
-          <div className="flex items-center space-x-3 mb-4 px-2">
-            <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-900">
-              <UserIcon size={20} />
+        <div className="p-8 border-t border-slate-50 bg-slate-50/30">
+          <div className="flex items-center space-x-4 mb-6 p-4 bg-white rounded-3xl border border-slate-200 shadow-sm">
+            <div className="w-12 h-12 rounded-2xl bg-[#000033] flex items-center justify-center text-brand-400 shadow-[0_5px_15px_-5px_rgba(0,0,51,0.5)]">
+              <UserIcon size={24} strokeWidth={2.5} />
             </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
-              <p className="text-xs text-gray-500 truncate">{user.email}</p>
-              <p className="text-xs font-bold text-brand-500 uppercase mt-0.5">{user.role}</p>
+              <p className="text-sm font-black text-slate-900 truncate leading-tight">{user.name}</p>
+              <p className="text-[10px] font-black text-brand-500 uppercase tracking-widest mt-1">{user.role}</p>
             </div>
           </div>
           <button 
             onClick={onLogout}
-            className="w-full flex items-center justify-center space-x-2 bg-white border border-gray-300 text-gray-700 py-2 rounded hover:bg-gray-50 transition"
+            className="w-full flex items-center justify-center space-x-3 bg-white border-2 border-slate-200 text-slate-500 py-4 rounded-[1.25rem] font-black text-[11px] uppercase tracking-[0.2em] hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all duration-300 active:scale-[0.97] group"
           >
-            <LogOut size={16} />
-            <span className="text-sm">Cerrar Sesión</span>
+            <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
+            <span>Desconectar</span>
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto h-[calc(100vh-64px)] md:h-screen flex flex-col">
-        <div className="p-4 md:p-8 flex-1">
-          {children}
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto h-[calc(100vh-64px)] md:h-screen flex flex-col bg-slate-50/80">
+        <div className="p-6 md:p-12 flex-1">
+          <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {children}
+          </div>
         </div>
         <Footer />
       </main>
 
-      {/* Overlay for mobile */}
+      {/* Modern Overlay */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-0 md:hidden"
+          className="fixed inset-0 bg-brand-900/60 backdrop-blur-md z-[45] md:hidden animate-in fade-in duration-300"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}

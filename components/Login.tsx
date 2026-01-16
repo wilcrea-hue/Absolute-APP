@@ -1,12 +1,11 @@
-
 import React, { useState } from 'react';
 import { User } from '../types';
 import { LOGO_URL } from '../constants';
-import { Mail, Lock, User as UserIcon, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, ArrowRight, CheckCircle2, Phone, ShieldCheck } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (email: string) => boolean;
-  onRegister: (name: string, email: string) => boolean;
+  onRegister: (name: string, email: string, phone: string) => boolean;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
@@ -14,6 +13,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -23,15 +23,15 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
     setSuccess('');
 
     if (isRegister) {
-      if (name && email && password) {
-        const registered = onRegister(name, email);
+      if (name && email && password && phone) {
+        const registered = onRegister(name, email, phone);
         if (registered) {
           setSuccess('¡Cuenta creada con éxito! Iniciando sesión...');
         } else {
           setError('El correo electrónico ya está registrado.');
         }
       } else {
-        setError('Por favor complete todos los campos.');
+        setError('Por favor complete todos los campos, incluyendo su celular.');
       }
     } else {
       if (email && password) {
@@ -46,132 +46,139 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-brand-900 px-4 py-12 relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-500 rounded-full blur-[120px]"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-400 rounded-full blur-[120px]"></div>
+    <div className="min-h-screen flex items-center justify-center bg-[#000033] px-4 py-12 relative overflow-hidden">
+      {/* Background decoration with navy/cyan gradients */}
+      <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+        <div className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-blue-600/20 rounded-full blur-[160px] animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-brand-400/10 rounded-full blur-[140px]"></div>
       </div>
 
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl overflow-hidden relative z-10">
-        <div className="p-8 md:p-10">
-          <div className="text-center mb-10">
-            <div className="flex justify-center mb-6">
-              <div className="p-3 bg-brand-50 rounded-2xl border border-brand-100 shadow-inner">
-                <img src={LOGO_URL} alt="ABSOLUTE Logo" className="h-16 w-auto object-contain" />
+      <div className="max-w-lg w-full relative z-10 animate-in fade-in zoom-in-95 duration-700">
+        <div className="bg-white rounded-[3rem] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.6)] overflow-hidden border border-white/10 backdrop-blur-sm">
+          <div className="p-10 md:p-14">
+            <div className="text-center mb-12">
+              <div className="flex justify-center mb-8">
+                <div className="w-full max-w-[320px] transform hover:scale-105 transition-transform duration-500">
+                  <img src={LOGO_URL} alt="ABSOLUTE COMPANY" className="w-full h-auto object-contain drop-shadow-2xl" />
+                </div>
+              </div>
+              <div className="inline-flex items-center space-x-2 px-4 py-1.5 bg-brand-50 rounded-full border border-brand-100">
+                <ShieldCheck size={14} className="text-brand-900" />
+                <p className="text-brand-900 font-black text-[10px] uppercase tracking-[0.3em]">
+                  {isRegister ? 'Registro de Usuario' : 'Acceso Autorizado'}
+                </p>
               </div>
             </div>
-            <h1 className="text-4xl font-black text-brand-900 tracking-tighter uppercase">ABSOLUTE</h1>
-            <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.2em] mt-2">
-              {isRegister ? 'Registro de Nuevo Usuario' : 'Acceso al Sistema Logístico'}
-            </p>
-          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-xl text-xs font-bold flex items-center border border-red-100 animate-in fade-in slide-in-from-top-1">
-                <span className="mr-2">⚠️</span> {error}
-              </div>
-            )}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {error && (
+                <div className="bg-red-50 text-red-700 p-4 rounded-2xl text-[11px] font-black uppercase tracking-tight flex items-center border border-red-100 animate-in slide-in-from-top-2 duration-300">
+                  <span className="mr-3 text-lg">⚠️</span> {error}
+                </div>
+              )}
 
-            {success && (
-              <div className="bg-green-50 text-green-600 p-4 rounded-xl text-xs font-bold flex items-center border border-green-100 animate-in fade-in slide-in-from-top-1">
-                <CheckCircle2 size={16} className="mr-2" /> {success}
-              </div>
-            )}
-            
-            {isRegister && (
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
-                  Nombre Completo
-                </label>
+              {success && (
+                <div className="bg-emerald-50 text-emerald-700 p-4 rounded-2xl text-[11px] font-black uppercase tracking-tight flex items-center border border-emerald-100 animate-in slide-in-from-top-2 duration-300">
+                  <CheckCircle2 size={18} className="mr-3" /> {success}
+                </div>
+              )}
+              
+              {isRegister && (
+                <>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre Completo</label>
+                    <div className="relative group">
+                      <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-900 transition-colors" size={20} />
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-brand-900/5 focus:bg-white focus:border-brand-900 outline-none transition-all text-sm font-bold placeholder:text-slate-300"
+                        placeholder="Juan Pérez"
+                        required={isRegister}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número de Celular</label>
+                    <div className="relative group">
+                      <Phone className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-900 transition-colors" size={20} />
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-brand-900/5 focus:bg-white focus:border-brand-900 outline-none transition-all text-sm font-bold placeholder:text-slate-300"
+                        placeholder="+57 300 123 4567"
+                        required={isRegister}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="space-y-2">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Correo Electrónico</label>
                 <div className="relative group">
-                  <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-brand-900 transition-colors" size={18} />
+                  <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-900 transition-colors" size={20} />
                   <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-brand-900 focus:bg-white focus:border-transparent outline-none transition-all text-sm font-medium"
-                    placeholder="Juan Pérez"
-                    required={isRegister}
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-brand-900/5 focus:bg-white focus:border-brand-900 outline-none transition-all text-sm font-bold placeholder:text-slate-300"
+                    placeholder="usuario@absolute.com"
+                    required
                   />
                 </div>
               </div>
-            )}
 
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
-                Correo Electrónico
-              </label>
-              <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-brand-900 transition-colors" size={18} />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-brand-900 focus:bg-white focus:border-transparent outline-none transition-all text-sm font-medium"
-                  placeholder="usuario@absolute.com"
-                  required
-                />
+              <div className="space-y-2">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Contraseña</label>
+                <div className="relative group">
+                  <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-900 transition-colors" size={20} />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-brand-900/5 focus:bg-white focus:border-brand-900 outline-none transition-all text-sm font-bold placeholder:text-slate-300"
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
               </div>
+
+              <button
+                type="submit"
+                className="w-full bg-[#000033] text-white py-5 rounded-[1.5rem] font-black text-[12px] uppercase tracking-[0.3em] hover:bg-brand-900 transition-all duration-300 shadow-2xl shadow-brand-900/40 active:scale-[0.96] flex items-center justify-center space-x-3 group mt-4"
+              >
+                <span>{isRegister ? 'Crear mi Cuenta' : 'Entrar al Portal'}</span>
+                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+              </button>
+            </form>
+
+            <div className="mt-14 pt-8 border-t border-slate-100 text-center">
+              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">
+                {isRegister ? '¿Ya tiene acceso?' : '¿No tiene una cuenta aún?'}
+              </p>
+              <button
+                onClick={() => {
+                  setIsRegister(!isRegister);
+                  setError('');
+                  setSuccess('');
+                }}
+                className="mt-4 text-[11px] font-black text-brand-900 uppercase tracking-[0.2em] hover:text-blue-800 transition-colors border-b-2 border-brand-900/20 hover:border-brand-900 pb-1"
+              >
+                {isRegister ? 'Volver al Inicio de Sesión' : 'Solicitar Registro de Usuario'}
+              </button>
             </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
-                Contraseña
-              </label>
-              <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-brand-900 transition-colors" size={18} />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-brand-900 focus:bg-white focus:border-transparent outline-none transition-all text-sm font-medium"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-            </div>
-
-            {!isRegister && (
-              <div className="text-right">
-                <button type="button" className="text-[10px] font-bold text-gray-400 hover:text-brand-900 transition-colors uppercase tracking-widest">
-                  ¿Olvidó su contraseña?
-                </button>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              className="w-full bg-brand-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-brand-800 transition-all duration-300 shadow-xl shadow-brand-900/20 active:scale-[0.98] flex items-center justify-center space-x-2"
-            >
-              <span>{isRegister ? 'Crear mi Cuenta' : 'Ingresar al Portal'}</span>
-              <ArrowRight size={16} />
-            </button>
-          </form>
-
-          <div className="mt-10 pt-8 border-t border-gray-100 text-center">
-            <p className="text-xs text-gray-400 font-medium">
-              {isRegister ? '¿Ya tiene una cuenta?' : '¿No tiene una cuenta aún?'}
-            </p>
-            <button
-              onClick={() => {
-                setIsRegister(!isRegister);
-                setError('');
-                setSuccess('');
-              }}
-              className="mt-2 text-[11px] font-black text-brand-900 uppercase tracking-widest hover:underline decoration-2 underline-offset-4 transition-all"
-            >
-              {isRegister ? 'Volver al Inicio de Sesión' : 'Registrarse Ahora'}
-            </button>
           </div>
         </div>
-      </div>
-      
-      <div className="absolute bottom-8 left-0 w-full text-center px-4">
-        <p className="text-[9px] font-bold text-white/30 uppercase tracking-[0.3em]">
-          &copy; {new Date().getFullYear()} ABSOLUTE COMPANY &bull; PLATAFORMA DE GESTIÓN OPERATIVA
-        </p>
+        
+        <div className="mt-10 text-center">
+          <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.5em] animate-pulse">
+            ABSOLUTE COMPANY &bull; AGENCIA DE PUBLICIDAD INTEGRAL
+          </p>
+        </div>
       </div>
     </div>
   );

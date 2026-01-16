@@ -66,4 +66,5 @@ export interface User {
   email: string;
   role: 'admin' | 'user' | 'logistics';
   name: string;
+  phone?: string; // Nuevo campo para registro de celular
 }

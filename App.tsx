@@ -38,9 +38,9 @@ const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('absolute_users');
     return saved ? JSON.parse(saved) : [
-      { email: 'admin@absolute.com', name: 'Administrador Principal', role: 'admin' },
-      { email: 'logistics@absolute.com', name: 'Encargado Logística', role: 'logistics' },
-      { email: 'user@absolute.com', name: 'Usuario Demo', role: 'user' }
+      { email: 'admin@absolute.com', name: 'Administrador Principal', role: 'admin', phone: '3101234567' },
+      { email: 'logistics@absolute.com', name: 'Encargado Logística', role: 'logistics', phone: '3119876543' },
+      { email: 'user@absolute.com', name: 'Usuario Demo', role: 'user', phone: '3000000000' }
     ];
   });
 
@@ -71,11 +71,11 @@ const App: React.FC = () => {
     return false;
   };
 
-  const handleRegister = (name: string, email: string) => {
+  const handleRegister = (name: string, email: string, phone: string) => {
     if (users.some(u => u.email === email)) {
       return false;
     }
-    const newUser: User = { name, email, role: 'user' };
+    const newUser: User = { name, email, role: 'user', phone };
     const updatedUsers = [...users, newUser];
     setUsers(updatedUsers);
     setUser(newUser);
