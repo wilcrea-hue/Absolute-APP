@@ -19,6 +19,8 @@ interface AdminDashboardProps {
   onDeleteOrder?: (id: string) => void;
   onToggleUserRole: (email: string) => void;
   onChangeUserRole?: (email: string, newRole: User['role']) => void;
+  onToggleUserStatus?: (email: string) => void;
+  onDeleteUser?: (email: string) => void;
   onUpdateStage: (orderId: string, stageKey: WorkflowStageKey, data: StageData) => void;
 }
 
@@ -44,6 +46,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onDeleteOrder,
   onToggleUserRole,
   onChangeUserRole,
+  onToggleUserStatus,
+  onDeleteUser,
   onUpdateStage,
 }) => {
   const isStaff = currentUser.role === 'admin' || currentUser.role === 'logistics' || currentUser.role === 'coordinator';
@@ -312,7 +316,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {activeTab === 'users' && isAdmin && (
-            <UserManagement users={users} currentUser={currentUser} onChangeUserRole={onChangeUserRole || ((email, role) => onToggleUserRole(email))} />
+            <UserManagement 
+              users={users} 
+              currentUser={currentUser} 
+              onChangeUserRole={onChangeUserRole || ((email, role) => onToggleUserRole(email))} 
+              onToggleStatus={onToggleUserStatus}
+              onDeleteUser={onDeleteUser}
+            />
         )}
       </div>
 

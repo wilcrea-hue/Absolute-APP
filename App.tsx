@@ -38,10 +38,10 @@ const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('absolute_users');
     return saved ? JSON.parse(saved) : [
-      { email: 'admin@absolute.com', name: 'Administrador Principal', role: 'admin', phone: '3101234567' },
-      { email: 'logistics@absolute.com', name: 'Encargado Logística', role: 'logistics', phone: '3119876543' },
-      { email: 'coord@absolute.com', name: 'Coordinador Nacional', role: 'coordinator', phone: '3200001122' },
-      { email: 'user@absolute.com', name: 'Usuario Demo', role: 'user', phone: '3000000000' }
+      { email: 'admin@absolute.com', name: 'Administrador Principal', role: 'admin', phone: '3101234567', status: 'active' },
+      { email: 'logistics@absolute.com', name: 'Encargado Logística', role: 'logistics', phone: '3119876543', status: 'active' },
+      { email: 'coord@absolute.com', name: 'Coordinador Nacional', role: 'coordinator', phone: '3200001122', status: 'active' },
+      { email: 'user@absolute.com', name: 'Usuario Demo', role: 'user', phone: '3000000000', status: 'active' }
     ];
   });
 
@@ -66,6 +66,10 @@ const App: React.FC = () => {
   const handleLogin = (email: string) => {
     const foundUser = users.find(u => u.email === email);
     if (foundUser) {
+      if (foundUser.status === 'on-hold') {
+        alert("Su cuenta se encuentra en espera de aprobación o suspendida. Contacte al administrador.");
+        return false;
+      }
       setUser(foundUser);
       return true;
     }
@@ -76,10 +80,10 @@ const App: React.FC = () => {
     if (users.some(u => u.email === email)) {
       return false;
     }
-    const newUser: User = { name, email, role: 'user', phone };
+    const newUser: User = { name, email, role: 'user', phone, status: 'on-hold' }; // Default status for new registers
     const updatedUsers = [...users, newUser];
     setUsers(updatedUsers);
-    setUser(newUser);
+    // Do not set user here, force them to wait for approval
     return true;
   };
 
@@ -158,6 +162,26 @@ const App: React.FC = () => {
     setUsers(prev => prev.map(u => u.email === email ? { ...u, role: newRole } : u));
     if (user && user.email === email) {
       setUser({ ...user, role: newRole });
+    }
+  };
+
+  const handleToggleUserStatus = (email: string) => {
+    setUsers(prev => prev.map(u => {
+      if (u.email === email) {
+        const newStatus = u.status === 'on-hold' ? 'active' : 'on-hold';
+        return { ...u, status: newStatus };
+      }
+      return u;
+    }));
+  };
+
+  const handleDeleteUser = (email: string) => {
+    if (email === user?.email) {
+      alert("No puede eliminarse a sí mismo.");
+      return;
+    }
+    if (window.confirm(`¿Está seguro de que desea eliminar permanentemente al usuario ${email}?`)) {
+      setUsers(prev => prev.filter(u => u.email !== email));
     }
   };
 
@@ -292,6 +316,8 @@ const App: React.FC = () => {
               onDeleteOrder={handleDeleteOrder}
               onToggleUserRole={() => {}} 
               onChangeUserRole={handleChangeUserRole}
+              onToggleUserStatus={handleToggleUserStatus}
+              onDeleteUser={handleDeleteUser}
               onUpdateStage={handleUpdateStage}
             />
           } />

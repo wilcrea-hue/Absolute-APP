@@ -67,4 +67,5 @@ export interface User {
   role: 'admin' | 'user' | 'logistics' | 'coordinator';
   name: string;
   phone?: string; // Nuevo campo para registro de celular
+  status?: 'active' | 'on-hold'; // Nuevo campo para control de acceso
 }
