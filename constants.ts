@@ -16,7 +16,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'ae-2',
-    name: 'Stand 4x3',
+    name: 'Stand estandar',
     category: 'Arquitectura Efímera',
     description: 'Estructura modular amplia 4x3m.',
     image: 'https://absolutecompany.co/app/imagenes/Arquitectura Efímera/Stand 4x3.png',
@@ -24,7 +24,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'ae-3',
-    name: 'Stand 5x3',
+    name: 'Stand premium',
     category: 'Arquitectura Efímera',
     description: 'Estructura premium 5x3m.',
     image: 'https://absolutecompany.co/app/imagenes/Arquitectura Efímera/Stand 5x3.png',
