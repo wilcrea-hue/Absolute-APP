@@ -96,7 +96,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
         <div className="p-6 space-y-2 flex-1 overflow-y-auto no-scrollbar">
           <div className="mb-4">
              <p className="px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Principal</p>
-             {user.role !== 'logistics' && user.role !== 'coordinator' && <NavItem to="/" icon={LayoutGrid} label="Catálogo Global" />}
+             {/* Cambiado: Todos los roles pueden ver el catálogo ahora */}
+             <NavItem to="/" icon={LayoutGrid} label="Catálogo Global" />
              {user.role !== 'logistics' && user.role !== 'coordinator' && <NavItem to="/cart" icon={ShoppingCart} label="Configurar Pedido" />}
              <NavItem to="/orders" icon={ClipboardList} label={isStaff ? "Listado Maestro" : "Mis Reservas"} />
           </div>

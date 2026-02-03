@@ -48,7 +48,11 @@ const App: React.FC = () => {
 
   const [products, setProducts] = useState<Product[]>(() => {
     const saved = localStorage.getItem('absolute_inventory');
-    return saved ? JSON.parse(saved) : PRODUCTS;
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return (parsed && parsed.length > 0) ? parsed : PRODUCTS;
+    }
+    return PRODUCTS;
   });
 
   const syncData = useCallback(async (dataToPush?: any) => {
@@ -62,7 +66,7 @@ const App: React.FC = () => {
       if (response.ok) {
         const serverData = await response.json();
         if (serverData.orders) setOrders(serverData.orders);
-        if (serverData.inventory) setProducts(serverData.inventory);
+        if (serverData.inventory && serverData.inventory.length > 0) setProducts(serverData.inventory);
         if (serverData.orderCounter) setOrderCounter(serverData.orderCounter);
         
         if (serverData.users && serverData.users.length > 0) {
@@ -117,7 +121,6 @@ const App: React.FC = () => {
     const lowerEmail = email.toLowerCase().trim();
     const foundUser = users.find(u => u.email.toLowerCase() === lowerEmail);
     if (foundUser) {
-      // Validar contraseña si existe en el objeto (compatibilidad con usuarios antiguos sin pass)
       if (foundUser.password && password && foundUser.password !== password) {
         return { success: false, message: 'Contraseña incorrecta.' };
       }

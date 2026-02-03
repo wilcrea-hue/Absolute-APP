@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Category, Product } from '../types';
-import { Search, Plus, MapPin, Navigation, ArrowRight, Zap, Info, Truck, Package, Tag, Clock } from 'lucide-react';
+import { Search, Plus, MapPin, Navigation, ArrowRight, Zap, Info, Truck, Package, Tag, Clock, PackageX } from 'lucide-react';
 
 interface CatalogProps {
   products: Product[];
@@ -14,7 +14,7 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
   const [selectedCategory, setSelectedCategory] = useState<Category | 'Todos'>('Todos');
   const [searchTerm, setSearchTerm] = useState('');
   
-  const filteredProducts = products.filter(product => {
+  const filteredProducts = (products || []).filter(product => {
     const matchesCategory = selectedCategory === 'Todos' || product.category === selectedCategory;
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
@@ -33,7 +33,7 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
           <input 
             type="text" 
             placeholder="Buscar artículo..." 
-            className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-[1.5rem] focus:ring-2 focus:ring-brand-900 shadow-sm text-sm"
+            className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-[1.5rem] focus:ring-2 focus:ring-brand-900 shadow-sm text-sm font-bold"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -43,61 +43,77 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
       <div className="flex overflow-x-auto pb-4 gap-3 no-scrollbar">
         <button
           onClick={() => setSelectedCategory('Todos')}
-          className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
-            selectedCategory === 'Todos' ? 'bg-brand-900 text-white shadow-xl' : 'bg-white text-gray-500 border border-slate-100'
+          className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+            selectedCategory === 'Todos' ? 'bg-brand-900 text-white shadow-xl' : 'bg-white text-gray-500 border border-slate-100 hover:bg-slate-50'
           }`}
         >Todos</button>
         {CATEGORIES.map(cat => (
           <button
             key={cat}
             onClick={() => setSelectedCategory(cat)}
-            className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
-              selectedCategory === cat ? 'bg-brand-900 text-white shadow-xl' : 'bg-white text-gray-500 border border-slate-100'
+            className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              selectedCategory === cat ? 'bg-brand-900 text-white shadow-xl' : 'bg-white text-gray-500 border border-slate-100 hover:bg-slate-50'
             }`}
           >{cat}</button>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-        {filteredProducts.map(product => {
-          const isOutOfStock = product.stock <= 0;
-          return (
-            <div key={product.id} className="bg-white rounded-[2.5rem] shadow-sm hover:shadow-2xl transition-all duration-500 border border-slate-50 overflow-hidden flex flex-col group">
-              <div className="h-60 overflow-hidden relative">
-                <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                <div className="absolute top-4 right-4 px-3 py-1.5 bg-white/90 backdrop-blur rounded-xl text-[9px] font-black uppercase shadow-lg">Stock: {product.stock}</div>
-              </div>
-              
-              <div className="p-6 flex-1 flex flex-col">
-                <span className="text-[10px] text-brand-500 font-black uppercase mb-1">{product.category}</span>
-                <h3 className="font-black text-slate-900 text-lg mb-4">{product.name}</h3>
-                
-                <div className="grid grid-cols-2 gap-2 mb-6">
-                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                    <p className="text-[8px] font-black text-slate-400 uppercase flex items-center"><Clock size={10} className="mr-1" /> Alquiler</p>
-                    <p className="text-xs font-black text-brand-900">
-                      ${product.priceRent?.toLocaleString()} <span className="text-[8px] opacity-60">/ día</span>
-                    </p>
-                  </div>
-                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                    <p className="text-[8px] font-black text-slate-400 uppercase flex items-center"><Tag size={10} className="mr-1" /> Venta</p>
-                    <p className="text-xs font-black text-brand-900">${product.priceSell?.toLocaleString()}</p>
-                  </div>
+      {filteredProducts.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {filteredProducts.map(product => {
+            const isOutOfStock = product.stock <= 0;
+            return (
+              <div key={product.id} className="bg-white rounded-[2.5rem] shadow-sm hover:shadow-2xl transition-all duration-500 border border-slate-50 overflow-hidden flex flex-col group">
+                <div className="h-60 overflow-hidden relative">
+                  <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                  <div className="absolute top-4 right-4 px-3 py-1.5 bg-white/90 backdrop-blur rounded-xl text-[9px] font-black uppercase shadow-lg">Stock: {product.stock}</div>
                 </div>
+                
+                <div className="p-6 flex-1 flex flex-col">
+                  <span className="text-[10px] text-brand-500 font-black uppercase mb-1">{product.category}</span>
+                  <h3 className="font-black text-slate-900 text-lg mb-4">{product.name}</h3>
+                  
+                  <div className="grid grid-cols-2 gap-2 mb-6">
+                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                      <p className="text-[8px] font-black text-slate-400 uppercase flex items-center"><Clock size={10} className="mr-1" /> Alquiler</p>
+                      <p className="text-xs font-black text-brand-900">
+                        ${product.priceRent?.toLocaleString()} <span className="text-[8px] opacity-60">/ día</span>
+                      </p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                      <p className="text-[8px] font-black text-slate-400 uppercase flex items-center"><Tag size={10} className="mr-1" /> Venta</p>
+                      <p className="text-xs font-black text-brand-900">${product.priceSell?.toLocaleString()}</p>
+                    </div>
+                  </div>
 
-                <button 
-                  onClick={() => onAddToCart(product)}
-                  disabled={isOutOfStock}
-                  className="w-full py-4 bg-brand-900 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2 hover:bg-black"
-                >
-                  <Plus size={14} />
-                  <span>Añadir al Pedido</span>
-                </button>
+                  <button 
+                    onClick={() => onAddToCart(product)}
+                    disabled={isOutOfStock}
+                    className="w-full py-4 bg-brand-900 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2 hover:bg-black disabled:opacity-30 disabled:grayscale"
+                  >
+                    <Plus size={14} />
+                    <span>Añadir al Pedido</span>
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-32 bg-white rounded-[3rem] border border-dashed border-slate-200">
+          <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+            <PackageX size={40} className="text-slate-300" />
+          </div>
+          <h3 className="text-lg font-black text-brand-900 uppercase">Sin coincidencias</h3>
+          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2">No encontramos artículos para esta categoría o búsqueda.</p>
+          <button 
+            onClick={() => { setSelectedCategory('Todos'); setSearchTerm(''); }}
+            className="mt-8 text-brand-900 font-black text-[10px] uppercase tracking-widest border-b-2 border-brand-900 pb-1 hover:text-brand-500 hover:border-brand-500 transition-all"
+          >
+            Limpiar Filtros
+          </button>
+        </div>
+      )}
     </div>
   );
 };
