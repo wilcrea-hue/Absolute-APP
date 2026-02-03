@@ -1,12 +1,13 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
-  LayoutGrid, ShoppingCart, ClipboardList, LogOut, User as UserIcon, Menu, X, ShieldCheck, Map, Wifi, WifiOff, Key
+  LayoutGrid, ShoppingCart, ClipboardList, LogOut, User as UserIcon, Menu, X, ShieldCheck, Map, Wifi, WifiOff, Key, DownloadCloud
 } from 'lucide-react';
 import { User } from '../types';
 import { Link, useLocation } from 'react-router-dom';
 import { LOGO_URL } from '../constants';
 import { Footer } from './Footer';
+import { InstallModal } from './InstallModal';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -18,9 +19,18 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLogout, onChangePassword, syncStatus }) => {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const location = useLocation();
   const isStaff = user.role === 'admin' || user.role === 'logistics' || user.role === 'coordinator';
+
+  useEffect(() => {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    });
+  }, []);
 
   const NavItem = ({ to, icon: Icon, label }: { to: string, icon: any, label: string }) => {
     const isActive = location.pathname === to;
@@ -58,7 +68,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
             <img src={LOGO_URL} alt="ABSOLUTE Logo" className="w-full h-auto" />
           </Link>
           
-          <div className="w-full">
+          <div className="w-full space-y-2">
              <div className={`flex items-center justify-center px-4 py-2 rounded-2xl shadow-inner transition-colors ${syncStatus?.isOnline ? 'bg-emerald-50 border border-emerald-100' : 'bg-red-50 border border-red-100'}`}>
                 {syncStatus?.isOnline ? (
                   <>
@@ -72,6 +82,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
                   </>
                 )}
              </div>
+             
+             <button 
+                onClick={() => setIsInstallModalOpen(true)}
+                className="w-full flex items-center justify-center space-x-2 bg-brand-50 text-brand-900 py-3 rounded-2xl border border-brand-100 hover:bg-brand-100 transition-all group"
+             >
+                <DownloadCloud size={16} className="group-hover:scale-110 transition-transform" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Descargar App</span>
+             </button>
           </div>
         </div>
 
@@ -126,6 +144,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
       </main>
 
       {isMobileMenuOpen && <div className="fixed inset-0 bg-brand-900/60 backdrop-blur-md z-[45] md:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
+      
+      <InstallModal 
+        isOpen={isInstallModalOpen} 
+        onClose={() => setIsInstallModalOpen(false)} 
+        deferredPrompt={deferredPrompt} 
+      />
     </div>
   );
 };
