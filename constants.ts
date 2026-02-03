@@ -13,6 +13,8 @@ export const PRODUCTS: Product[] = [
     description: 'Estructura modular estándar 3x3m para ferias.',
     image: 'https://absolutecompany.co/app/imagenes/Arquitectura Efímera/Stand 3x3.png',
     stock: 5,
+    priceSell: 1500000,
+    priceRent: 450000,
   },
   {
     id: 'ae-2',
@@ -21,6 +23,8 @@ export const PRODUCTS: Product[] = [
     description: 'Estructura modular amplia 4x3m.',
     image: 'https://absolutecompany.co/app/imagenes/Arquitectura Efímera/Stand 4x3.png',
     stock: 2,
+    priceSell: 2200000,
+    priceRent: 650000,
   },
   {
     id: 'ae-3',
@@ -29,6 +33,8 @@ export const PRODUCTS: Product[] = [
     description: 'Estructura premium 5x3m.',
     image: 'https://absolutecompany.co/app/imagenes/Arquitectura Efímera/Stand 5x3.png',
     stock: 5,
+    priceSell: 3500000,
+    priceRent: 950000,
   },
   
   // Mobiliario
@@ -39,6 +45,8 @@ export const PRODUCTS: Product[] = [
     description: 'Mesa plegable para eventos.',
     image: 'https://absolutecompany.co/app/imagenes/mobiliario/Mesa Blanca Rectangular.png',
     stock: 50,
+    priceSell: 120000,
+    priceRent: 15000,
   },
   {
     id: 'mob-2',
@@ -47,6 +55,8 @@ export const PRODUCTS: Product[] = [
     description: 'Silla de diseño ergonómico.',
     image: 'https://absolutecompany.co/app/imagenes/mobiliario/sillas Rattan Sintético Mesedoras.png',
     stock: 100,
+    priceSell: 180000,
+    priceRent: 25000,
   },
   {
     id: 'mob-3',
@@ -55,14 +65,8 @@ export const PRODUCTS: Product[] = [
     description: 'Mueble para registro de asistentes.',
     image: 'https://absolutecompany.co/app/imagenes/mobiliario/Counter de Recepción.png',
     stock: 10,
-  },
-  {
-    id: 'mob-4',
-    name: 'Mueble de Exhibición',
-    category: 'Mobiliario',
-    description: 'Vitrina con iluminación LED.',
-    image: 'https://absolutecompany.co/app/imagenes/mobiliario/Mueble de Exhibición.png',
-    stock: 8,
+    priceSell: 850000,
+    priceRent: 120000,
   },
 
   // Electrónica
@@ -73,6 +77,8 @@ export const PRODUCTS: Product[] = [
     description: 'Smart TV 4K para presentaciones.',
     image: 'https://absolutecompany.co/app/imagenes/Electrónica/Pantalla LED 55.png',
     stock: 15,
+    priceSell: 2800000,
+    priceRent: 250000,
   },
   {
     id: 'elec-2',
@@ -81,48 +87,8 @@ export const PRODUCTS: Product[] = [
     description: 'Laptop i7 16GB RAM para control.',
     image: 'https://absolutecompany.co/app/imagenes/Electrónica/Computador Portátil.png',
     stock: 10,
-  },
-  {
-    id: 'elec-3',
-    name: 'Impresora Multifuncional',
-    category: 'Electrónica',
-    description: 'Impresora láser color.',
-    image: 'https://absolutecompany.co/app/imagenes/Electrónica/impresora.png',
-    stock: 5,
-  },
-
-  // Decoración
-  {
-    id: 'dec-1',
-    name: 'Roll Up Publicitario',
-    category: 'Decoración',
-    description: 'Estructura de aluminio 85x200cm.',
-    image: 'https://absolutecompany.co/app/imagenes/Decoraci%C3%B3n/Roll Up Publicitario.png',
-    stock: 30,
-  },
-  {
-    id: 'dec-2',
-    name: 'Vinilo Adhesivo (m²)',
-    category: 'Decoración',
-    description: 'Impresión de alta calidad por metro cuadrado.',
-    image: 'https://absolutecompany.co/app/imagenes/Decoraci%C3%B3n/Vinilo Adhesivo.png',
-    stock: 1000,
-  },
-  {
-    id: 'dec-3',
-    name: 'Crispetera',
-    category: 'Decoración',
-    description: 'Máquina de palomitas estilo vintage.',
-    image: 'https://absolutecompany.co/app/imagenes/Decoraci%C3%B3n/Crispetera.png',
-    stock: 4,
-  },
-  {
-    id: 'dec-4',
-    name: 'Cafetera Industrial',
-    category: 'Decoración',
-    description: 'Cafetera para catering de eventos.',
-    image: 'https://absolutecompany.co/app/imagenes/Decoraci%C3%B3n/cafetera-industrial.png',
-    stock: 6,
+    priceSell: 3500000,
+    priceRent: 150000,
   },
 
   // Servicios
@@ -133,6 +99,8 @@ export const PRODUCTS: Product[] = [
     description: 'Servicio de diseño 3D personalizado.',
     image: 'https://absolutecompany.co/app/imagenes/Servicios/diseño.png',
     stock: 999,
+    priceSell: 500000,
+    priceRent: 500000,
   },
   {
     id: 'serv-2',
@@ -141,5 +109,7 @@ export const PRODUCTS: Product[] = [
     description: 'Logística de entrega y recogida.',
     image: 'https://absolutecompany.co/app/imagenes/Servicios/trasnporte.png',
     stock: 999,
+    priceSell: 120000,
+    priceRent: 120000,
   },
 ];

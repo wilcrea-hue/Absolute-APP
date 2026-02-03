@@ -1,30 +1,82 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { User } from '../types';
-import { Search, User as UserIcon, Shield, Truck, UserCircle, Mail, Phone, MapPin, Trash2, Pause, Play, Clock } from 'lucide-react';
+import { Search, User as UserIcon, Shield, Truck, UserCircle, Mail, Phone, MapPin, Trash2, Pause, Play, Clock, ArrowUpDown, ChevronUp, ChevronDown, Percent } from 'lucide-react';
 
 interface UserManagementProps {
   users: User[];
   currentUser: User;
   onChangeUserRole: (email: string, newRole: User['role']) => void;
+  onChangeUserDiscount: (email: string, discount: number) => void;
   onToggleStatus?: (email: string) => void;
   onDeleteUser?: (email: string) => void;
 }
+
+type SortField = 'name' | 'email' | 'role' | 'status' | 'discount';
+type SortOrder = 'asc' | 'desc';
 
 export const UserManagement: React.FC<UserManagementProps> = ({ 
   users, 
   currentUser, 
   onChangeUserRole,
+  onChangeUserDiscount,
   onToggleStatus,
   onDeleteUser
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
 
-  const filteredUsers = users.filter(user => 
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (user.phone && user.phone.includes(searchTerm))
-  );
+  const sortedAndFilteredUsers = useMemo(() => {
+    let result = users.filter(user => 
+      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.phone && user.phone.includes(searchTerm))
+    );
+
+    result.sort((a, b) => {
+      let valA: any = '';
+      let valB: any = '';
+
+      switch (sortField) {
+        case 'name':
+          valA = a.name.toLowerCase();
+          valB = b.name.toLowerCase();
+          break;
+        case 'email':
+          valA = a.email.toLowerCase();
+          valB = b.email.toLowerCase();
+          break;
+        case 'role':
+          valA = a.role.toLowerCase();
+          valB = b.role.toLowerCase();
+          break;
+        case 'status':
+          valA = a.status || 'active';
+          valB = b.status || 'active';
+          break;
+        case 'discount':
+          valA = a.discountPercentage || 0;
+          valB = b.discountPercentage || 0;
+          break;
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [users, searchTerm, sortField, sortOrder]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
 
   const getRoleIcon = (role: string) => {
     switch (role) {
@@ -44,12 +96,19 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     }
   };
 
+  const SortIndicator = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown size={12} className="ml-1.5 opacity-30" />;
+    return sortOrder === 'asc' 
+      ? <ChevronUp size={12} className="ml-1.5 text-brand-900" /> 
+      : <ChevronDown size={12} className="ml-1.5 text-brand-900" />;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest">Nómina del Sistema</h3>
-          <p className="text-[11px] text-gray-500 font-bold uppercase">Gestión de privilegios y acceso jerárquico.</p>
+          <p className="text-[11px] text-gray-500 font-bold uppercase">Gestión de privilegios, acceso jerárquico y descuentos comerciales.</p>
         </div>
         
         <div className="relative w-full md:w-80">
@@ -69,13 +128,47 @@ export const UserManagement: React.FC<UserManagementProps> = ({
           <table className="w-full text-left">
             <thead className="bg-slate-50/50 border-b border-slate-100">
               <tr>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Identidad</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Estado / Rol</th>
+                <th 
+                  className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors"
+                  onClick={() => handleSort('name')}
+                >
+                  <div className="flex items-center">
+                    Identidad
+                    <SortIndicator field="name" />
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center cursor-pointer hover:bg-slate-100 transition-colors"
+                  onClick={() => handleSort('role')}
+                >
+                  <div className="flex items-center justify-center">
+                    Rol
+                    <SortIndicator field="role" />
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center cursor-pointer hover:bg-slate-100 transition-colors"
+                  onClick={() => handleSort('discount')}
+                >
+                  <div className="flex items-center justify-center">
+                    % Descuento
+                    <SortIndicator field="discount" />
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center cursor-pointer hover:bg-slate-100 transition-colors"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center justify-center">
+                    Estado
+                    <SortIndicator field="status" />
+                  </div>
+                </th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Controles Operativos</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredUsers.map(user => {
+              {sortedAndFilteredUsers.map(user => {
                 const isOnHold = user.status === 'on-hold';
                 return (
                   <tr key={user.email} className={`hover:bg-slate-50/30 transition-colors group ${isOnHold ? 'bg-orange-50/30' : ''}`}>
@@ -90,12 +183,10 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                             {user.email === currentUser.email && (
                               <span className="ml-2 text-[9px] bg-brand-900 text-white px-2 py-0.5 rounded-full uppercase tracking-tighter">Tú</span>
                             )}
-                            {isOnHold && (
-                                <span className="ml-2 text-[8px] bg-orange-500 text-white px-2 py-0.5 rounded-full uppercase tracking-widest font-black">EN ESPERA</span>
-                            )}
                           </div>
-                          <div className="text-[10px] text-gray-400 font-bold flex items-center mt-0.5">
-                            <Mail size={12} className="mr-1.5 opacity-50" /> {user.email}
+                          <div className="text-[10px] text-gray-400 font-bold flex flex-col mt-0.5">
+                            <span className="flex items-center"><Mail size={12} className="mr-1.5 opacity-50" /> {user.email}</span>
+                            <span className="flex items-center mt-1"><Phone size={12} className="mr-1.5 opacity-50" /> {user.phone || 'Sin número'}</span>
                           </div>
                         </div>
                       </div>
@@ -105,6 +196,26 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                         {getRoleIcon(user.role)}
                         {user.role}
                       </span>
+                    </td>
+                    <td className="px-6 py-5 text-center">
+                      <div className="relative inline-flex items-center group">
+                        <Percent size={10} className="absolute left-3 text-slate-400" />
+                        <input 
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={user.discountPercentage || 0}
+                          onChange={(e) => onChangeUserDiscount(user.email, Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                          className="w-20 pl-7 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-center text-[11px] font-black text-brand-900 focus:ring-2 focus:ring-brand-900 focus:bg-white outline-none transition-all"
+                        />
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-center">
+                      {isOnHold ? (
+                        <span className="text-[8px] bg-orange-500 text-white px-2 py-0.5 rounded-full uppercase tracking-widest font-black inline-block">EN ESPERA</span>
+                      ) : (
+                        <span className="text-[8px] bg-emerald-500 text-white px-2 py-0.5 rounded-full uppercase tracking-widest font-black inline-block">ACTIVO</span>
+                      )}
                     </td>
                     <td className="px-6 py-5 text-right">
                       <div className="flex items-center justify-end space-x-4">

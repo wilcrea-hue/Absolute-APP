@@ -1,375 +1,185 @@
 
-import React, { useState, useEffect } from 'react';
-import { CartItem } from '../types';
-import { Trash2, Calendar, CheckCircle, MapPin, Navigation, Map as MapIcon, ArrowRight, Loader2, Clock, Ruler, CreditCard, Zap } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { GoogleGenAI } from "@google/genai";
+import React, { useState, useMemo } from 'react';
+import { CartItem, TransactionType, OrderType, User } from '../types';
+import { Trash2, Calendar, ShoppingBag, Clock, CreditCard, MapPin, Zap, ArrowRight, Info, FileText, CheckCircle, Percent } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface CartProps {
   items: CartItem[];
+  currentUser: User | null;
   onRemove: (id: string) => void;
   onUpdateQuantity: (id: string, qty: number) => void;
-  onCheckout: (startDate: string, endDate: string, destination: string) => void;
+  onUpdateType: (id: string, type: TransactionType) => void;
+  onCheckout: (startDate: string, endDate: string, destination: string, type: OrderType) => void;
 }
 
-interface RouteSummary {
-  origin: string;
-  destination: string;
-  distance: string;
-  duration: string;
-  tolls: string;
-}
-
-export const Cart: React.FC<CartProps> = ({ items, onRemove, onUpdateQuantity, onCheckout }) => {
+export const Cart: React.FC<CartProps> = ({ items, currentUser, onRemove, onUpdateQuantity, onUpdateType, onCheckout }) => {
   const navigate = useNavigate();
-  const location = useLocation();
-  
-  const prefilledDestination = (location.state as any)?.prefilledDestination || '';
-
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [destination, setDestination] = useState(prefilledDestination);
-  const [showPreviewMap, setShowPreviewMap] = useState(!!prefilledDestination);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
+  const [destination, setDestination] = useState('');
 
-  const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
+  const eventDays = useMemo(() => {
+    if (!startDate || !endDate) return 1;
+    const s = new Date(startDate);
+    const e = new Date(endDate);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return 1;
+    const diffTime = Math.abs(e.getTime() - s.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return Math.max(1, diffDays);
+  }, [startDate, endDate]);
 
-  const parseSummary = (text: string) => {
-    const summaryMatch = text.match(/---RESUMEN---([\s\S]*?)---/);
-    if (summaryMatch) {
-      const content = summaryMatch[1];
-      const getVal = (key: string) => {
-        const match = content.match(new RegExp(`${key}:\\s*(.*)`, 'i'));
-        return match ? match[1].trim() : '';
-      };
-      
-      return {
-        origin: getVal('Origen'),
-        destination: getVal('Destino'),
-        distance: getVal('Distancia'),
-        duration: getVal('Tiempo'),
-        tolls: getVal('Peajes')
-      };
-    }
-    return null;
-  };
+  const subtotalAmount = useMemo(() => {
+    return items.reduce((acc, item) => {
+      const price = item.type === 'Compra' ? item.priceSell : item.priceRent;
+      const factor = item.type === 'Alquiler' ? eventDays : 1;
+      return acc + (price * item.quantity * factor);
+    }, 0);
+  }, [items, eventDays]);
 
-  const analyzeRoute = async () => {
-    if (destination.length < 3) return;
-    
-    setIsAnalyzing(true);
-    setRouteSummary(null);
-    setShowPreviewMap(true);
+  const discountPercentage = currentUser?.discountPercentage || 0;
+  const discountAmount = (subtotalAmount * discountPercentage) / 100;
+  const totalAmount = subtotalAmount - discountAmount;
 
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Analiza la ruta logística para un despacho de eventos:
-      - ORIGEN: Bogotá, Colombia
-      - DESTINO: ${destination}
-      
-      Calcula distancia aproximada, tiempo de tránsito y peajes estimados para un vehículo de carga liviana en Colombia.
-      
-      IMPORTANTE: Incluye este resumen al final:
-      ---RESUMEN---
-      Origen: Bogotá, Colombia
-      Destino: ${destination}
-      Distancia: [km]
-      Tiempo: [horas]
-      Peajes: [peajes / valor]
-      ---`;
-
-      const res = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-          tools: [{ googleMaps: {} }]
-        },
-      });
-
-      const fullText = res.text || "";
-      const summary = parseSummary(fullText);
-      setRouteSummary(summary);
-    } catch (error) {
-      console.error("Error analyzing route:", error);
-      // Fallback to basic map display without summary cards
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  useEffect(() => {
-    if (prefilledDestination) {
-      analyzeRoute();
-    }
-  }, []);
-
-  const handleCheckout = () => {
-    if (!startDate || !endDate || !destination.trim()) {
-      alert("Por favor complete todos los campos: Fechas y Ubicación del Evento");
+  const handleCheckout = (type: OrderType) => {
+    if (!startDate || !endDate || !destination) {
+      alert("Por favor complete los datos de destino y fechas.");
       return;
     }
-    if (new Date(startDate) > new Date(endDate)) {
-        alert("La fecha de inicio no puede ser posterior a la fecha de fin");
-        return;
-    }
-    onCheckout(startDate, endDate, destination);
+    onCheckout(startDate, endDate, destination, type);
     navigate('/orders');
   };
 
-  const mapKey = process.env.API_KEY || '';
-  const mapPreviewUrl = `https://www.google.com/maps/embed/v1/directions?key=${mapKey}&origin=Bogota,Colombia&destination=${encodeURIComponent(destination)}&mode=driving`;
-
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-white rounded-lg shadow-sm border p-8 text-center">
-        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-          <Calendar size={32} className="text-gray-400" />
+      <div className="flex flex-col items-center justify-center py-32 space-y-6">
+        <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center">
+          <ShoppingBag size={40} className="text-slate-300" />
         </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Su pedido está vacío</h2>
-        <p className="text-gray-500 mb-6">Seleccione productos del catálogo para comenzar su reserva.</p>
-        <button 
-          onClick={() => navigate('/')}
-          className="bg-brand-900 text-white px-6 py-2 rounded-md hover:bg-gray-800 transition"
-        >
-          Ir al Catálogo
-        </button>
+        <h2 className="text-xl font-black text-brand-900 uppercase">Carrito Vacío</h2>
+        <button onClick={() => navigate('/')} className="px-10 py-4 bg-brand-900 text-white rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-black transition-all">Ir al Catálogo</button>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Configuración de su Pedido</h2>
+    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
+      <h2 className="text-2xl font-black text-brand-900 uppercase">Configuración de Pedido</h2>
       
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Items and Map */}
-        <div className="lg:col-span-8 space-y-6">
-          {/* Cart Items List */}
-          <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
-            <div className="p-4 border-b bg-gray-50 font-bold text-gray-700 flex items-center">
-                <CheckCircle size={18} className="mr-2 text-brand-500" /> Artículos Seleccionados
-            </div>
-            <table className="w-full text-left">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-6 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Producto</th>
-                  <th className="px-6 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Cantidad</th>
-                  <th className="px-6 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Acción</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {items.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <img src={item.image} alt={item.name} className="h-10 w-10 rounded-lg object-cover mr-3 border shadow-sm" />
-                        <div>
-                          <div className="font-bold text-gray-900 text-sm">{item.name}</div>
-                          <div className="text-[10px] text-gray-400 uppercase font-black tracking-wider">{item.category}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                       <div className="flex items-center justify-center space-x-2">
-                        <button 
-                          onClick={() => onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                          className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-brand-900 hover:text-white flex items-center justify-center text-gray-600 transition-all font-bold"
-                        >
-                          -
-                        </button>
-                        <span className="w-8 text-center text-sm font-black">{item.quantity}</span>
-                        <button 
-                          onClick={() => onUpdateQuantity(item.id, Math.min(item.stock, item.quantity + 1))}
-                          className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-brand-900 hover:text-white flex items-center justify-center text-gray-600 transition-all font-bold"
-                        >
-                          +
-                        </button>
-                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        <div className="lg:col-span-8 space-y-4">
+          {items.map(item => {
+            const unitPrice = item.type === 'Compra' ? item.priceSell : item.priceRent;
+            const itemFactor = item.type === 'Alquiler' ? eventDays : 1;
+            const subtotal = unitPrice * item.quantity * itemFactor;
+
+            return (
+              <div key={item.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
+                <div className="flex items-center space-x-6">
+                  <img src={item.image} className="w-16 h-16 rounded-2xl object-cover" alt="" />
+                  <div>
+                    <h4 className="font-black text-slate-900 uppercase text-sm">{item.name}</h4>
+                    <div className="flex bg-slate-100 p-1 rounded-xl mt-3 w-fit">
                       <button 
-                        onClick={() => onRemove(item.id)}
-                        className="text-red-400 hover:text-red-600 transition p-2 hover:bg-red-50 rounded-full"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Map Preview with Route Summary */}
-          <div className={`bg-white rounded-2xl shadow-sm border overflow-hidden transition-all duration-500 ${showPreviewMap ? 'opacity-100 translate-y-0' : 'opacity-50 grayscale pointer-events-none'}`}>
-             <div className="p-4 border-b bg-gray-50 font-bold text-gray-700 flex justify-between items-center">
-                <div className="flex items-center">
-                    <MapIcon size={18} className="mr-2 text-brand-500" /> Plan de Despacho Logístico
-                </div>
-                {isAnalyzing && (
-                    <div className="flex items-center text-[10px] text-brand-600 font-black uppercase tracking-widest animate-pulse">
-                        <Loader2 size={12} className="mr-1 animate-spin" /> Analizando Trayecto con IA...
+                        onClick={() => onUpdateType(item.id, 'Alquiler')}
+                        className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${item.type === 'Alquiler' ? 'bg-brand-900 text-white shadow-sm' : 'text-slate-400'}`}
+                      >Alquiler</button>
+                      <button 
+                        onClick={() => onUpdateType(item.id, 'Compra')}
+                        className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${item.type === 'Compra' ? 'bg-brand-900 text-white shadow-sm' : 'text-slate-400'}`}
+                      >Compra</button>
                     </div>
-                )}
-                {routeSummary && !isAnalyzing && (
-                    <span className="text-[10px] bg-green-100 text-green-800 px-2 py-0.5 rounded-lg font-black uppercase tracking-widest flex items-center">
-                        <Zap size={10} className="mr-1" /> Optimizado por IA
-                    </span>
-                )}
-             </div>
-
-             {/* Route Stats Row */}
-             {routeSummary && (
-                <div className="grid grid-cols-3 divide-x border-b bg-white">
-                  <div className="p-4 flex flex-col items-center text-center">
-                    <Ruler size={16} className="text-blue-500 mb-1" />
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Distancia</p>
-                    <p className="text-xs font-bold text-gray-900">{routeSummary.distance}</p>
-                  </div>
-                  <div className="p-4 flex flex-col items-center text-center">
-                    <Clock size={16} className="text-purple-500 mb-1" />
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Tiempo Tránsito</p>
-                    <p className="text-xs font-bold text-gray-900">{routeSummary.duration}</p>
-                  </div>
-                  <div className="p-4 flex flex-col items-center text-center">
-                    <CreditCard size={16} className="text-amber-500 mb-1" />
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Gastos Ruta</p>
-                    <p className="text-xs font-bold text-gray-900 truncate w-full px-2" title={routeSummary.tolls}>{routeSummary.tolls}</p>
                   </div>
                 </div>
-             )}
 
-             <div className="relative h-72 bg-gray-100">
-                {showPreviewMap ? (
-                    <iframe
-                        title="Checkout Route Preview"
-                        width="100%"
-                        height="100%"
-                        style={{ border: 0 }}
-                        loading="lazy"
-                        src={mapPreviewUrl}
-                    ></iframe>
-                ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-8 text-center">
-                        <Navigation size={40} className="mb-2 opacity-20" />
-                        <p className="text-sm font-medium">Ingrese un destino para previsualizar la ruta de transporte.</p>
-                    </div>
-                )}
-             </div>
-             {showPreviewMap && (
-                 <div className="p-4 bg-brand-900 text-white flex items-center justify-between">
-                    <div className="flex items-center space-x-4 text-[10px] font-black uppercase tracking-[0.15em]">
-                        <div className="flex items-center"><MapPin size={14} className="mr-1 text-brand-300"/> Bogotá</div>
-                        <ArrowRight size={14} className="text-brand-300" />
-                        <div className="flex items-center"><Navigation size={14} className="mr-1 text-brand-300"/> {destination}</div>
-                    </div>
-                    <div className="hidden md:block text-[9px] opacity-70 italic font-medium uppercase tracking-widest">Servicio de transporte nacional sincronizado</div>
-                 </div>
-             )}
-          </div>
+                <div className="flex items-center space-x-8">
+                   <div className="flex items-center bg-slate-50 border border-slate-100 rounded-2xl p-1.5">
+                      <button onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} className="w-8 h-8 flex items-center justify-center font-black hover:text-brand-900 transition-colors">-</button>
+                      <span className="w-10 text-center font-black text-sm">{item.quantity}</span>
+                      <button onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} className="w-8 h-8 flex items-center justify-center font-black hover:text-brand-900 transition-colors">+</button>
+                   </div>
+                   <div className="text-right min-w-[120px]">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                        {item.type === 'Alquiler' ? `${eventDays} días x $${unitPrice.toLocaleString()}` : `Precio Venta`}
+                      </p>
+                      <p className="font-black text-brand-900 text-base">${subtotal.toLocaleString()}</p>
+                   </div>
+                   <button onClick={() => onRemove(item.id)} className="p-3 text-red-200 hover:text-red-500 transition-all"><Trash2 size={20} /></button>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Right Column: Reservation Details */}
-        <div className="lg:col-span-4 space-y-4">
-          <div className="bg-white rounded-3xl shadow-xl border p-6 sticky top-8">
-            <h3 className="font-black text-xs uppercase tracking-[0.2em] mb-8 flex items-center text-brand-900 border-b border-gray-100 pb-4">
-              <Calendar className="mr-3 text-brand-500" size={18} />
-              Confirmar Reserva
-            </h3>
+        <div className="lg:col-span-4 space-y-6">
+          <div className="bg-white p-8 rounded-[3rem] shadow-2xl border border-slate-50 sticky top-8">
+            <h3 className="text-xs font-black text-brand-900 uppercase tracking-widest mb-8 flex items-center"><Calendar className="mr-2" size={16} /> Parámetros del Evento</h3>
             
-            <div className="space-y-6 mb-8">
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2.5 ml-1">Ubicación del Evento</label>
-                <div className="relative group">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-500 group-focus-within:scale-110 transition-transform" size={18} />
-                  <input 
-                    type="text" 
-                    value={destination}
-                    onChange={(e) => setDestination(e.target.value)}
-                    onBlur={() => analyzeRoute()}
-                    placeholder="Ciudad (Ej: Cali, Valle)"
-                    className="w-full border-2 border-gray-100 bg-gray-50 rounded-2xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-brand-900 focus:bg-white focus:border-transparent text-sm font-bold transition-all outline-none"
-                  />
-                  {!isAnalyzing && destination.length > 3 && !routeSummary && (
-                    <button 
-                        onClick={analyzeRoute}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-brand-900 text-white rounded-lg hover:bg-brand-800 transition-colors"
-                        title="Analizar Ruta"
-                    >
-                        <Zap size={14} />
-                    </button>
-                  )}
+            <div className="space-y-6 mb-10">
+              <div className="relative">
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input type="text" placeholder="Ciudad Destino" value={destination} onChange={e => setDestination(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 border-0 rounded-2xl font-bold text-sm focus:ring-2 focus:ring-brand-900" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black uppercase text-slate-400 ml-3">Inicio</label>
+                  <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-[11px] border-0 focus:ring-1 focus:ring-brand-900" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black uppercase text-slate-400 ml-3">Fin</label>
+                  <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-[11px] border-0 focus:ring-1 focus:ring-brand-900" />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2.5 ml-1">Fecha de Montaje</label>
-                  <input 
-                    type="date" 
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full border-2 border-gray-100 bg-gray-50 rounded-2xl px-5 py-4 focus:ring-2 focus:ring-brand-900 focus:bg-white focus:border-transparent text-sm font-bold transition-all outline-none"
-                  />
+              <div className="bg-brand-50 p-4 rounded-2xl flex items-center justify-between border border-brand-100">
+                <div className="flex items-center text-brand-900">
+                  <Clock size={16} className="mr-2" />
+                  <span className="text-[10px] font-black uppercase">Duración:</span>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2.5 ml-1">Fecha de Desmonte</label>
-                  <input 
-                    type="date" 
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full border-2 border-gray-100 bg-gray-50 rounded-2xl px-5 py-4 focus:ring-2 focus:ring-brand-900 focus:bg-white focus:border-transparent text-sm font-bold transition-all outline-none"
-                  />
-                </div>
+                <span className="text-sm font-black text-brand-900">{eventDays} {eventDays === 1 ? 'día' : 'días'}</span>
               </div>
             </div>
 
-            <div className="bg-gray-50 rounded-2xl p-5 mb-8 space-y-4 border border-gray-100">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Artículos</span>
-                <span className="font-black text-brand-900">{totalItems}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Flete Nacional</span>
-                <span className={`text-[10px] font-black uppercase tracking-widest ${showPreviewMap ? 'text-green-600' : 'text-gray-400'}`}>
-                    {showPreviewMap ? 'Validado' : 'Pendiente'}
-                </span>
-              </div>
-              {routeSummary && (
-                <div className="pt-3 border-t border-gray-200">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-black text-brand-500 uppercase tracking-widest">Distancia Est.</span>
-                    <span className="text-[11px] font-black text-gray-700">{routeSummary.distance}</span>
+            <div className="border-t pt-8 space-y-4">
+              <div className="flex flex-col space-y-1 bg-slate-50 p-5 rounded-2xl mb-4">
+                <div className="flex justify-between items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <span>Subtotal</span>
+                  <span>${subtotalAmount.toLocaleString()}</span>
+                </div>
+                {discountPercentage > 0 && (
+                  <div className="flex justify-between items-center text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-2 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100">
+                    <span className="flex items-center"><Percent size={10} className="mr-1" /> Descuento Perfil ({discountPercentage}%)</span>
+                    <span>-${discountAmount.toLocaleString()}</span>
                   </div>
+                )}
+                <div className="border-t border-slate-200 mt-4 pt-4 flex flex-col items-center">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inversión Final</span>
+                  <span className="text-3xl font-black text-brand-900">${totalAmount.toLocaleString()}</span>
                 </div>
-              )}
-            </div>
+              </div>
+              
+              <div className="space-y-3">
+                <button 
+                  onClick={() => handleCheckout('quote')} 
+                  className="w-full py-4 bg-amber-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-amber-600 transition-all active:scale-[0.98] flex items-center justify-center space-x-2"
+                >
+                  <FileText size={16} />
+                  <span>Generar Cotización</span>
+                </button>
 
-            <button 
-              onClick={handleCheckout}
-              disabled={!startDate || !endDate || !destination || isAnalyzing}
-              className={`w-full py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center space-x-3 transition-all active:scale-95 shadow-2xl ${
-                startDate && endDate && destination && !isAnalyzing
-                  ? 'bg-brand-900 text-white hover:bg-brand-800 shadow-brand-900/20' 
-                  : 'bg-gray-100 text-gray-300 cursor-not-allowed shadow-none'
-              }`}
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 size={20} className="animate-spin" />
-                  <span>Procesando Ruta...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle size={20} />
-                  <span>Finalizar Reserva</span>
-                </>
-              )}
-            </button>
-            <p className="text-[9px] font-bold text-gray-400 text-center mt-6 leading-relaxed px-4 uppercase tracking-widest opacity-60">
-                Al confirmar, se iniciará el flujo de despacho sincronizado con bodega central.
-            </p>
+                <button 
+                  onClick={() => handleCheckout('purchase')} 
+                  className="w-full py-4 bg-brand-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-black transition-all active:scale-[0.98] flex items-center justify-center space-x-2"
+                >
+                  <CheckCircle size={16} />
+                  <span>Confirmar Reserva</span>
+                </button>
+              </div>
+
+              <div className="pt-4 flex items-start space-x-2 text-[8px] text-slate-400 font-bold uppercase italic text-center">
+                <p>La cotización no garantiza stock hasta que sea aprobada por un administrador.</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

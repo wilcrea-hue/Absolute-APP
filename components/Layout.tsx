@@ -107,13 +107,13 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
               <UserIcon size={24} strokeWidth={2.5} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-black text-slate-900 truncate leading-tight">{user.name}</p>
-              {user.phone && (
-                <p className="text-[9px] font-bold text-slate-500 flex items-center mt-0.5">
-                  <Phone size={8} className="mr-1" /> {user.phone}
-                </p>
-              )}
-              <p className="text-[10px] font-black text-brand-500 uppercase tracking-widest mt-1">{user.role}</p>
+              <p className="text-sm font-black text-slate-900 truncate leading-tight">
+                {user.name} 
+                <span className="text-slate-400 font-bold ml-1">({user.phone || 'N/A'})</span>
+              </p>
+              <p className="text-[10px] font-black text-brand-500 uppercase tracking-widest mt-1 flex items-center">
+                <ShieldCheck size={10} className="mr-1" /> {user.role}
+              </p>
             </div>
           </div>
           <button 

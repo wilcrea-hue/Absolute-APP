@@ -8,13 +8,19 @@ export interface Product {
   description: string;
   image: string;
   stock: number;
+  priceSell: number;
+  priceRent: number;
 }
+
+export type TransactionType = 'Compra' | 'Alquiler';
 
 export interface CartItem extends Product {
   quantity: number;
+  type: TransactionType;
 }
 
-export type OrderStatus = 'Pendiente' | 'En Proceso' | 'Entregado' | 'Finalizado' | 'Cancelado';
+export type OrderStatus = 'Cotización' | 'Pendiente' | 'En Proceso' | 'Entregado' | 'Finalizado' | 'Cancelado';
+export type OrderType = 'quote' | 'purchase';
 
 export interface Signature {
   name: string;
@@ -51,12 +57,16 @@ export interface Order {
   id: string;
   items: CartItem[];
   userEmail: string;
+  assignedCoordinatorEmail?: string; // Nuevo: Email del coordinador asignado secuencialmente
   status: OrderStatus;
+  orderType: OrderType;
   startDate: string;
   endDate: string;
   createdAt: string;
   originLocation: string; // Default warehouse
   destinationLocation: string; // Event city
+  totalAmount: number;
+  discountApplied?: number; // Porcentaje de descuento aplicado al crear la orden
   
   // New Workflow Structure
   workflow: Record<WorkflowStageKey, StageData>;
@@ -64,8 +74,9 @@ export interface Order {
 
 export interface User {
   email: string;
-  role: 'admin' | 'user' | 'logistics' | 'coordinator';
+  role: 'admin' | 'user' | 'logistics' | 'coordinator' | 'operations_manager';
   name: string;
-  phone?: string; // Nuevo campo para registro de celular
-  status?: 'active' | 'on-hold'; // Nuevo campo para control de acceso
+  phone?: string; 
+  status?: 'active' | 'on-hold';
+  discountPercentage?: number; // Nuevo campo para descuentos personalizados
 }
