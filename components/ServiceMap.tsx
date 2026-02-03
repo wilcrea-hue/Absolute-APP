@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
-import { Search, MapPin, Navigation, Info, ExternalLink, Loader2, Clock, Ruler, CreditCard, Map as MapIcon, ArrowRight, Zap, ShoppingCart } from 'lucide-react';
+import { Search, MapPin, Navigation, Info, ExternalLink, Loader2, Clock, Ruler, CreditCard, Map as MapIcon, ArrowRight, Zap, ShoppingCart, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface RouteSummary {
@@ -11,7 +12,6 @@ interface RouteSummary {
   tolls: string;
 }
 
-// Simulated data for major Colombian routes
 const MOCK_ROUTES: Record<string, any> = {
   'bogota-medellin': { distance: '415 km', duration: '9h 15m', tolls: '6 peajes / $78.400 COP' },
   'medellin-bogota': { distance: '415 km', duration: '9h 15m', tolls: '6 peajes / $78.400 COP' },
@@ -29,17 +29,17 @@ export const ServiceMap: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
   const [mapLinks, setMapLinks] = useState<{ uri: string; title: string; review?: string }[]>([]);
-  // Use correct property names (latitude/longitude) for Google GenAI toolConfig
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
   const [mapMode, setMapMode] = useState<'place' | 'directions'>('place');
   const navigate = useNavigate();
 
+  const apiKey = process.env.API_KEY;
+
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          // Initialize location with correct property names for the GenAI SDK
           setUserLocation({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude
@@ -75,7 +75,6 @@ export const ServiceMap: React.FC = () => {
     setResponse(null);
     setRouteSummary(null);
 
-    // Simulate network delay
     setTimeout(() => {
       const key = `${origin.toLowerCase().trim()}-${destination.toLowerCase().trim()}`;
       const mock = MOCK_ROUTES[key] || {
@@ -119,8 +118,8 @@ Recomendaciones:
     setRouteSummary(null);
 
     try {
-      // Initialize GoogleGenAI with process.env.API_KEY before each request
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      if (!apiKey) throw new Error("API Key missing");
+      const ai = new GoogleGenAI({ apiKey });
       const prompt = `Eres un experto en logística para ABSOLUTE, una empresa de eventos en Colombia. 
       Analiza la siguiente solicitud de transporte:
       - ORIGEN: ${originInput}
@@ -138,7 +137,6 @@ Recomendaciones:
       Peajes: [Ej: 6 peajes / $75.000 COP aprox]
       ---`;
 
-      // Use gemini-2.5-flash as it is mandatory for maps grounding features
       const res = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: prompt,
@@ -146,14 +144,12 @@ Recomendaciones:
           tools: [{ googleMaps: {} }],
           toolConfig: {
             retrievalConfig: {
-              // Pass correctly structured latLng object
               latLng: userLocation || { latitude: 4.7110, longitude: -74.0721 }
             }
           }
         },
       });
 
-      // Extract generated text from the .text property
       const fullText = res.text || "";
       const summary = parseSummary(fullText);
       const displayText = fullText.replace(/---RESUMEN---[\s\S]*?---/, "").trim();
@@ -162,7 +158,6 @@ Recomendaciones:
       setRouteSummary(summary);
       setMapMode(summary ? 'directions' : 'place');
 
-      // Extract grounding metadata including uri and reviewSnippets as required by guidelines
       const chunks = res.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
       const links = chunks
         .filter((chunk: any) => chunk.maps?.uri)
@@ -184,18 +179,17 @@ Recomendaciones:
 
   const handleCreateOrderFromRoute = () => {
     if (routeSummary) {
-      // Navigate to catalog, but pass the destination in state
       navigate('/', { state: { prefilledDestination: routeSummary.destination } });
     }
   };
 
   const getEmbedUrl = () => {
-    const key = process.env.API_KEY || '';
+    if (!apiKey) return '';
     if (mapMode === 'directions' && routeSummary) {
-      return `https://www.google.com/maps/embed/v1/directions?key=${key}&origin=${encodeURIComponent(routeSummary.origin)}&destination=${encodeURIComponent(routeSummary.destination)}&mode=driving`;
+      return `https://www.google.com/maps/embed/v1/directions?key=${apiKey}&origin=${encodeURIComponent(routeSummary.origin)}&destination=${encodeURIComponent(routeSummary.destination)}&mode=driving`;
     }
     const query = destinationInput || originInput || 'Colombia';
-    return `https://www.google.com/maps/embed/v1/place?key=${key}&q=${encodeURIComponent(query)}&zoom=6`;
+    return `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${encodeURIComponent(query)}&zoom=6`;
   };
 
   return (
@@ -308,16 +302,27 @@ Recomendaciones:
             </span>
           </div>
           <div className="flex-1 relative bg-gray-100">
-            <iframe
-              title="Logistics Map"
-              width="100%"
-              height="100%"
-              style={{ border: 0 }}
-              loading="lazy"
-              allowFullScreen
-              referrerPolicy="no-referrer-when-downgrade"
-              src={getEmbedUrl()}
-            ></iframe>
+            {apiKey ? (
+              <iframe
+                key={getEmbedUrl()} // Force re-render on URL change
+                title="Logistics Map"
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                loading="lazy"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+                src={getEmbedUrl()}
+              ></iframe>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center p-12 space-y-4">
+                <AlertTriangle size={48} className="text-amber-500" />
+                <h3 className="font-black text-brand-900 uppercase">Falta Configuración de Mapa</h3>
+                <p className="text-xs text-slate-500 font-bold max-w-xs">
+                  No se detectó una API Key válida para cargar Google Maps. Contacte al administrador del sistema.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

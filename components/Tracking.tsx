@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Order, WorkflowStageKey, StageData, Signature, User } from '../types';
-import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck } from 'lucide-react';
+import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { SignaturePad } from './SignaturePad';
 import { GoogleGenAI } from "@google/genai";
@@ -24,13 +24,12 @@ const ALL_STAGES: { key: WorkflowStageKey; label: string; description: string }[
 export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, currentUser, users }) => {
   const { id } = useParams<{ id: string }>();
   const order = orders.find(o => o.id === id);
+  const apiKey = process.env.API_KEY;
   
-  // Filtrar etapas según el rol del usuario (Cliente solo ve hasta la etapa 4, Admin ve todas)
   const visibleStages = useMemo(() => {
     return currentUser.role === 'user' ? ALL_STAGES.slice(0, 4) : ALL_STAGES;
   }, [currentUser.role]);
 
-  // Definir quién puede editar: Solo roles operativos. Admin y User son lectura.
   const canEdit = useMemo(() => {
     const operationalRoles = ['logistics', 'coordinator', 'operations_manager'];
     return operationalRoles.includes(currentUser.role);
@@ -90,11 +89,11 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
   };
 
   const professionalizeNote = async () => {
-    if (!tempStageData?.generalNotes || !canEdit || isAiProcessing) return;
+    if (!tempStageData?.generalNotes || !canEdit || isAiProcessing || !apiKey) return;
     
     setIsAiProcessing(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey });
       const prompt = `Actúa como un supervisor logístico senior de ABSOLUTE COMPANY. 
       Transforma la siguiente nota técnica informal en un reporte profesional, ejecutivo y conciso para el historial del evento. 
       Nota original: "${tempStageData.generalNotes}"
@@ -181,18 +180,24 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
 
       {showMap && (
         <div className="h-80 bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-xl animate-in zoom-in duration-500">
-           <iframe
-                title="Logistics Route"
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                loading="lazy"
-                src={`https://www.google.com/maps/embed/v1/directions?key=${process.env.API_KEY}&origin=Bogota&destination=${encodeURIComponent(order.destinationLocation)}&mode=driving`}
-           ></iframe>
+           {apiKey ? (
+             <iframe
+                  title="Logistics Route"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  loading="lazy"
+                  src={`https://www.google.com/maps/embed/v1/directions?key=${apiKey}&origin=Bogota&destination=${encodeURIComponent(order.destinationLocation)}&mode=driving`}
+             ></iframe>
+           ) : (
+              <div className="h-full flex flex-col items-center justify-center space-y-2 bg-slate-50">
+                <AlertTriangle size={32} className="text-amber-500" />
+                <p className="text-[10px] font-black uppercase text-brand-900">Mapa no disponible - Falta API Key</p>
+              </div>
+           )}
         </div>
       )}
 
-      {/* Selector de Etapas - Filtrado por Rol */}
       <div className={`grid gap-3 ${currentUser.role === 'user' ? 'grid-cols-4' : 'grid-cols-2 md:grid-cols-5'}`}>
         {visibleStages.map((stage, idx) => {
             const stageData = order.workflow[stage.key];
@@ -223,7 +228,6 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-8 bg-white rounded-[3rem] shadow-xl border border-slate-50 overflow-hidden flex flex-col relative">
-            {/* Overlay de solo lectura para admin */}
             {!canEdit && currentUser.role === 'admin' && (
               <div className="absolute top-0 right-0 p-8 z-20">
                  <div className="bg-amber-50 text-amber-700 px-4 py-2 rounded-2xl border border-amber-100 text-[9px] font-black uppercase tracking-widest flex items-center shadow-sm">
@@ -333,12 +337,6 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
                                 </button>
                             )
                         )}
-                        {!isCompleted && !canEdit && !tempStageData?.signature && (
-                          <div className="w-full h-40 border-2 border-dashed border-slate-100 rounded-[2rem] flex flex-col items-center justify-center text-slate-300 opacity-50">
-                              <PenTool size={24} className="mb-2" />
-                              <span className="text-[9px] font-black uppercase tracking-widest">Firma pendiente</span>
-                          </div>
-                        )}
                     </div>
 
                     {showReceivedBy && (
@@ -361,12 +359,6 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
                                         <span className="text-[9px] font-black uppercase tracking-widest">Capturar Firma Receptor</span>
                                     </button>
                                 )
-                            )}
-                            {!isCompleted && !canEdit && !tempStageData?.receivedBy && (
-                              <div className="w-full h-40 border-2 border-dashed border-slate-100 rounded-[2rem] flex flex-col items-center justify-center text-slate-300 opacity-50">
-                                  <PenTool size={24} className="mb-2" />
-                                  <span className="text-[9px] font-black uppercase tracking-widest">Firma pendiente</span>
-                              </div>
                             )}
                         </div>
                     )}
@@ -423,22 +415,6 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
                     </div>
                   )}
                 </div>
-            </div>
-
-            <div className="bg-brand-50 rounded-[2.5rem] p-8 border border-brand-100 border-b-4 border-b-brand-200">
-               <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] mb-4 flex items-center">
-                  <Info size={16} className="mr-2" /> Status Operativo
-               </h4>
-               <ul className="space-y-3">
-                  <li className="flex justify-between items-center bg-white/50 p-3 rounded-xl border border-white">
-                    <span className="text-[9px] font-black text-slate-400 uppercase">Artículos Cargados</span>
-                    <span className="text-xs font-black text-brand-900">{order.items.reduce((acc, i) => acc + i.quantity, 0)}</span>
-                  </li>
-                  <li className="flex justify-between items-center bg-white/50 p-3 rounded-xl border border-white">
-                    <span className="text-[9px] font-black text-slate-400 uppercase">Fotos Evidencia</span>
-                    <span className="text-xs font-black text-brand-900">{tempStageData?.photos?.length || 0}</span>
-                  </li>
-               </ul>
             </div>
         </div>
       </div>
