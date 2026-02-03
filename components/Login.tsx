@@ -1,11 +1,12 @@
+
 import React, { useState } from 'react';
 import { User } from '../types';
 import { LOGO_URL } from '../constants';
 import { Mail, Lock, User as UserIcon, ArrowRight, CheckCircle2, Phone, ShieldCheck } from 'lucide-react';
 
 interface LoginProps {
-  onLogin: (email: string) => boolean;
-  onRegister: (name: string, email: string, phone: string) => boolean;
+  onLogin: (email: string, password?: string) => { success: boolean, message?: string };
+  onRegister: (name: string, email: string, phone: string, password?: string) => boolean;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
@@ -24,20 +25,21 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
 
     if (isRegister) {
       if (name && email && password && phone) {
-        const registered = onRegister(name, email, phone);
+        const registered = onRegister(name, email, phone, password);
         if (registered) {
-          setSuccess('¡Cuenta creada con éxito! Iniciando sesión...');
+          setSuccess('¡Cuenta creada con éxito! Espere aprobación del administrador.');
+          setIsRegister(false);
         } else {
           setError('El correo electrónico ya está registrado.');
         }
       } else {
-        setError('Por favor complete todos los campos, incluyendo su celular.');
+        setError('Por favor complete todos los campos.');
       }
     } else {
       if (email && password) {
-        const loggedIn = onLogin(email);
-        if (!loggedIn) {
-          setError('Credenciales incorrectas o usuario no encontrado.');
+        const result = onLogin(email, password);
+        if (!result.success) {
+          setError(result.message || 'Error al iniciar sesión.');
         }
       } else {
         setError('Por favor ingrese su correo y contraseña.');
@@ -47,7 +49,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#000033] px-4 py-12 relative overflow-hidden">
-      {/* Background decoration with navy/cyan gradients */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-blue-600/20 rounded-full blur-[160px] animate-pulse"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-brand-400/10 rounded-full blur-[140px]"></div>
@@ -126,7 +127,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-brand-900/5 focus:bg-white focus:border-brand-900 outline-none transition-all text-sm font-bold placeholder:text-slate-300"
-                    placeholder="usuario@absolute.com"
+                    placeholder="usuario@absolutecompany.co"
                     required
                   />
                 </div>
@@ -172,12 +173,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
               </button>
             </div>
           </div>
-        </div>
-        
-        <div className="mt-10 text-center">
-          <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.5em] animate-pulse">
-            ABSOLUTE COMPANY &bull; AGENCIA DE PUBLICIDAD INTEGRAL
-          </p>
         </div>
       </div>
     </div>

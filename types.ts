@@ -74,6 +74,7 @@ export interface Order {
 
 export interface User {
   email: string;
+  password?: string; // Campo para seguridad
   role: 'admin' | 'user' | 'logistics' | 'coordinator' | 'operations_manager';
   name: string;
   phone?: string; 
