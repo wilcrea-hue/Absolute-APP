@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { Product, Order, User, WorkflowStageKey, StageData, Category } from '../types';
+import { Product, Order, User, WorkflowStageKey, StageData, Category, CartItem } from './types';
 import { Package, Plus, Edit2, Trash2, CheckCircle, Lock, XCircle, DollarSign, UserCheck, Calendar, MapPin, ArrowRight, ClipboardList, FileText, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { UserManagement } from './UserManagement';
+import { UserManagement } from './components/UserManagement';
 
 interface AdminDashboardProps {
   currentUser: User;
@@ -24,14 +24,6 @@ interface AdminDashboardProps {
   onDeleteUser?: (email: string) => void;
   onUpdateStage: (orderId: string, stageKey: WorkflowStageKey, data: StageData) => void;
 }
-
-const WORKFLOW_STEPS: { key: WorkflowStageKey; label: string; stepNumber: number }[] = [
-  { key: 'bodega_check', label: '1. Bodega', stepNumber: 1 },
-  { key: 'bodega_to_coord', label: '2. Entrega Coord', stepNumber: 2 },
-  { key: 'coord_to_client', label: '3. Entrega Cliente', stepNumber: 3 },
-  { key: 'client_to_coord', label: '4. Recogida', stepNumber: 4 },
-  { key: 'coord_to_bodega', label: '5. Retorno Bodega', stepNumber: 5 },
-];
 
 const CATEGORIES: Category[] = ['Mobiliario', 'Electrónica', 'Arquitectura Efímera', 'Decoración', 'Servicios'];
 
@@ -172,7 +164,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <div className="space-y-6">
                             <h5 className="text-[10px] font-black text-brand-900 uppercase tracking-widest border-b pb-2">Artículos Rentados</h5>
                             <div className="space-y-2">
-                              {order.items.map((item, idx) => (
+                              {order.items.map((item: CartItem, idx: number) => (
                                 <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
                                   <div className="flex items-center space-x-3">
                                     <img src={item.image} className="w-8 h-8 rounded-lg object-cover" alt="" />

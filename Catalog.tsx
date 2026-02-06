@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Category, Product } from '../types';
+import { Category, Product } from './types';
 import { Search, Plus, Clock, PackageX, AlertCircle } from 'lucide-react';
 
 interface CatalogProps {

@@ -4,21 +4,22 @@ import { HashRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { User, Product, CartItem, Order, OrderStatus, WorkflowStageKey, StageData, OrderType } from './types';
 import { Login } from './components/Login';
 import { Layout } from './components/Layout';
-import { Catalog } from './components/Catalog';
-import { Cart } from './components/Cart';
+import { Catalog } from './Catalog';
+import { Cart } from './Cart';
 import { Tracking } from './components/Tracking';
-import { AdminDashboard } from './components/AdminDashboard';
+import { AdminDashboard } from './AdminDashboard';
 import { ServiceMap } from './components/ServiceMap';
 import { EmailNotification } from './components/EmailNotification';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
-import { PRODUCTS } from './constants';
+import { PRODUCTS, LOGO_URL } from './constants';
 import { GoogleGenAI } from "@google/genai";
 import { CheckCircle, Eye } from 'lucide-react';
 
 const API_URL = './api/sync.php'; 
+const ADMIN_EMAIL = 'admin@absolutecompany.co';
 
 const DEFAULT_USERS: User[] = [
-  { email: 'admin@absolutecompany.co', password: 'absolute2024', name: 'Administrador Principal', role: 'admin', phone: '3101234567', status: 'active', discountPercentage: 0 },
+  { email: ADMIN_EMAIL, password: 'absolute2024', name: 'Administrador Principal', role: 'admin', phone: '3101234567', status: 'active', discountPercentage: 0 },
   { email: 'logistics@absolutecompany.co', password: 'absolute2024', name: 'Encargado Logística', role: 'logistics', phone: '3119876543', status: 'active', discountPercentage: 0 },
   { email: 'manager@absolutecompany.co', password: 'absolute2024', name: 'Gerente de Operaciones', role: 'operations_manager', phone: '3151112233', status: 'active', discountPercentage: 0 },
 ];
@@ -26,7 +27,7 @@ const DEFAULT_USERS: User[] = [
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [sentEmail, setSentEmail] = useState<{ to: string, subject: string, body: string, stage: string } | null>(null);
+  const [sentEmail, setSentEmail] = useState<{ to: string, cc: string, subject: string, body: string, stage: string } | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(false);
   const [lastSync, setLastSync] = useState<Date>(new Date());
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -104,6 +105,49 @@ const App: React.FC = () => {
     localStorage.setItem('absolute_order_counter', orderCounter.toString());
   }, [orders, products, users, orderCounter]);
 
+  const triggerEmailNotification = async (recipientEmail: string, subject: string, stage: string, context: string) => {
+    try {
+      const apiKey = process.env.API_KEY;
+      let emailBody = "Notificación automática de ABSOLUTE COMPANY.";
+
+      if (apiKey) {
+        const ai = new GoogleGenAI({ apiKey });
+        const prompt = `Escribe un correo electrónico profesional y elegante para ABSOLUTE COMPANY. 
+        Contexto: ${context}. 
+        Etapa/Asunto: ${stage}. 
+        Debe sonar ejecutivo, servicial y corporativo. Incluye despedida del equipo de ABSOLUTE.`;
+        
+        const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
+        emailBody = response.text || emailBody;
+      }
+
+      // Solo mostramos el editor si el usuario actual es administrador
+      if (user?.role === 'admin') {
+        setSentEmail({
+          to: recipientEmail,
+          cc: ADMIN_EMAIL,
+          subject: `ABSOLUTE: ${subject}`,
+          body: emailBody,
+          stage: stage
+        });
+      } else {
+        // Para no-admins, simulamos el envío en consola (o lo registramos en logs)
+        console.log(`[Email Auto-Sent] To: ${recipientEmail}, Subject: ${subject}`);
+      }
+    } catch (err) {
+      console.error("Error generating email:", err);
+      if (user?.role === 'admin') {
+        setSentEmail({
+          to: recipientEmail,
+          cc: ADMIN_EMAIL,
+          subject: `ABSOLUTE: ${subject}`,
+          body: `Se ha registrado una actividad importante en su cuenta: ${context}. Por favor verifique el portal.`,
+          stage: stage
+        });
+      }
+    }
+  };
+
   const saveAndSync = async (type: 'orders' | 'inventory' | 'users' | 'all', newData: any) => {
     if (type === 'orders') setOrders(newData);
     if (type === 'inventory') setProducts(newData);
@@ -138,6 +182,16 @@ const App: React.FC = () => {
     if (users.some(u => u.email.toLowerCase() === lowerEmail)) return false;
     const newUser: User = { name, email: lowerEmail, role: 'user', phone, status: 'on-hold', discountPercentage: 0, password };
     saveAndSync('users', [...users, newUser]);
+    
+    // El disparador intentará mostrar el editor si un admin lo está haciendo (ej. desde panel)
+    // Pero si es un registro externo, solo lo enviaría silenciosamente
+    triggerEmailNotification(
+      lowerEmail, 
+      "Registro Exitoso - Pendiente de Aprobación", 
+      "Registro de Usuario", 
+      `El usuario ${name} se ha registrado y espera aprobación.`
+    );
+    
     return true;
   };
 
@@ -155,10 +209,22 @@ const App: React.FC = () => {
       const updatedWorkflow = { ...order.workflow, [stageKey]: data };
       let newStatus: OrderStatus = order.status;
       if (data.status === 'completed') {
+        const stageLabels: Record<WorkflowStageKey, string> = {
+          'bodega_check': 'Verificación en Bodega', 'bodega_to_coord': 'Salida a Tránsito',
+          'coord_to_client': 'Entrega en el Evento', 'client_to_coord': 'Recogida de Equipos',
+          'coord_to_bodega': 'Retorno a Bodega Central'
+        };
+
         if (stageKey === 'bodega_check') newStatus = 'En Proceso';
         else if (stageKey === 'coord_to_client') newStatus = 'Entregado';
         else if (stageKey === 'coord_to_bodega') newStatus = 'Finalizado';
-        triggerEmailNotification(order, stageKey);
+        
+        triggerEmailNotification(
+          order.userEmail, 
+          `Avance Logístico: ${order.id}`, 
+          stageLabels[stageKey], 
+          `Su pedido ha completado con éxito la etapa de ${stageLabels[stageKey]}.`
+        );
       }
       return { ...order, status: newStatus, workflow: updatedWorkflow };
     });
@@ -168,30 +234,17 @@ const App: React.FC = () => {
   const handleConfirmQuote = (orderId: string) => {
     const updatedOrders = orders.map(order => {
       if (order.id === orderId && order.status === 'Cotización') {
+        triggerEmailNotification(
+          order.userEmail,
+          `Confirmación de Cotización ${order.id}`,
+          "Cotización Confirmada",
+          "Su cotización ha sido confirmada y ahora es una reserva pendiente de despacho."
+        );
         return { ...order, status: 'Pendiente' as OrderStatus };
       }
       return order;
     });
     saveAndSync('orders', updatedOrders);
-  };
-
-  const triggerEmailNotification = async (order: Order, stageKey: WorkflowStageKey) => {
-    const stageLabels: Record<WorkflowStageKey, string> = {
-      'bodega_check': 'Verificación en Bodega', 'bodega_to_coord': 'Salida a Tránsito',
-      'coord_to_client': 'Entrega en el Evento', 'client_to_coord': 'Recogida de Equipos',
-      'coord_to_bodega': 'Retorno a Bodega Central'
-    };
-    try {
-      const apiKey = process.env.API_KEY;
-      if (!apiKey) {
-        setSentEmail({ to: order.userEmail, subject: `Actualización ABSOLUTE: ${order.id}`, body: "Su pedido ha avanzado.", stage: stageLabels[stageKey] });
-        return;
-      }
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `Escribe un correo profesional para: ${order.id}, Etapa: ${stageLabels[stageKey]}. Tono corporativo ABSOLUTE.`;
-      const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-      setSentEmail({ to: order.userEmail, subject: `Actualización ABSOLUTE: ${order.id}`, body: response.text || "Su pedido ha avanzado.", stage: stageLabels[stageKey] });
-    } catch (err) { console.error(err); }
   };
 
   const createOrder = (startDate: string, endDate: string, destination: string, type: OrderType = 'rental') => {
@@ -225,6 +278,13 @@ const App: React.FC = () => {
     setOrderCounter(nextCounter);
     saveAndSync('orders', [newOrder, ...orders]);
     setCart([]);
+
+    triggerEmailNotification(
+      user.email,
+      `${type === 'quote' ? 'Nueva Cotización' : 'Nueva Reserva'} Registrada: ${orderId}`,
+      type === 'quote' ? 'Generación de Cotización' : 'Creación de Reserva',
+      `Se ha generado un documento de ${type === 'quote' ? 'cotización' : 'reserva'} para el evento en ${destination}.`
+    );
   };
 
   return (
@@ -292,7 +352,19 @@ const App: React.FC = () => {
                 onUpdateOrderDates={() => {}} 
                 onChangeUserRole={(email, role) => saveAndSync('users', users.map(u => u.email === email ? {...u, role} : u))} 
                 onChangeUserDiscount={(email, disc) => saveAndSync('users', users.map(u => u.email === email ? {...u, discountPercentage: disc} : u))}
-                onToggleUserStatus={(email) => saveAndSync('users', users.map(u => u.email === email ? {...u, status: u.status === 'active' ? 'on-hold' : 'active'} : u))} 
+                onToggleUserStatus={(email) => {
+                  const updatedUsers = users.map(u => u.email === email ? {...u, status: u.status === 'active' ? 'on-hold' : 'active'} : u);
+                  const targetedUser = updatedUsers.find(u => u.email === email);
+                  if (targetedUser && targetedUser.status === 'active') {
+                    triggerEmailNotification(
+                      email, 
+                      "Cuenta Activada con Éxito", 
+                      "Activación de Cuenta", 
+                      "Su cuenta ha sido aprobada por un administrador. Ya puede acceder a todas las funcionalidades de ABSOLUTE."
+                    );
+                  }
+                  saveAndSync('users', updatedUsers);
+                }} 
                 onDeleteUser={(email) => saveAndSync('users', users.filter(u => u.email !== email))} 
                 onUpdateStage={handleUpdateStage} onToggleUserRole={() => {}}
               />
@@ -303,7 +375,8 @@ const App: React.FC = () => {
           <ChangePasswordModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} onUpdate={handleUpdatePassword} currentUser={user} />
         </Layout>
       )}
-      <EmailNotification email={sentEmail} onClose={() => setSentEmail(null)} />
+      {/* Solo mostramos el editor si el rol es Admin */}
+      {user?.role === 'admin' && <EmailNotification email={sentEmail} onClose={() => setSentEmail(null)} />}
     </HashRouter>
   );
 };

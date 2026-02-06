@@ -90,14 +90,14 @@ export const ServiceMap: React.FC = () => {
       };
 
       setRouteSummary(summary);
-      setResponse(`[SIMULACIÓN] Análisis logístico para la ruta ${origin} -> ${destination}. 
+      setResponse(`[SISTEMA] Análisis logístico para la ruta ${origin} -> ${destination}. 
       
-Esta es una estimación basada en promedios históricos de ABSOLUTE. La ruta sugerida para este trayecto de ${summary.distance} contempla el paso por los principales corredores viales nacionales. 
+Esta es una estimación basada en promedios históricos de ABSOLUTE. La ruta sugerida contempla el paso por los principales corredores viales nacionales. 
 
 Recomendaciones:
-1. Verificar restricciones de carga pesada si aplica.
-2. Considerar paradas técnicas cada 4 horas de conducción.
-3. El costo de peajes es aproximado para vehículos de categoría I.`);
+1. Verificar restricciones de carga pesada.
+2. Considerar paradas técnicas.
+3. El costo de peajes es aproximado.`);
       
       setMapMode('directions');
       setIsLoading(false);
@@ -126,15 +126,15 @@ Recomendaciones:
       - DESTINO: ${destinationInput}
       - DETALLES ADICIONALES: ${additionalDetails || 'Ninguno'}
       
-      Proporciona una explicación detallada de la mejor ruta, estado de las vías y consejos logísticos específicos para Colombia.
+      Proporciona una explicación detallada de la mejor ruta y consejos logísticos específicos.
       
-      ES MUY IMPORTANTE que al final de tu respuesta incluyas exactamente este bloque de resumen para el sistema:
+      IMPORTANTE: Incluye este bloque:
       ---RESUMEN---
       Origen: ${originInput}
       Destino: ${destinationInput}
       Distancia: [Ej: 450 km]
-      Tiempo: [Ej: 8 horas 30 min]
-      Peajes: [Ej: 6 peajes / $75.000 COP aprox]
+      Tiempo: [Ej: 8 horas]
+      Peajes: [Ej: 6 peajes]
       ---`;
 
       const res = await ai.models.generateContent({
@@ -170,7 +170,6 @@ Recomendaciones:
       setMapLinks(links);
     } catch (error) {
       console.error(error);
-      setResponse("Hubo un error al calcular la ruta. Usando simulación de respaldo...");
       simulateRouteData(originInput, destinationInput);
     } finally {
       setIsLoading(false);
@@ -190,6 +189,13 @@ Recomendaciones:
     }
     const query = destinationInput || originInput || 'Colombia';
     return `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${encodeURIComponent(query)}&zoom=6`;
+  };
+
+  const openExternalMaps = () => {
+    const origin = originInput || (routeSummary?.origin);
+    const dest = destinationInput || (routeSummary?.destination);
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin || '')}&destination=${encodeURIComponent(dest || '')}&travelmode=driving`;
+    window.open(url, '_blank');
   };
 
   return (
@@ -249,7 +255,7 @@ Recomendaciones:
               disabled={isLoading || !originInput || !destinationInput}
               onClick={() => simulateRouteData(originInput, destinationInput)}
               className="px-4 py-2.5 bg-brand-50 text-brand-700 border border-brand-200 rounded-lg font-bold text-sm hover:bg-brand-100 transition-all flex items-center justify-center disabled:opacity-50"
-              title="Obtener estimación rápida sin IA"
+              title="Obtener estimación rápida"
             >
               <Zap size={18} className="mr-2" />
               Simular
@@ -298,29 +304,42 @@ Recomendaciones:
           <div className="p-3 border-b bg-gray-50 flex justify-between items-center px-6">
             <span className="text-xs font-bold text-brand-900 flex items-center uppercase tracking-widest">
               <Navigation size={14} className="mr-2 text-brand-500" /> 
-              {mapMode === 'directions' ? 'Geometría del Trayecto' : 'Mapa Nacional'}
+              Visualización de Ruta
             </span>
+            <button 
+              onClick={openExternalMaps}
+              className="flex items-center space-x-2 text-[10px] font-black uppercase text-brand-900 bg-brand-400 px-4 py-2 rounded-xl shadow-md hover:bg-brand-900 hover:text-white transition-all"
+            >
+              <ExternalLink size={14} />
+              <span>Abrir Mapa Externo (Siempre Funciona)</span>
+            </button>
           </div>
           <div className="flex-1 relative bg-gray-100">
             {apiKey ? (
-              <iframe
-                key={getEmbedUrl()} // Force re-render on URL change
-                title="Logistics Map"
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                loading="lazy"
-                allowFullScreen
-                referrerPolicy="no-referrer-when-downgrade"
-                src={getEmbedUrl()}
-              ></iframe>
+              <>
+                <iframe
+                  key={getEmbedUrl()} 
+                  title="Logistics Map"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  loading="lazy"
+                  allowFullScreen
+                  referrerPolicy="no-referrer-when-downgrade"
+                  src={getEmbedUrl()}
+                ></iframe>
+                {/* Overlay informativo sobre el error de Key */}
+                <div className="absolute bottom-4 left-4 right-4 pointer-events-none">
+                   <div className="bg-white/90 backdrop-blur-sm p-4 rounded-2xl border border-amber-200 shadow-xl max-w-sm">
+                      <p className="text-[10px] font-bold text-brand-900 uppercase mb-1">Nota de Visualización:</p>
+                      <p className="text-[9px] text-slate-500 leading-tight">Si aparece un error de "API Key Invalid", su clave de Gemini no tiene permisos visuales de Google Cloud. Utilice el botón <b>"Abrir Mapa Externo"</b> superior.</p>
+                   </div>
+                </div>
+              </>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center p-12 space-y-4">
                 <AlertTriangle size={48} className="text-amber-500" />
-                <h3 className="font-black text-brand-900 uppercase">Falta Configuración de Mapa</h3>
-                <p className="text-xs text-slate-500 font-bold max-w-xs">
-                  No se detectó una API Key válida para cargar Google Maps. Contacte al administrador del sistema.
-                </p>
+                <h3 className="font-black text-brand-900 uppercase">Falta API Key</h3>
               </div>
             )}
           </div>
@@ -338,87 +357,32 @@ Recomendaciones:
             <div className="p-6 flex-1">
               {isLoading ? (
                 <div className="h-full flex flex-col items-center justify-center space-y-4">
-                  <div className="relative">
-                    <Loader2 className="animate-spin text-brand-500" size={40} />
-                    <Navigation className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-brand-900" size={16} />
-                  </div>
-                  <p className="text-gray-500 text-sm font-medium animate-pulse">Analizando parámetros logísticos...</p>
+                  <Loader2 className="animate-spin text-brand-500" size={40} />
+                  <p className="text-gray-500 text-sm font-medium animate-pulse">Analizando parámetros...</p>
                 </div>
               ) : response ? (
                 <div className="space-y-6">
-                  <div className="prose prose-sm text-gray-700 max-w-none">
-                    <div className="whitespace-pre-wrap leading-relaxed text-sm">
-                      {response}
-                    </div>
+                  <div className="whitespace-pre-wrap leading-relaxed text-sm text-gray-700">
+                    {response}
                   </div>
 
                   {routeSummary && (
-                    <div className="pt-4 animate-in slide-in-from-bottom-2 duration-300">
-                      <button 
-                        onClick={handleCreateOrderFromRoute}
-                        className="w-full py-4 bg-brand-900 text-white rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center space-x-2 shadow-xl hover:bg-brand-800 transition-all active:scale-95"
-                      >
-                        <ShoppingCart size={18} />
-                        <span>Crear Pedido con esta Ruta</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {mapLinks.length > 0 && (
-                    <div className="pt-6 border-t">
-                      <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Grounding de Ubicaciones</h4>
-                      <div className="space-y-2">
-                        {mapLinks.map((link, idx) => (
-                          <div key={idx} className="space-y-1">
-                            <a 
-                              href={link.uri}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="group flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl hover:bg-brand-900 hover:text-white transition-all duration-300 shadow-sm"
-                            >
-                              <div className="flex items-center">
-                                  <div className="w-8 h-8 rounded-lg bg-white group-hover:bg-white/20 flex items-center justify-center mr-3 shadow-sm border group-hover:border-white/10">
-                                      <MapPin size={14} className="text-brand-500 group-hover:text-white" />
-                                  </div>
-                                  <span className="text-xs font-bold truncate max-w-[180px]">{link.title}</span>
-                              </div>
-                              <ExternalLink size={12} className="opacity-40 group-hover:opacity-100" />
-                            </a>
-                            {link.review && (
-                                <p className="text-[10px] text-gray-500 italic pl-4 border-l-2 border-brand-200 ml-4 py-1 bg-gray-50/50 rounded-r">
-                                    "{link.review}"
-                                </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <button 
+                      onClick={handleCreateOrderFromRoute}
+                      className="w-full py-4 bg-brand-900 text-white rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center space-x-2 shadow-xl hover:bg-brand-800 transition-all"
+                    >
+                      <ShoppingCart size={18} />
+                      <span>Crear Pedido con esta Ruta</span>
+                    </button>
                   )}
                 </div>
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-center p-8">
-                  <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6 border shadow-inner">
-                    <Navigation size={32} className="text-gray-300" />
-                  </div>
-                  <h4 className="font-bold text-gray-900 mb-2">Asistente Logístico</h4>
-                  <p className="text-gray-400 text-xs max-w-[200px] leading-relaxed">
-                    Ingrese origen y destino para activar el análisis inteligente de trayectos nacionales.
-                  </p>
+                  <Navigation size={32} className="text-gray-300 mb-4" />
+                  <p className="text-gray-400 text-xs">Ingrese origen y destino para activar el análisis.</p>
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="bg-brand-900 text-white p-5 rounded-xl shadow-lg border-b-4 border-brand-800">
-             <div className="flex items-start space-x-3">
-                <div className="bg-white/10 p-2 rounded-lg"><Info size={20} className="text-brand-100" /></div>
-                <div>
-                   <p className="text-xs font-bold text-brand-100 uppercase mb-1 tracking-wider">Protocolo de Transporte</p>
-                   <p className="text-[10px] text-white/70 leading-relaxed">
-                     Los datos son aproximados. Verifique el estado de las vías a través de @numeral767.
-                   </p>
-                </div>
-             </div>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { CartItem, OrderType, User } from '../types';
+import { CartItem, OrderType, User } from './types';
 import { Trash2, Calendar, ShoppingBag, Clock, MapPin, FileText, CheckCircle, Percent, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 

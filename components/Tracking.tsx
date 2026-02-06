@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Order, WorkflowStageKey, StageData, Signature, User } from '../types';
-import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle, FileText } from 'lucide-react';
+import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle, FileText, ExternalLink } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { SignaturePad } from './SignaturePad';
 import { GoogleGenAI } from "@google/genai";
@@ -98,9 +98,8 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
     try {
       const ai = new GoogleGenAI({ apiKey });
       const prompt = `Actúa como un supervisor logístico senior de ABSOLUTE COMPANY. 
-      Transforma la siguiente nota técnica informal en un reporte profesional, ejecutivo y conciso para el historial del evento. 
-      Nota original: "${tempStageData.generalNotes}"
-      Responde solo con el texto profesionalizado.`;
+      Transforma la siguiente nota técnica informal en un reporte profesional. 
+      Nota original: "${tempStageData.generalNotes}"`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -123,7 +122,6 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
     const updatedData = { ...tempStageData, [field]: sig };
     setTempStageData(updatedData);
     
-    // Feedback visual temporal antes de cerrar el modal
     setTimeout(() => {
       setActiveSigningField(null);
       setSignatureSuccess(null);
@@ -144,29 +142,26 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
     onUpdateStage(order.id, activeStageKey, finalData);
   };
 
+  const openExternalRoute = () => {
+    const url = `https://www.google.com/maps/dir/?api=1&origin=Bogota&destination=${encodeURIComponent(order.destinationLocation)}&travelmode=driving`;
+    window.open(url, '_blank');
+  };
+
   const showReceivedBy = ['coord_to_client', 'client_to_coord', 'coord_to_bodega'].includes(activeStageKey);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-20">
-      {/* Banner de Confirmación para Cotizaciones */}
       {isQuote && (
-        <div className="bg-brand-900 text-white p-8 rounded-[2.5rem] shadow-2xl border-b-4 border-brand-800 animate-in slide-in-from-top-4 duration-500 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
-            <FileText size={120} />
-          </div>
+        <div className="bg-brand-900 text-white p-8 rounded-[2.5rem] shadow-2xl animate-in slide-in-from-top-4 duration-500 relative overflow-hidden group">
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="text-center md:text-left">
-              <div className="flex items-center justify-center md:justify-start space-x-2 mb-3">
-                 <div className="w-2 h-2 bg-brand-400 rounded-full animate-pulse"></div>
-                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-400">Presupuesto en Espera</span>
-              </div>
               <h2 className="text-2xl font-black uppercase leading-tight">Confirmación Requerida</h2>
-              <p className="text-brand-100/70 text-[11px] font-bold mt-2 uppercase tracking-wide">Para garantizar el stock y la fecha de su evento, por favor formalice esta reserva.</p>
+              <p className="text-brand-100/70 text-[11px] font-bold mt-2 uppercase tracking-wide">Formalice esta reserva para asegurar stock.</p>
             </div>
             {onConfirmQuote && (
               <button 
                 onClick={() => onConfirmQuote(order.id)}
-                className="bg-brand-400 text-brand-900 px-10 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl hover:bg-white transition-all active:scale-95 flex items-center space-x-3 group"
+                className="bg-brand-400 text-brand-900 px-10 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl hover:bg-white transition-all active:scale-95 flex items-center space-x-3"
               >
                 <CheckCircle2 size={20} />
                 <span>Confirmar Pedido Ahora</span>
@@ -179,53 +174,51 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
       <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
         <div className="flex justify-between items-start">
              <div>
-                <div className="flex items-center space-x-3 mb-2">
-                  <span className="text-[10px] font-black text-brand-500 uppercase tracking-[0.3em] block">Módulo de Seguimiento Logístico</span>
-                  {currentUser.role === 'admin' && (
-                    <span className="bg-red-50 text-red-600 border border-red-100 px-3 py-0.5 rounded-full text-[8px] font-black uppercase flex items-center">
-                      <ShieldAlert size={10} className="mr-1" /> Auditoría - Solo Lectura
-                    </span>
-                  )}
-                </div>
+                <span className="text-[10px] font-black text-brand-500 uppercase tracking-[0.3em] block mb-2">Seguimiento Logístico</span>
                 <h1 className="text-3xl font-black text-brand-900 uppercase leading-none">{order.destinationLocation}</h1>
                 <div className="flex flex-wrap items-center text-slate-400 font-bold text-[11px] mt-4 uppercase gap-y-2">
                   <span className="bg-slate-100 px-3 py-1 rounded-full mr-4 tracking-widest border border-slate-200">Ref: {order.id}</span>
-                  <div className="flex items-center mr-6">
-                    <Navigation size={12} className="mr-2" /> Ruta: Bogotá → {order.destinationLocation}
-                  </div>
                   {assignedCoord && (
                     <div className="flex items-center bg-brand-50 text-brand-900 px-4 py-1 rounded-full border border-brand-100">
-                      <UserCheck size={12} className="mr-2" /> Responsable en Campo: {assignedCoord.name}
+                      <UserCheck size={12} className="mr-2" /> Campo: {assignedCoord.name}
                     </div>
                   )}
                 </div>
              </div>
-             <div className="text-right">
-                <span className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase border shadow-sm inline-block
-                  ${order.status === 'Finalizado' ? 'bg-green-50 text-green-700 border-green-100' : isQuote ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-brand-50 text-brand-900 border-brand-100'}
-                `}>{order.status}</span>
-                <button onClick={() => setShowMap(!showMap)} className="block w-full mt-4 text-[9px] font-black text-brand-500 uppercase tracking-widest hover:text-brand-900 transition-colors">
-                  {showMap ? 'Cerrar Mapa' : 'Consultar Ruta'}
-                </button>
+             <div className="flex flex-col items-end space-y-3">
+                <span className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase border shadow-sm ${order.status === 'Finalizado' ? 'bg-green-50 text-green-700' : 'bg-brand-50 text-brand-900'}`}>{order.status}</span>
+                <div className="flex space-x-2">
+                  <button onClick={() => setShowMap(!showMap)} className="text-[9px] font-black text-brand-500 uppercase tracking-widest hover:text-brand-900 transition-colors bg-brand-50 px-4 py-2 rounded-xl">
+                    {showMap ? 'Ocultar Mapa' : 'Ver Mapa'}
+                  </button>
+                  <button onClick={openExternalRoute} className="text-[9px] font-black text-white uppercase tracking-widest bg-brand-900 px-4 py-2 rounded-xl flex items-center shadow-lg">
+                    <ExternalLink size={12} className="mr-2" /> Fallback Externo
+                  </button>
+                </div>
              </div>
         </div>
       </div>
 
       {showMap && (
-        <div className="h-80 bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-xl animate-in zoom-in duration-500">
+        <div className="relative h-80 bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-xl animate-in zoom-in duration-500">
            {apiKey ? (
-             <iframe
-                  title="Logistics Route"
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  loading="lazy"
-                  src={`https://www.google.com/maps/embed/v1/directions?key=${apiKey}&origin=Bogota&destination=${encodeURIComponent(order.destinationLocation)}&mode=driving`}
-             ></iframe>
+             <>
+               <iframe
+                    title="Logistics Route"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    loading="lazy"
+                    src={`https://www.google.com/maps/embed/v1/directions?key=${apiKey}&origin=Bogota&destination=${encodeURIComponent(order.destinationLocation)}&mode=driving`}
+               ></iframe>
+               <div className="absolute top-4 right-4 bg-white/90 p-3 rounded-xl border border-amber-200 text-[8px] font-black uppercase max-w-[200px] shadow-lg pointer-events-none">
+                 Si ve error de API KEY, use el botón <b>FALLBACK EXTERNO</b> superior.
+               </div>
+             </>
            ) : (
-              <div className="h-full flex flex-col items-center justify-center space-y-2 bg-slate-50">
+              <div className="h-full flex flex-col items-center justify-center bg-slate-50">
                 <AlertTriangle size={32} className="text-amber-500" />
-                <p className="text-[10px] font-black uppercase text-brand-900">Mapa no disponible - Falta API Key</p>
+                <p className="text-[10px] font-black uppercase text-brand-900">Mapa no disponible</p>
               </div>
            )}
         </div>
@@ -236,20 +229,14 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
             const stageData = order.workflow[stage.key];
             const isDone = stageData?.status === 'completed';
             const isActive = activeStageKey === stage.key;
-            const prevStageKey = idx > 0 ? ALL_STAGES[idx-1].key : null;
-            const isPrevDone = prevStageKey ? order.workflow[prevStageKey]?.status === 'completed' : true;
-            const isDisabled = isQuote || (!isPrevDone && !isDone);
-
             return (
                 <button
                     key={stage.key}
-                    onClick={() => !isDisabled && setActiveStageKey(stage.key)}
-                    disabled={isDisabled}
+                    onClick={() => setActiveStageKey(stage.key)}
                     className={`p-4 rounded-3xl border-2 transition-all flex flex-col items-center justify-center space-y-2
-                        ${isActive ? 'bg-brand-900 text-white border-brand-900 shadow-xl scale-[1.05] z-10' : 
+                        ${isActive ? 'bg-brand-900 text-white border-brand-900 shadow-xl' : 
                           isDone ? 'bg-white text-green-600 border-green-100' : 
-                          isDisabled ? 'bg-slate-100 text-slate-300 border-slate-100 cursor-not-allowed opacity-50' : 
-                          'bg-white text-slate-500 border-slate-100 hover:border-brand-900 hover:text-brand-900'}
+                          'bg-white text-slate-500 border-slate-100 hover:border-brand-900'}
                     `}
                 >
                     <span className="text-[10px] font-black uppercase tracking-tighter leading-tight">{stage.label.split('.')[1]}</span>
@@ -263,27 +250,20 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
         <div className="lg:col-span-8 bg-white rounded-[3rem] shadow-xl border border-slate-50 overflow-hidden flex flex-col relative">
             {!canEdit && (
               <div className="absolute top-0 right-0 p-8 z-20">
-                 <div className="bg-amber-50 text-amber-700 px-4 py-2 rounded-2xl border border-amber-100 text-[9px] font-black uppercase tracking-widest flex items-center shadow-sm">
-                   <ShieldAlert size={14} className="mr-2" /> {isQuote ? 'Pendiente de Confirmación' : 'Solo lectura'}
+                 <div className="bg-amber-50 text-amber-700 px-4 py-2 rounded-2xl border border-amber-100 text-[9px] font-black uppercase tracking-widest flex items-center">
+                   <ShieldAlert size={14} className="mr-2" /> {isQuote ? 'Cotización' : 'Solo lectura'}
                  </div>
               </div>
             )}
 
-            <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
-                <div>
-                  <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest">{ALL_STAGES.find(s => s.key === activeStageKey)?.label}</h3>
-                  <p className="text-[11px] text-slate-400 font-bold uppercase mt-1">{ALL_STAGES.find(s => s.key === activeStageKey)?.description}</p>
-                </div>
-                {isCompleted && <span className="px-4 py-1.5 bg-green-500 text-white text-[9px] font-black rounded-full uppercase">Completado</span>}
+            <div className="p-8 border-b bg-slate-50/50">
+                <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest">{ALL_STAGES.find(s => s.key === activeStageKey)?.label}</h3>
+                <p className="text-[11px] text-slate-400 font-bold uppercase mt-1">{ALL_STAGES.find(s => s.key === activeStageKey)?.description}</p>
             </div>
 
             <div className="p-10 space-y-12">
                 <section>
-                    <div className="flex items-center justify-between mb-6">
-                      <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] flex items-center">
-                        <Check size={14} className="mr-2" /> Checklist de Salida/Entrada
-                      </h4>
-                    </div>
+                    <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] mb-6">Checklist de Salida/Entrada</h4>
                     <div className="space-y-3">
                         {order.items.map(item => {
                             const check = tempStageData?.itemChecks[item.id] || { verified: false, notes: '' };
@@ -294,7 +274,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                                         disabled={isCompleted || !canEdit}
                                         checked={check.verified}
                                         onChange={(e) => handleItemCheck(item.id, e.target.checked)}
-                                        className="w-6 h-6 rounded-lg text-brand-900 border-slate-300 focus:ring-brand-900 disabled:opacity-50"
+                                        className="w-6 h-6 rounded-lg text-brand-900"
                                     />
                                     <div className="ml-4 flex-1">
                                       <p className="text-[11px] font-black text-slate-900 uppercase">{item.name}</p>
@@ -305,8 +285,8 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                                         disabled={isCompleted || !canEdit}
                                         value={check.notes}
                                         onChange={(e) => handleItemNote(item.id, e.target.value)}
-                                        placeholder={canEdit ? "Nota técnica..." : "-"}
-                                        className="ml-4 bg-white/50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-bold outline-none focus:border-brand-900 min-w-[200px] disabled:opacity-50"
+                                        placeholder="Nota..."
+                                        className="ml-4 bg-white/50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-bold outline-none"
                                     />
                                 </div>
                             );
@@ -316,80 +296,57 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
 
                 <section>
                     <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] flex items-center">
-                        <MessageSquare size={14} className="mr-2" /> Observaciones de la Etapa
-                      </h4>
-                      {canEdit && !isCompleted && (
+                      <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em]">Observaciones Técnicas</h4>
+                      {canEdit && !isCompleted && apiKey && (
                         <button 
                           onClick={professionalizeNote}
                           disabled={!tempStageData?.generalNotes || isAiProcessing}
-                          className="flex items-center space-x-2 text-[9px] font-black text-brand-500 uppercase hover:text-brand-900 transition-all disabled:opacity-30"
+                          className="text-[9px] font-black text-brand-500 uppercase flex items-center space-x-2"
                         >
                           {isAiProcessing ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                          <span>Absolute AI: Profesionalizar Reporte</span>
+                          <span>Absolute AI: Corregir</span>
                         </button>
                       )}
                     </div>
-                    <div className="relative">
-                      <textarea 
-                          disabled={isCompleted || !canEdit}
-                          value={tempStageData?.generalNotes || ''}
-                          onChange={(e) => handleGeneralNotesChange(e.target.value)}
-                          placeholder={canEdit ? "Escribe aquí los detalles logísticos, novedades o incidentes..." : isQuote ? "No disponible en modo cotización." : "Sin observaciones registradas."}
-                          className="w-full min-h-[140px] bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-8 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-brand-900/5 focus:border-brand-900 outline-none transition-all resize-none disabled:bg-white"
-                      />
-                      {isAiProcessing && (
-                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] rounded-[2rem] flex items-center justify-center">
-                           <div className="bg-brand-900 text-white px-6 py-3 rounded-2xl flex items-center space-x-3 shadow-2xl">
-                              <Loader2 size={18} className="animate-spin" />
-                              <span className="text-[10px] font-black uppercase tracking-widest">IA Procesando Reporte...</span>
-                           </div>
-                        </div>
-                      )}
-                    </div>
+                    <textarea 
+                        disabled={isCompleted || !canEdit}
+                        value={tempStageData?.generalNotes || ''}
+                        onChange={(e) => handleGeneralNotesChange(e.target.value)}
+                        className="w-full min-h-[140px] bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-8 text-sm font-bold text-slate-700 outline-none transition-all resize-none"
+                    />
                 </section>
 
                 <section className="grid md:grid-cols-2 gap-10">
-                    <div className="space-y-4">
-                        <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] flex items-center">
-                          <PenTool size={14} className="mr-2" /> Responsable {activeStageKey.includes('bodega') ? 'Bodega' : 'Coordinador'}
-                        </h4>
+                    <div className="space-y-4 text-center md:text-left">
+                        <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em]">Responsable Logística</h4>
                         {tempStageData?.signature ? (
-                            <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
-                                <img src={tempStageData.signature.dataUrl} className="h-20 mix-blend-multiply opacity-80 mb-4 mx-auto" alt="" />
-                                <div className="text-center">
-                                  <p className="text-[10px] font-black text-slate-900 uppercase">{tempStageData.signature.name}</p>
-                                  <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{tempStageData.signature.location}</p>
-                                </div>
+                            <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 inline-block w-full">
+                                <img src={tempStageData.signature.dataUrl} className="h-20 mix-blend-multiply mx-auto" alt="" />
+                                <p className="text-[10px] font-black text-slate-900 uppercase mt-3">{tempStageData.signature.name}</p>
                             </div>
                         ) : (
                             !isCompleted && canEdit && (
-                                <button onClick={() => setActiveSigningField('signature')} className="w-full h-40 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-300 hover:text-brand-900 hover:border-brand-900 hover:bg-slate-50 transition-all">
+                                <button onClick={() => setActiveSigningField('signature')} className="w-full h-40 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-300">
                                     <PenTool size={24} className="mb-2" />
-                                    <span className="text-[9px] font-black uppercase tracking-widest">Capturar Firma Autorizada</span>
+                                    <span className="text-[9px] font-black uppercase">Firmar Autorización</span>
                                 </button>
                             )
                         )}
                     </div>
 
                     {showReceivedBy && (
-                        <div className="space-y-4">
-                            <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] flex items-center">
-                              <PenTool size={14} className="mr-2" /> Recibido Conforme
-                            </h4>
+                        <div className="space-y-4 text-center md:text-left">
+                            <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em]">Recibido de Conforme</h4>
                             {tempStageData?.receivedBy ? (
-                                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
-                                    <img src={tempStageData.receivedBy.dataUrl} className="h-20 mix-blend-multiply opacity-80 mb-4 mx-auto" alt="" />
-                                    <div className="text-center">
-                                      <p className="text-[10px] font-black text-slate-900 uppercase">{tempStageData.receivedBy.name}</p>
-                                      <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{tempStageData.receivedBy.location}</p>
-                                    </div>
+                                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 inline-block w-full">
+                                    <img src={tempStageData.receivedBy.dataUrl} className="h-20 mix-blend-multiply mx-auto" alt="" />
+                                    <p className="text-[10px] font-black text-slate-900 uppercase mt-3">{tempStageData.receivedBy.name}</p>
                                 </div>
                             ) : (
                                 !isCompleted && canEdit && (
-                                    <button onClick={() => setActiveSigningField('receivedBy')} className="w-full h-40 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-300 hover:text-brand-900 hover:border-brand-900 hover:bg-slate-50 transition-all">
+                                    <button onClick={() => setActiveSigningField('receivedBy')} className="w-full h-40 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-300">
                                         <PenTool size={24} className="mb-2" />
-                                        <span className="text-[9px] font-black uppercase tracking-widest">Capturar Firma Receptor</span>
+                                        <span className="text-[9px] font-black uppercase">Capturar Recibido</span>
                                     </button>
                                 )
                             )}
@@ -398,26 +355,22 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                 </section>
                 
                 {!isCompleted && canEdit && (
-                    <div className="pt-10 border-t border-slate-50">
-                        <button 
-                            onClick={handleCompleteStage}
-                            className="w-full py-6 bg-brand-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.3em] shadow-2xl shadow-brand-900/40 hover:bg-black transition-all active:scale-[0.98] flex items-center justify-center space-x-3"
-                        >
-                            <Check size={18} />
-                            <span>Validar y Finalizar Etapa</span>
-                        </button>
-                    </div>
+                    <button 
+                        onClick={handleCompleteStage}
+                        className="w-full py-6 bg-brand-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.3em] shadow-xl"
+                    >
+                        <span>Finalizar Etapa y Notificar</span>
+                    </button>
                 )}
             </div>
         </div>
 
-        <div className="lg:col-span-4 space-y-6">
+        <div className="lg:col-span-4">
             <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
-                <div className="p-6 bg-brand-900 text-white flex items-center justify-between">
+                <div className="p-6 bg-brand-900 text-white">
                   <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center">
-                    <History size={16} className="mr-2 text-brand-400" /> Historial de Novedades
+                    <History size={16} className="mr-2 text-brand-400" /> Novedades Registradas
                   </h3>
-                  <Zap size={14} className="text-brand-400 animate-pulse" />
                 </div>
                 <div className="p-6 space-y-6">
                   {visibleStages.map(s => {
@@ -425,27 +378,15 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                     if (!data.generalNotes && data.status !== 'completed') return null;
                     return (
                       <div key={s.key} className="relative pl-6 pb-2 border-l-2 border-slate-100 last:border-0">
-                        <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-2 border-brand-900 flex items-center justify-center">
-                          <div className={`w-1.5 h-1.5 rounded-full ${data.status === 'completed' ? 'bg-green-500' : 'bg-slate-200'}`} />
-                        </div>
-                        <p className="text-[9px] font-black text-brand-900 uppercase tracking-tighter">{s.label.split('.')[1]}</p>
-                        <div className="mt-2 p-4 bg-slate-50 rounded-2xl">
-                          <p className="text-[10px] font-bold text-slate-600 leading-relaxed italic">
-                            {data.generalNotes || "Sin observaciones registradas."}
-                          </p>
-                          {data.timestamp && (
-                            <p className="text-[8px] font-black text-slate-300 uppercase mt-3 flex items-center">
-                              <Clock size={10} className="mr-1" /> {new Date(data.timestamp).toLocaleString()}
-                            </p>
-                          )}
-                        </div>
+                        <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-2 border-brand-900" />
+                        <p className="text-[9px] font-black text-brand-900 uppercase">{s.label.split('.')[1]}</p>
+                        <p className="text-[10px] font-bold text-slate-600 mt-2 bg-slate-50 p-4 rounded-2xl italic">
+                          {data.generalNotes || "Verificado correctamente."}
+                        </p>
                       </div>
                     );
                   }).reverse().filter(x => x !== null).length === 0 && (
-                    <div className="text-center py-10 opacity-30">
-                       <MessageSquare size={24} className="mx-auto mb-2" />
-                       <p className="text-[9px] font-black uppercase">Sin historial previo</p>
-                    </div>
+                    <p className="text-center py-10 text-[9px] font-black uppercase text-slate-300">Sin historial registrado</p>
                   )}
                 </div>
             </div>
@@ -454,33 +395,21 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
 
       {activeSigningField && canEdit && (
           <div className="fixed inset-0 z-[110] bg-brand-900/90 backdrop-blur-md flex items-center justify-center p-4">
-              <div className="bg-white rounded-[3rem] shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in duration-300">
-                  {/* Logo corporativo en la cabecera del modal */}
-                  <div className="pt-8 pb-2 flex justify-center bg-white">
-                    <img src={LOGO_URL} alt="ABSOLUTE" className="h-8 w-auto brightness-110" />
-                  </div>
-
+              <div className="bg-white rounded-[3rem] shadow-2xl max-w-lg w-full animate-in zoom-in duration-300 overflow-hidden">
                   <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
-                      <div>
-                        <h3 className="text-xs font-black text-brand-900 uppercase tracking-widest">Validación de Firma</h3>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Garantía de cumplimiento ABSOLUTE</p>
-                      </div>
-                      <button onClick={() => { setActiveSigningField(null); setSignatureSuccess(null); }} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                      <h3 className="text-xs font-black text-brand-900 uppercase">Validación de Firma</h3>
+                      <button onClick={() => { setActiveSigningField(null); setSignatureSuccess(null); }} className="p-2">
                         <X size={20} className="text-slate-400" />
                       </button>
                   </div>
-                  <div className="p-10 relative">
+                  <div className="p-10">
                       {signatureSuccess && (
-                          <div className="absolute inset-0 z-20 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center animate-in fade-in zoom-in-95">
-                              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white mb-6 shadow-xl shadow-green-200">
-                                <Check size={32} className="animate-bounce" />
-                              </div>
-                              <h4 className="text-lg font-black text-brand-900 uppercase mb-2">¡Firma Registrada!</h4>
-                              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Garantizando la trazabilidad...</p>
+                          <div className="mb-6 bg-emerald-50 text-emerald-700 p-4 rounded-2xl text-[10px] font-black uppercase text-center border border-emerald-100">
+                             {signatureSuccess}
                           </div>
                       )}
                       <SignaturePad 
-                          label={activeSigningField === 'signature' ? 'Entrega Autorizada' : 'Recibido de Conformidad'} 
+                          label={activeSigningField === 'signature' ? 'Entrega Autorizada' : 'Recibido de Conforme'} 
                           onSave={(sig) => saveSignature(activeSigningField, sig)}
                           onCancel={() => setActiveSigningField(null)}
                       />
