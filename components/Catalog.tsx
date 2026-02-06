@@ -66,6 +66,7 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
 
             return (
               <div key={product.id} className="bg-white rounded-[2rem] shadow-sm hover:shadow-xl transition-all duration-500 border border-slate-50 overflow-hidden flex flex-col group">
+                {/* Contenedor con proporción exacta 842:950 */}
                 <div className="aspect-[842/950] overflow-hidden relative bg-slate-100">
                   <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                   
@@ -86,11 +87,11 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                   <h3 className="font-black text-slate-900 text-sm mb-3 line-clamp-1">{product.name}</h3>
                   
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4">
-                    <p className="text-[7px] font-black text-slate-400 uppercase flex items-center mb-1">
-                      <Clock size={10} className="mr-1.5" /> Alquiler por día
+                    <p className="text-[8px] font-black text-slate-400 uppercase flex items-center mb-1">
+                      <Clock size={10} className="mr-1.5" /> Tarifa de Alquiler
                     </p>
-                    <p className="text-lg font-black text-brand-900">
-                      ${product.priceRent?.toLocaleString()}
+                    <p className="text-xl font-black text-brand-900">
+                      ${product.priceRent?.toLocaleString()} <span className="text-[10px] text-slate-400 font-bold uppercase ml-1">/ día</span>
                     </p>
                   </div>
 
