@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User } from '../types';
 import { LOGO_URL } from '../constants';
 import { Mail, Lock, User as UserIcon, ArrowRight, CheckCircle2, Phone, ShieldCheck } from 'lucide-react';
@@ -10,6 +11,7 @@ interface LoginProps {
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
+  const navigate = useNavigate();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,7 +40,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
     } else {
       if (email && password) {
         const result = onLogin(email, password);
-        if (!result.success) {
+        if (result.success) {
+          navigate('/'); // Redirección automática al catálogo al ingresar
+        } else {
           setError(result.message || 'Error al iniciar sesión.');
         }
       } else {
@@ -57,10 +61,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
       <div className="max-w-lg w-full relative z-10 animate-in fade-in zoom-in-95 duration-700">
         <div className="bg-white rounded-[3rem] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.6)] overflow-hidden border border-white/10 backdrop-blur-sm">
           <div className="p-10 md:p-14">
-            <div className="text-center mb-12">
-              <div className="flex justify-center mb-8">
-                <div className="w-full max-w-[320px] transform hover:scale-105 transition-transform duration-500 overflow-hidden rounded-[2.5rem]">
-                  <img src={LOGO_URL} alt="ABSOLUTE COMPANY" className="w-full h-auto object-contain drop-shadow-2xl" />
+            <div className="text-center mb-10">
+              <div className="flex justify-center mb-6">
+                <div className="w-full max-w-[220px] transform hover:scale-105 transition-transform duration-500 overflow-hidden rounded-[2rem]">
+                  <img src={LOGO_URL} alt="ABSOLUTE COMPANY" className="w-full h-auto object-contain drop-shadow-xl" />
                 </div>
               </div>
               <div className="inline-flex items-center space-x-2 px-4 py-1.5 bg-brand-50 rounded-full border border-brand-100">

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Product, Order, User, WorkflowStageKey, StageData, Category } from '../types';
-import { Package, Plus, Edit2, Trash2, CheckCircle, Lock, XCircle, UserCheck, Calendar, MapPin, ArrowRight, ClipboardList, FileText, X, DollarSign } from 'lucide-react';
+import { Package, Plus, Edit2, Trash2, CheckCircle, Lock, XCircle, DollarSign, UserCheck, Calendar, MapPin, ArrowRight, ClipboardList, FileText, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserManagement } from './UserManagement';
 
@@ -24,6 +24,14 @@ interface AdminDashboardProps {
   onDeleteUser?: (email: string) => void;
   onUpdateStage: (orderId: string, stageKey: WorkflowStageKey, data: StageData) => void;
 }
+
+const WORKFLOW_STEPS: { key: WorkflowStageKey; label: string; stepNumber: number }[] = [
+  { key: 'bodega_check', label: '1. Bodega', stepNumber: 1 },
+  { key: 'bodega_to_coord', label: '2. Entrega Coord', stepNumber: 2 },
+  { key: 'coord_to_client', label: '3. Entrega Cliente', stepNumber: 3 },
+  { key: 'client_to_coord', label: '4. Recogida', stepNumber: 4 },
+  { key: 'coord_to_bodega', label: '5. Retorno Bodega', stepNumber: 5 },
+];
 
 const CATEGORIES: Category[] = ['Mobiliario', 'Electrónica', 'Arquitectura Efímera', 'Decoración', 'Servicios'];
 
@@ -81,16 +89,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'inventory' && isAdmin && (
           <div>
              <div className="flex justify-between items-center mb-8">
-                <h3 className="text-sm font-black text-brand-900 uppercase flex items-center"><Package size={18} className="mr-2" /> Inventario de Alquiler</h3>
-                <button onClick={() => startEdit()} className="bg-brand-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center"><Plus size={16} className="mr-2" /> Nuevo Ítem</button>
+                <h3 className="text-sm font-black text-brand-900 uppercase flex items-center"><Package size={18} className="mr-2" /> Artículos de Alquiler</h3>
+                <button onClick={() => startEdit()} className="bg-brand-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center"><Plus size={16} className="mr-2" /> Nuevo</button>
              </div>
              <table className="w-full text-left">
                 <thead className="bg-slate-50">
                     <tr className="border-b">
-                        <th className="p-5 text-[10px] font-black text-slate-400 uppercase">Artículo</th>
-                        <th className="p-5 text-[10px] font-black text-slate-400 uppercase text-center">Tarifa Alquiler</th>
+                        <th className="p-5 text-[10px] font-black text-slate-400 uppercase">Ítem</th>
+                        <th className="p-5 text-[10px] font-black text-slate-400 uppercase text-center">Tarifa Alquiler / día</th>
                         <th className="p-5 text-[10px] font-black text-slate-400 uppercase text-center">Stock</th>
-                        <th className="p-5 text-[10px] font-black text-slate-400 uppercase text-right">Acciones</th>
+                        <th className="p-5 text-[10px] font-black text-slate-400 uppercase text-right">Acción</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -99,7 +107,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <td className="p-5">
                                 <div className="flex items-center space-x-4">
                                     <img src={p.image} className="w-10 h-10 rounded-lg object-cover" alt="" />
-                                    <span className="font-bold text-sm uppercase">{p.name}</span>
+                                    <span className="font-bold text-sm">{p.name}</span>
                                 </div>
                             </td>
                             <td className="p-5 text-center text-sm font-black text-brand-900">${p.priceRent?.toLocaleString()}</td>
@@ -119,7 +127,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="space-y-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest flex items-center">
-                <ClipboardList size={18} className="mr-2" /> Listado de Reservas
+                <ClipboardList size={18} className="mr-2" /> Listado Maestro de Alquileres
               </h3>
             </div>
 
@@ -128,6 +136,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 const isExpanded = expandedOrders.has(order.id);
                 const isApprovable = isAdmin && (order.status === 'Pendiente' || order.status === 'Cotización');
                 const canCancel = isAdmin && order.status !== 'Cancelado' && order.status !== 'Finalizado';
+                const assignedCoord = users.find(u => u.email === order.assignedCoordinatorEmail);
 
                 return (
                   <div key={order.id} className={`bg-white border rounded-[2rem] overflow-hidden transition-all duration-300 ${isExpanded ? 'border-brand-900 shadow-2xl scale-[1.01]' : 'border-slate-100 shadow-sm hover:shadow-md'}`}>
@@ -138,7 +147,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             {order.orderType === 'quote' ? <FileText size={20} /> : <Package size={20} />}
                           </div>
                           <div>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">REF: {order.id} • {new Date(order.createdAt).toLocaleDateString()}</span>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">ID: {order.id} • {new Date(order.createdAt).toLocaleDateString()}</span>
                             <h4 className="font-black text-brand-900 uppercase text-sm flex items-center">
                               <MapPin size={12} className="mr-1 text-brand-400" /> {order.destinationLocation}
                             </h4>
@@ -147,7 +156,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                         <div className="flex items-center space-x-6 w-full md:w-auto justify-between md:justify-end">
                            <div className="text-center md:text-right">
-                             <p className="text-[9px] font-black text-slate-400 uppercase">Presupuesto Alquiler</p>
+                             <p className="text-[9px] font-black text-slate-400 uppercase">Inversión Alquiler</p>
                              <p className="text-sm font-black text-brand-900">${order.totalAmount.toLocaleString()}</p>
                            </div>
                            <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border shadow-sm ${order.status === 'Finalizado' ? 'bg-green-50 text-green-700 border-green-100' : order.status === 'Cancelado' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-brand-50 text-brand-900 border-brand-100'}`}>
@@ -161,7 +170,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div className="p-8 bg-slate-50/50 border-t border-slate-100 animate-in slide-in-from-top-2 duration-300">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                           <div className="space-y-6">
-                            <h5 className="text-[10px] font-black text-brand-900 uppercase tracking-widest border-b pb-2">Artículos Reservados</h5>
+                            <h5 className="text-[10px] font-black text-brand-900 uppercase tracking-widest border-b pb-2">Artículos Rentados</h5>
                             <div className="space-y-2">
                               {order.items.map((item, idx) => (
                                 <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
@@ -176,7 +185,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
 
                           <div className="space-y-6">
-                            <h5 className="text-[10px] font-black text-brand-900 uppercase tracking-widest border-b pb-2">Gestión Operativa</h5>
+                            <h5 className="text-[10px] font-black text-brand-900 uppercase tracking-widest border-b pb-2">Administración</h5>
                             {isAdmin && (
                               <div className="bg-brand-900 p-6 rounded-[2rem] shadow-xl space-y-4">
                                 <div className="grid grid-cols-2 gap-3">
@@ -186,7 +195,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                       className="col-span-2 bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center space-x-2"
                                     >
                                       <CheckCircle size={16} />
-                                      <span>Confirmar Reserva</span>
+                                      <span>Aprobar Reserva</span>
                                     </button>
                                   )}
                                   {canCancel && (
@@ -195,13 +204,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                       className="col-span-2 bg-brand-800 hover:bg-red-600 text-brand-300 hover:text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-brand-700"
                                     >
                                       <XCircle size={16} className="inline mr-2" />
-                                      <span>Anular Reserva</span>
+                                      <span>Anular</span>
                                     </button>
                                   )}
                                 </div>
                                 <div className="pt-2 text-center">
                                    <Link to={`/tracking/${order.id}`} className="text-[9px] font-black text-brand-400 hover:text-white uppercase tracking-widest flex items-center justify-center group">
-                                     Flujo Logístico <ArrowRight size={10} className="ml-1 group-hover:translate-x-1 transition-transform" />
+                                     Ver detalles de seguimiento <ArrowRight size={10} className="ml-1 group-hover:translate-x-1 transition-transform" />
                                    </Link>
                                 </div>
                               </div>
@@ -221,13 +230,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="fixed inset-0 bg-brand-900/90 backdrop-blur-md flex items-center justify-center z-[100] p-4">
             <div className="bg-white rounded-[3rem] shadow-2xl max-w-xl w-full p-10 space-y-6">
                 <div className="flex justify-between items-center border-b pb-6">
-                  <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest">Edición de Artículo</h3>
+                  <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest">Editor de Artículo de Alquiler</h3>
                   <button onClick={() => setIsEditingProduct(null)}><X size={24} className="text-slate-400" /></button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400">Nombre del Producto</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400">Nombre</label>
                     <input type="text" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm border-0 focus:ring-2 focus:ring-brand-900" />
                   </div>
                   <div className="space-y-2">
@@ -240,17 +249,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400 flex items-center"><DollarSign size={10} className="mr-1" /> Tarifa de Alquiler</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400 flex items-center"><DollarSign size={10} className="mr-1" /> Tarifa Alquiler / día</label>
                     <input type="number" value={editForm.priceRent} onChange={e => setEditForm({...editForm, priceRent: parseInt(e.target.value) || 0})} className="w-full bg-slate-50 p-4 rounded-2xl font-black text-sm border-0" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400">Stock Disponible</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400">Stock Actual</label>
                     <input type="number" value={editForm.stock} onChange={e => setEditForm({...editForm, stock: parseInt(e.target.value) || 0})} className="w-full bg-slate-50 p-4 rounded-2xl font-black text-sm border-0" />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Imagen URL</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400">URL Imagen</label>
                   <input type="text" value={editForm.image} onChange={e => setEditForm({...editForm, image: e.target.value})} className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm border-0" />
                 </div>
 

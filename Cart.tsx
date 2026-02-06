@@ -86,7 +86,7 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, onRemove, onUpda
                     <div>
                       <h4 className="font-black text-slate-900 uppercase text-sm">{item.name}</h4>
                       <p className="text-[10px] font-bold text-brand-500 uppercase mt-1 tracking-widest flex items-center">
-                        <Clock size={10} className="mr-1.5" /> Alquiler/día: ${item.priceRent.toLocaleString()}
+                        <Clock size={10} className="mr-1.5" /> Alquiler por día: ${item.priceRent.toLocaleString()}
                       </p>
                     </div>
                   </div>
@@ -109,7 +109,7 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, onRemove, onUpda
                      </div>
                      <div className="text-right min-w-[120px]">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                          {eventDays} {eventDays === 1 ? 'día' : 'días'}
+                          {eventDays} días de servicio
                         </p>
                         <p className="font-black text-brand-900 text-base">${subtotal.toLocaleString()}</p>
                      </div>
@@ -121,7 +121,7 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, onRemove, onUpda
                   <div className="flex items-center justify-between p-3 bg-amber-50 rounded-2xl border border-amber-100">
                     <div className="flex items-center space-x-3">
                        <AlertTriangle size={16} className="text-amber-500" />
-                       <p className="text-[9px] font-black text-amber-700 uppercase tracking-tight">Límite de stock ({item.stock}).</p>
+                       <p className="text-[9px] font-black text-amber-700 uppercase tracking-tight">Límite de stock alcanzado ({item.stock}).</p>
                     </div>
                     <button 
                       onClick={() => handleRequestReplenishment(item)}
@@ -170,7 +170,7 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, onRemove, onUpda
             <div className="border-t pt-8 space-y-4">
               <div className="flex flex-col space-y-1 bg-slate-50 p-5 rounded-2xl mb-4">
                 <div className="flex justify-between items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  <span>Inversión Alquiler</span>
+                  <span>Subtotal Alquiler</span>
                   <span>${subtotalAmount.toLocaleString()}</span>
                 </div>
                 {discountPercentage > 0 && (
@@ -180,7 +180,7 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, onRemove, onUpda
                   </div>
                 )}
                 <div className="border-t border-slate-200 mt-4 pt-4 flex flex-col items-center">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Reserva</span>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inversión Final</span>
                   <span className="text-3xl font-black text-brand-900">${totalAmount.toLocaleString()}</span>
                 </div>
               </div>

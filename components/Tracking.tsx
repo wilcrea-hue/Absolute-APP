@@ -1,14 +1,16 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Order, WorkflowStageKey, StageData, Signature, User } from '../types';
-import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle } from 'lucide-react';
+import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle, FileText } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { SignaturePad } from './SignaturePad';
 import { GoogleGenAI } from "@google/genai";
+import { LOGO_URL } from '../constants';
 
 interface TrackingProps {
   orders: Order[];
   onUpdateStage: (orderId: string, stageKey: WorkflowStageKey, data: StageData) => void;
+  onConfirmQuote?: (id: string) => void;
   currentUser: User;
   users: User[];
 }
@@ -21,7 +23,7 @@ const ALL_STAGES: { key: WorkflowStageKey; label: string; description: string }[
   { key: 'coord_to_bodega', label: '5. Coord -> Bodega', description: 'Retorno a bodega' },
 ];
 
-export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, currentUser, users }) => {
+export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onConfirmQuote, currentUser, users }) => {
   const { id } = useParams<{ id: string }>();
   const order = orders.find(o => o.id === id);
   const apiKey = process.env.API_KEY;
@@ -32,8 +34,8 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
 
   const canEdit = useMemo(() => {
     const operationalRoles = ['logistics', 'coordinator', 'operations_manager'];
-    return operationalRoles.includes(currentUser.role);
-  }, [currentUser.role]);
+    return operationalRoles.includes(currentUser.role) && order?.status !== 'Cotización';
+  }, [currentUser.role, order?.status]);
 
   const assignedCoord = useMemo(() => {
     return users.find(u => u.email === order?.assignedCoordinatorEmail);
@@ -60,6 +62,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
   }
 
   const isCompleted = order.workflow[activeStageKey]?.status === 'completed';
+  const isQuote = order.status === 'Cotización';
 
   const handleItemCheck = (productId: string, checked: boolean) => {
     if (!tempStageData || !canEdit || isCompleted) return;
@@ -119,10 +122,12 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
     setSignatureSuccess(`Firma de ${sig.name} guardada correctamente.`);
     const updatedData = { ...tempStageData, [field]: sig };
     setTempStageData(updatedData);
+    
+    // Feedback visual temporal antes de cerrar el modal
     setTimeout(() => {
       setActiveSigningField(null);
       setSignatureSuccess(null);
-    }, 1500);
+    }, 1800);
   };
 
   const handleCompleteStage = () => {
@@ -143,6 +148,34 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-20">
+      {/* Banner de Confirmación para Cotizaciones */}
+      {isQuote && (
+        <div className="bg-brand-900 text-white p-8 rounded-[2.5rem] shadow-2xl border-b-4 border-brand-800 animate-in slide-in-from-top-4 duration-500 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+            <FileText size={120} />
+          </div>
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="text-center md:text-left">
+              <div className="flex items-center justify-center md:justify-start space-x-2 mb-3">
+                 <div className="w-2 h-2 bg-brand-400 rounded-full animate-pulse"></div>
+                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-400">Presupuesto en Espera</span>
+              </div>
+              <h2 className="text-2xl font-black uppercase leading-tight">Confirmación Requerida</h2>
+              <p className="text-brand-100/70 text-[11px] font-bold mt-2 uppercase tracking-wide">Para garantizar el stock y la fecha de su evento, por favor formalice esta reserva.</p>
+            </div>
+            {onConfirmQuote && (
+              <button 
+                onClick={() => onConfirmQuote(order.id)}
+                className="bg-brand-400 text-brand-900 px-10 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl hover:bg-white transition-all active:scale-95 flex items-center space-x-3 group"
+              >
+                <CheckCircle2 size={20} />
+                <span>Confirmar Pedido Ahora</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
         <div className="flex justify-between items-start">
              <div>
@@ -169,7 +202,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
              </div>
              <div className="text-right">
                 <span className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase border shadow-sm inline-block
-                  ${order.status === 'Finalizado' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-brand-50 text-brand-900 border-brand-100'}
+                  ${order.status === 'Finalizado' ? 'bg-green-50 text-green-700 border-green-100' : isQuote ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-brand-50 text-brand-900 border-brand-100'}
                 `}>{order.status}</span>
                 <button onClick={() => setShowMap(!showMap)} className="block w-full mt-4 text-[9px] font-black text-brand-500 uppercase tracking-widest hover:text-brand-900 transition-colors">
                   {showMap ? 'Cerrar Mapa' : 'Consultar Ruta'}
@@ -205,7 +238,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
             const isActive = activeStageKey === stage.key;
             const prevStageKey = idx > 0 ? ALL_STAGES[idx-1].key : null;
             const isPrevDone = prevStageKey ? order.workflow[prevStageKey]?.status === 'completed' : true;
-            const isDisabled = !isPrevDone && !isDone;
+            const isDisabled = isQuote || (!isPrevDone && !isDone);
 
             return (
                 <button
@@ -228,10 +261,10 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-8 bg-white rounded-[3rem] shadow-xl border border-slate-50 overflow-hidden flex flex-col relative">
-            {!canEdit && currentUser.role === 'admin' && (
+            {!canEdit && (
               <div className="absolute top-0 right-0 p-8 z-20">
                  <div className="bg-amber-50 text-amber-700 px-4 py-2 rounded-2xl border border-amber-100 text-[9px] font-black uppercase tracking-widest flex items-center shadow-sm">
-                   <ShieldAlert size={14} className="mr-2" /> Solo lectura para Admin
+                   <ShieldAlert size={14} className="mr-2" /> {isQuote ? 'Pendiente de Confirmación' : 'Solo lectura'}
                  </div>
               </div>
             )}
@@ -302,7 +335,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
                           disabled={isCompleted || !canEdit}
                           value={tempStageData?.generalNotes || ''}
                           onChange={(e) => handleGeneralNotesChange(e.target.value)}
-                          placeholder={canEdit ? "Escribe aquí los detalles logísticos, novedades o incidentes..." : "Sin observaciones registradas."}
+                          placeholder={canEdit ? "Escribe aquí los detalles logísticos, novedades o incidentes..." : isQuote ? "No disponible en modo cotización." : "Sin observaciones registradas."}
                           className="w-full min-h-[140px] bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-8 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-brand-900/5 focus:border-brand-900 outline-none transition-all resize-none disabled:bg-white"
                       />
                       {isAiProcessing && (
@@ -422,6 +455,11 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
       {activeSigningField && canEdit && (
           <div className="fixed inset-0 z-[110] bg-brand-900/90 backdrop-blur-md flex items-center justify-center p-4">
               <div className="bg-white rounded-[3rem] shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in duration-300">
+                  {/* Logo corporativo en la cabecera del modal */}
+                  <div className="pt-8 pb-2 flex justify-center bg-white">
+                    <img src={LOGO_URL} alt="ABSOLUTE" className="h-8 w-auto brightness-110" />
+                  </div>
+
                   <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
                       <div>
                         <h3 className="text-xs font-black text-brand-900 uppercase tracking-widest">Validación de Firma</h3>
@@ -435,10 +473,10 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
                       {signatureSuccess && (
                           <div className="absolute inset-0 z-20 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center animate-in fade-in zoom-in-95">
                               <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white mb-6 shadow-xl shadow-green-200">
-                                <Check size={32} />
+                                <Check size={32} className="animate-bounce" />
                               </div>
                               <h4 className="text-lg font-black text-brand-900 uppercase mb-2">¡Firma Registrada!</h4>
-                              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">El sistema se está actualizando...</p>
+                              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Garantizando la trazabilidad...</p>
                           </div>
                       )}
                       <SignaturePad 

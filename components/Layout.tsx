@@ -38,71 +38,78 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
       <Link
         to={to}
         onClick={() => setIsMobileMenuOpen(false)}
-        className={`flex items-center space-x-4 px-5 py-4 rounded-2xl transition-all duration-300 ${
+        className={`flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-300 ${
           isActive 
-            ? 'bg-[#000033] text-white shadow-[0_10px_30px_-5px_rgba(0,0,51,0.4)] scale-[1.02]' 
-            : 'text-slate-600 hover:bg-slate-100 hover:text-brand-900 hover:translate-x-1'
+            ? 'bg-white/10 text-brand-400 shadow-lg border border-white/5 scale-[1.02]' 
+            : 'text-slate-400 hover:bg-white/5 hover:text-white hover:translate-x-1'
         }`}
       >
-        <Icon size={20} className={isActive ? 'text-brand-400' : ''} />
-        <span className="font-extrabold text-sm tracking-tight">{label}</span>
+        <Icon size={16} className={isActive ? 'text-brand-400' : 'text-slate-500'} />
+        <span className="font-bold text-[12px] tracking-tight">{label}</span>
         {to === '/cart' && cartCount > 0 && (
-          <span className="ml-auto bg-brand-400 text-brand-900 text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm">{cartCount}</span>
+          <span className="ml-auto bg-brand-400 text-brand-900 text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-sm">{cartCount}</span>
         )}
       </Link>
     );
   };
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9] flex flex-col md:flex-row font-sans selection:bg-brand-400">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col md:flex-row font-sans selection:bg-brand-400 selection:text-brand-900">
+      {/* Mobile Header */}
       <div className="md:hidden bg-[#000033] border-b border-white/5 p-4 flex justify-between items-center sticky top-0 z-50 shadow-xl">
-        <div className="flex items-center h-9"><img src={LOGO_URL} alt="ABSOLUTE" className="h-full w-auto rounded-lg" /></div>
+        <div className="flex items-center h-7">
+          <img src={LOGO_URL} alt="ABSOLUTE" className="h-full w-auto opacity-90" />
+        </div>
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-white p-2">
-          {isMobileMenuOpen ? <X size={26} /> : <Menu size={26} />}
+          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
-      <aside className={`fixed inset-y-0 left-0 z-50 w-80 bg-white border-r border-slate-200 shadow-xl transform transition-transform duration-500 ease-in-out md:translate-x-0 md:static md:h-screen flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-8 border-b border-slate-50 flex flex-col items-center">
-          <Link to="/" className="w-full max-w-[200px] mb-6 transform hover:scale-105 transition-transform overflow-hidden rounded-2xl">
-            <img src={LOGO_URL} alt="ABSOLUTE Logo" className="w-full h-auto" />
+      {/* Sidebar */}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#000033] shadow-[10px_0_30px_-15px_rgba(0,0,51,0.5)] transform transition-transform duration-500 ease-in-out md:translate-x-0 md:static md:h-screen flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        
+        {/* Logo Section - Extra Compact */}
+        <div className="p-4 border-b border-white/5 flex flex-col items-center">
+          <Link to="/" className="w-full max-w-[100px] mb-3 transform hover:scale-105 transition-transform">
+            <img src={LOGO_URL} alt="ABSOLUTE Logo" className="w-full h-auto brightness-110 contrast-125" />
           </Link>
           
-          <div className="w-full space-y-2">
-             <div className={`flex items-center justify-center px-4 py-2 rounded-2xl shadow-inner transition-colors ${syncStatus?.isOnline ? 'bg-emerald-50 border border-emerald-100' : 'bg-red-50 border border-red-100'}`}>
+          <div className="w-full space-y-1.5">
+             <div className={`flex items-center justify-center px-3 py-1.5 rounded-lg transition-colors ${syncStatus?.isOnline ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
                 {syncStatus?.isOnline ? (
                   <>
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full mr-3 animate-pulse"></div>
-                    <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">En Línea</p>
+                    <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full mr-2 animate-pulse"></div>
+                    <p className="text-[8px] font-black text-emerald-400 uppercase tracking-widest">En Línea</p>
                   </>
                 ) : (
                   <>
-                    <WifiOff size={12} className="text-red-500 mr-2" />
-                    <p className="text-[9px] font-black text-red-700 uppercase tracking-widest">Sin Conexión</p>
+                    <WifiOff size={10} className="text-red-400 mr-2" />
+                    <p className="text-[8px] font-black text-red-400 uppercase tracking-widest">Desconectado</p>
                   </>
                 )}
              </div>
              
              <button 
                 onClick={() => setIsInstallModalOpen(true)}
-                className="w-full flex items-center justify-center space-x-2 bg-brand-50 text-brand-900 py-3 rounded-2xl border border-brand-100 hover:bg-brand-100 transition-all group"
+                className="w-full flex items-center justify-center space-x-2 bg-white/5 text-slate-300 py-2 rounded-lg border border-white/5 hover:bg-white/10 hover:text-white transition-all group"
              >
-                <DownloadCloud size={16} className="group-hover:scale-110 transition-transform" />
-                <span className="text-[10px] font-black uppercase tracking-widest">Descargar App</span>
+                <DownloadCloud size={12} className="group-hover:scale-110 transition-transform" />
+                <span className="text-[8px] font-black uppercase tracking-widest">Instalar App</span>
              </button>
           </div>
         </div>
 
-        <div className="p-6 space-y-2 flex-1 overflow-y-auto no-scrollbar">
+        {/* Navigation - Very compact */}
+        <div className="p-4 space-y-0.5 flex-1 overflow-y-auto no-scrollbar">
           <div className="mb-4">
-             <p className="px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Principal</p>
-             {/* Cambiado: Todos los roles pueden ver el catálogo ahora */}
-             <NavItem to="/" icon={LayoutGrid} label="Catálogo Global" />
+             <p className="px-4 text-[8px] font-black text-white/20 uppercase tracking-[0.2em] mb-2">Principal</p>
+             <NavItem to="/" icon={LayoutGrid} label="Catálogo" />
              {user.role !== 'logistics' && user.role !== 'coordinator' && <NavItem to="/cart" icon={ShoppingCart} label="Configurar Pedido" />}
              <NavItem to="/orders" icon={ClipboardList} label={isStaff ? "Listado Maestro" : "Mis Reservas"} />
           </div>
-          <div className="pt-4">
-             <p className="px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Operaciones</p>
+          
+          <div className="pt-2 border-t border-white/5">
+             <p className="px-4 text-[8px] font-black text-white/20 uppercase tracking-[0.2em] mb-2 mt-2">Operaciones</p>
              {isStaff && (
                 <>
                   <NavItem to="/admin" icon={ShieldCheck} label={user.role === 'admin' ? "Panel de Control" : "Flujo Operativo"} />
@@ -112,39 +119,51 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
           </div>
         </div>
 
-        <div className="p-8 border-t border-slate-50 bg-slate-50/30">
-          <div className="relative group mb-6">
-            <div className="flex items-center space-x-4 p-4 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden group-hover:border-brand-900 transition-all">
-              <div className="w-12 h-12 rounded-2xl bg-[#000033] flex items-center justify-center text-brand-400">
-                <UserIcon size={24} strokeWidth={2.5} />
+        {/* User / Logout Section */}
+        <div className="p-4 border-t border-white/5 bg-black/20">
+          <div className="relative group mb-3">
+            <div className="flex items-center space-x-2.5 p-2.5 bg-white/5 rounded-xl border border-white/5 overflow-hidden group-hover:border-white/20 transition-all">
+              <div className="w-8 h-8 rounded-lg bg-brand-400/20 flex items-center justify-center text-brand-400 shrink-0">
+                <UserIcon size={16} strokeWidth={2.5} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-black text-slate-900 truncate leading-tight">{user.name}</p>
-                <p className="text-[10px] font-black text-brand-500 uppercase tracking-widest mt-1">{user.role}</p>
+                <p className="text-[11px] font-black text-white truncate leading-tight">{user.name}</p>
+                <p className="text-[8px] font-black text-brand-400 uppercase tracking-widest mt-0.5 opacity-70">{user.role}</p>
               </div>
               <button 
                 onClick={onChangePassword}
-                className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-brand-900 transition-all"
-                title="Cambiar Contraseña"
+                className="p-1 hover:bg-white/10 rounded-lg text-white/30 hover:text-white transition-all"
+                title="Seguridad"
               >
-                <Key size={16} />
+                <Key size={12} />
               </button>
             </div>
           </div>
           
-          <button onClick={onLogout} className="w-full flex items-center justify-center space-x-3 bg-white border-2 border-slate-200 text-slate-500 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-red-50 hover:text-red-600 transition-all group">
-            <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
-            <span>Desconectar</span>
+          <button onClick={onLogout} className="w-full flex items-center justify-center space-x-2 bg-red-500/10 border border-red-500/20 text-red-400 py-2.5 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all group">
+            <LogOut size={14} className="group-hover:-translate-x-1 transition-transform" />
+            <span>Salir</span>
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto h-[calc(100vh-64px)] md:h-screen flex flex-col bg-slate-50/80">
-        <div className="p-6 md:p-12 flex-1"><div className="max-w-7xl mx-auto">{children}</div></div>
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto h-[calc(100vh-60px)] md:h-screen flex flex-col bg-slate-50/50 relative">
+        <div className="p-4 md:p-8 flex-1">
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
+        </div>
         <Footer />
       </main>
 
-      {isMobileMenuOpen && <div className="fixed inset-0 bg-brand-900/60 backdrop-blur-md z-[45] md:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-brand-900/80 backdrop-blur-sm z-[45] md:hidden animate-in fade-in duration-300" 
+          onClick={() => setIsMobileMenuOpen(false)} 
+        />
+      )}
       
       <InstallModal 
         isOpen={isInstallModalOpen} 

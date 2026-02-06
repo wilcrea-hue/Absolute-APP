@@ -8,19 +8,15 @@ export interface Product {
   description: string;
   image: string;
   stock: number;
-  priceSell: number;
   priceRent: number;
 }
 
-export type TransactionType = 'Compra' | 'Alquiler';
-
 export interface CartItem extends Product {
   quantity: number;
-  type: TransactionType;
 }
 
 export type OrderStatus = 'Cotización' | 'Pendiente' | 'En Proceso' | 'Entregado' | 'Finalizado' | 'Cancelado';
-export type OrderType = 'quote' | 'purchase';
+export type OrderType = 'quote' | 'rental';
 
 export interface Signature {
   name: string;
@@ -29,13 +25,12 @@ export interface Signature {
   timestamp: string;
 }
 
-// New Workflow Types
 export type WorkflowStageKey = 
-  | 'bodega_check'      // 1. Jefe de Bodega (Verificación inicial)
-  | 'bodega_to_coord'   // 2. Bodega a Coordinador
-  | 'coord_to_client'   // 3. Coordinador a Cliente
-  | 'client_to_coord'   // 4. Cliente a Coordinador
-  | 'coord_to_bodega';  // 5. Coordinador a Jefe de Bodega (Retorno)
+  | 'bodega_check'
+  | 'bodega_to_coord'
+  | 'coord_to_client'
+  | 'client_to_coord'
+  | 'coord_to_bodega';
 
 export interface ItemCheck {
   verified: boolean;
@@ -45,11 +40,11 @@ export interface ItemCheck {
 export interface StageData {
   status: 'pending' | 'completed';
   timestamp?: string;
-  signature?: Signature; // Authorized By / Delivered By
-  receivedBy?: Signature; // New field for Receiver
-  itemChecks: Record<string, ItemCheck>; // Key is productId
-  photos: string[]; // Base64 strings
-  files: string[]; // Base64 strings or names
+  signature?: Signature;
+  receivedBy?: Signature;
+  itemChecks: Record<string, ItemCheck>;
+  photos: string[];
+  files: string[];
   generalNotes?: string;
 }
 
@@ -57,27 +52,25 @@ export interface Order {
   id: string;
   items: CartItem[];
   userEmail: string;
-  assignedCoordinatorEmail?: string; // Nuevo: Email del coordinador asignado secuencialmente
+  assignedCoordinatorEmail?: string; 
   status: OrderStatus;
   orderType: OrderType;
   startDate: string;
   endDate: string;
   createdAt: string;
-  originLocation: string; // Default warehouse
-  destinationLocation: string; // Event city
+  originLocation: string;
+  destinationLocation: string;
   totalAmount: number;
-  discountApplied?: number; // Porcentaje de descuento aplicado al crear la orden
-  
-  // New Workflow Structure
+  discountApplied?: number; 
   workflow: Record<WorkflowStageKey, StageData>;
 }
 
 export interface User {
   email: string;
-  password?: string; // Campo para seguridad
+  password?: string; 
   role: 'admin' | 'user' | 'logistics' | 'coordinator' | 'operations_manager';
   name: string;
   phone?: string; 
   status?: 'active' | 'on-hold';
-  discountPercentage?: number; // Nuevo campo para descuentos personalizados
+  discountPercentage?: number; 
 }

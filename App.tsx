@@ -11,10 +11,10 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { ServiceMap } from './components/ServiceMap';
 import { EmailNotification } from './components/EmailNotification';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
-import { PRODUCTS, LOGO_URL } from './constants';
+import { PRODUCTS } from './constants';
 import { GoogleGenAI } from "@google/genai";
+import { CheckCircle, Eye } from 'lucide-react';
 
-// Configuración de la API
 const API_URL = './api/sync.php'; 
 
 const DEFAULT_USERS: User[] = [
@@ -124,7 +124,6 @@ const App: React.FC = () => {
       if (foundUser.password && password && foundUser.password !== password) {
         return { success: false, message: 'Contraseña incorrecta.' };
       }
-      
       if (foundUser.status === 'on-hold') {
         return { success: false, message: 'Cuenta en espera. Contacte al administrador.' };
       }
@@ -166,6 +165,16 @@ const App: React.FC = () => {
     saveAndSync('orders', updatedOrders);
   };
 
+  const handleConfirmQuote = (orderId: string) => {
+    const updatedOrders = orders.map(order => {
+      if (order.id === orderId && order.status === 'Cotización') {
+        return { ...order, status: 'Pendiente' as OrderStatus };
+      }
+      return order;
+    });
+    saveAndSync('orders', updatedOrders);
+  };
+
   const triggerEmailNotification = async (order: Order, stageKey: WorkflowStageKey) => {
     const stageLabels: Record<WorkflowStageKey, string> = {
       'bodega_check': 'Verificación en Bodega', 'bodega_to_coord': 'Salida a Tránsito',
@@ -185,7 +194,7 @@ const App: React.FC = () => {
     } catch (err) { console.error(err); }
   };
 
-  const createOrder = (startDate: string, endDate: string, destination: string, type: OrderType = 'purchase') => {
+  const createOrder = (startDate: string, endDate: string, destination: string, type: OrderType = 'rental') => {
     if (!user) return;
     const s = new Date(startDate);
     const e = new Date(endDate);
@@ -193,9 +202,7 @@ const App: React.FC = () => {
     const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
     
     const subtotal = cart.reduce((acc, item) => {
-      const unitPrice = item.type === 'Compra' ? item.priceSell : item.priceRent;
-      const factor = item.type === 'Alquiler' ? days : 1;
-      return acc + (unitPrice * item.quantity * factor);
+      return acc + (item.priceRent * item.quantity * days);
     }, 0);
     const discountPerc = user.discountPercentage || 0;
     const totalAmount = subtotal * (1 - discountPerc / 100);
@@ -213,14 +220,6 @@ const App: React.FC = () => {
       totalAmount, discountApplied: discountPerc,
       workflow: { 'bodega_check': {...emptyStage}, 'bodega_to_coord': {...emptyStage}, 'coord_to_client': {...emptyStage}, 'client_to_coord': {...emptyStage}, 'coord_to_bodega': {...emptyStage} }
     };
-
-    if (type === 'purchase') {
-      const updatedProducts = products.map(p => {
-        const purchaseItem = cart.find(ci => ci.id === p.id && ci.type === 'Compra');
-        return purchaseItem ? { ...p, stock: Math.max(0, p.stock - purchaseItem.quantity) } : p;
-      });
-      saveAndSync('inventory', updatedProducts);
-    }
 
     const nextCounter = orderCounter + 1;
     setOrderCounter(nextCounter);
@@ -241,33 +240,46 @@ const App: React.FC = () => {
           onChangePassword={() => setIsPasswordModalOpen(true)}
         >
           <Routes>
-            <Route path="/" element={<Catalog products={products} onAddToCart={(p) => setCart(prev => [...prev, { ...p, quantity: 1, type: 'Alquiler' }])} />} />
-            <Route path="/cart" element={<Cart items={cart} currentUser={user} onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} onUpdateQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, q)} : i))} onUpdateType={(id, t) => setCart(prev => prev.map(i => i.id === id ? {...i, type: t} : i))} onCheckout={createOrder} />} />
+            <Route path="/" element={<Catalog products={products} onAddToCart={(p) => setCart(prev => [...prev, { ...p, quantity: 1 }])} />} />
+            <Route path="/cart" element={<Cart items={cart} currentUser={user} onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} onUpdateQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, q)} : i))} onCheckout={createOrder} />} />
             <Route path="/orders" element={
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-black text-brand-900 uppercase">Gestión de Reservas</h2>
-                  <button onClick={() => syncData()} className="text-[10px] font-black uppercase text-brand-500 hover:text-brand-900 border border-brand-500/20 px-3 py-1 rounded-full">Actualizar ahora</button>
+                  <h2 className="text-2xl font-black text-brand-900 uppercase">Reservas</h2>
                 </div>
                 <div className="grid gap-4">
                   {orders.filter(o => user.role === 'admin' || user.role === 'logistics' || o.userEmail === user.email || o.assignedCoordinatorEmail === user.email).map(o => (
-                    <div key={o.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex justify-between items-center">
-                      <div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase">ID: {o.id}</span>
-                        <h4 className="font-black text-brand-900 uppercase text-sm">{o.destinationLocation}</h4>
-                        <p className="text-[9px] font-bold text-slate-400">{new Date(o.createdAt).toLocaleDateString()}</p>
-                      </div>
+                    <div key={o.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                       <div className="flex items-center space-x-4">
-                        <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border ${o.status === 'Finalizado' ? 'bg-green-50 text-green-700' : 'bg-brand-50 text-brand-900'}`}>{o.status}</span>
-                        <Link to={o.orderType === 'quote' ? '#' : `/tracking/${o.id}`} className="bg-brand-900 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase">Ver Tracking</Link>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${o.orderType === 'quote' ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-900'}`}>
+                          {o.orderType === 'quote' ? 'Q' : 'R'}
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-black text-slate-400 uppercase">REF: {o.id}</span>
+                          <h4 className="font-black text-brand-900 uppercase text-sm leading-tight">{o.destinationLocation}</h4>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3 w-full md:w-auto justify-end">
+                        <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border ${o.status === 'Finalizado' ? 'bg-green-50 text-green-700 border-green-100' : o.status === 'Cotización' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-brand-50 text-brand-900 border-brand-100'}`}>{o.status}</span>
+                        <div className="flex space-x-2">
+                           <Link to={`/tracking/${o.id}`} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2 hover:bg-slate-200 transition-all">
+                              <Eye size={14} />
+                              <span>Detalles</span>
+                           </Link>
+                           {o.status === 'Cotización' && (
+                             <button onClick={() => handleConfirmQuote(o.id)} className="bg-brand-900 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2 shadow-lg">
+                               <CheckCircle size={14} />
+                               <span>Confirmar</span>
+                             </button>
+                           )}
+                        </div>
                       </div>
                     </div>
                   ))}
-                  {orders.length === 0 && <p className="text-center py-10 text-slate-400 font-bold uppercase text-xs">No hay órdenes registradas.</p>}
                 </div>
               </div>
             } />
-            <Route path="/tracking/:id" element={<Tracking orders={orders} onUpdateStage={handleUpdateStage} currentUser={user} users={users} />} />
+            <Route path="/tracking/:id" element={<Tracking orders={orders} onUpdateStage={handleUpdateStage} onConfirmQuote={handleConfirmQuote} currentUser={user} users={users} />} />
             <Route path="/admin" element={
               <AdminDashboard 
                 currentUser={user} products={products} orders={orders} users={users} 
@@ -288,13 +300,7 @@ const App: React.FC = () => {
             <Route path="/logistics-map" element={<ServiceMap />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-          
-          <ChangePasswordModal 
-            isOpen={isPasswordModalOpen}
-            onClose={() => setIsPasswordModalOpen(false)}
-            onUpdate={handleUpdatePassword}
-            currentUser={user}
-          />
+          <ChangePasswordModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} onUpdate={handleUpdatePassword} currentUser={user} />
         </Layout>
       )}
       <EmailNotification email={sentEmail} onClose={() => setSentEmail(null)} />
