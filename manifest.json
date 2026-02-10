@@ -1,10 +1,13 @@
 
 {
+  "id": "absolute-logistics-app-v1",
   "name": "ABSOLUTE App",
   "short_name": "ABSOLUTE",
   "description": "Sistema de gestión logística y eventos de ABSOLUTE COMPANY",
-  "start_url": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#000033",
   "theme_color": "#000033",
   "icons": [
@@ -17,7 +20,8 @@
     {
       "src": "https://absolutecompany.co/app/imagenes/logo4.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }

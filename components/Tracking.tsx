@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Order, WorkflowStageKey, StageData, Signature, User } from '../types';
-import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle, FileText, ExternalLink } from 'lucide-react';
+import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle, FileText, ExternalLink, MapPin as MapPinIcon } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { SignaturePad } from './SignaturePad';
 import { GoogleGenAI } from "@google/genai";
@@ -33,7 +33,8 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
   }, [currentUser.role]);
 
   const canEdit = useMemo(() => {
-    const operationalRoles = ['logistics', 'coordinator', 'operations_manager'];
+    // Se incluye 'admin' en los roles operativos para permitir correcciones
+    const operationalRoles = ['admin', 'logistics', 'coordinator', 'operations_manager'];
     return operationalRoles.includes(currentUser.role) && order?.status !== 'Cotización';
   }, [currentUser.role, order?.status]);
 
@@ -56,6 +57,13 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
       setSignatureSuccess(null);
     }
   }, [order, activeStageKey]);
+
+  const staticMapUrl = useMemo(() => {
+    if (!order || !apiKey) return null;
+    const origin = encodeURIComponent(order.originLocation || 'Bogotá, Colombia');
+    const dest = encodeURIComponent(order.destinationLocation);
+    return `https://maps.googleapis.com/maps/api/staticmap?size=400x150&scale=2&maptype=roadmap&markers=color:blue|label:A|${origin}&markers=color:red|label:B|${dest}&path=color:0x0000ff|weight:2|${origin}|${dest}&key=${apiKey}`;
+  }, [order, apiKey]);
 
   if (!order || !order.workflow) {
     return <div className="p-8 text-center text-gray-500 font-black uppercase">Pedido no encontrado</div>;
@@ -171,9 +179,9 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
         </div>
       )}
 
-      <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
-        <div className="flex justify-between items-start">
-             <div>
+      <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden relative">
+        <div className="flex flex-col lg:flex-row justify-between items-start gap-8">
+             <div className="flex-1">
                 <span className="text-[10px] font-black text-brand-500 uppercase tracking-[0.3em] block mb-2">Seguimiento Logístico</span>
                 <h1 className="text-3xl font-black text-brand-900 uppercase leading-none">{order.destinationLocation}</h1>
                 <div className="flex flex-wrap items-center text-slate-400 font-bold text-[11px] mt-4 uppercase gap-y-2">
@@ -185,14 +193,33 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                   )}
                 </div>
              </div>
-             <div className="flex flex-col items-end space-y-3">
+
+             <div className="w-full lg:w-72 h-24 lg:h-32 bg-slate-100 rounded-3xl border border-slate-200 overflow-hidden shadow-inner flex items-center justify-center group relative cursor-default">
+               {staticMapUrl ? (
+                 <img 
+                   src={staticMapUrl} 
+                   alt="Ruta de entrega" 
+                   className="w-full h-full object-cover grayscale-[0.3] group-hover:grayscale-0 transition-all duration-700"
+                 />
+               ) : (
+                 <div className="text-slate-300 flex flex-col items-center space-y-1">
+                   <MapPinIcon size={24} />
+                   <span className="text-[8px] font-black uppercase">Mapa estático no disp.</span>
+                 </div>
+               )}
+               <div className="absolute top-2 left-2 bg-brand-900/80 backdrop-blur-sm px-2 py-0.5 rounded-lg border border-white/10">
+                 <p className="text-[7px] font-black text-white uppercase tracking-widest">Previsualización</p>
+               </div>
+             </div>
+
+             <div className="flex flex-col items-end space-y-3 min-w-[150px]">
                 <span className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase border shadow-sm ${order.status === 'Finalizado' ? 'bg-green-50 text-green-700' : 'bg-brand-50 text-brand-900'}`}>{order.status}</span>
                 <div className="flex space-x-2">
                   <button onClick={() => setShowMap(!showMap)} className="text-[9px] font-black text-brand-500 uppercase tracking-widest hover:text-brand-900 transition-colors bg-brand-50 px-4 py-2 rounded-xl">
-                    {showMap ? 'Ocultar Mapa' : 'Ver Mapa'}
+                    {showMap ? 'Ocultar Mapa' : 'Ver Mapa Interactivo'}
                   </button>
                   <button onClick={openExternalRoute} className="text-[9px] font-black text-white uppercase tracking-widest bg-brand-900 px-4 py-2 rounded-xl flex items-center shadow-lg">
-                    <ExternalLink size={12} className="mr-2" /> Fallback Externo
+                    <ExternalLink size={12} className="mr-2" /> Fallback
                   </button>
                 </div>
              </div>
@@ -218,7 +245,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
            ) : (
               <div className="h-full flex flex-col items-center justify-center bg-slate-50">
                 <AlertTriangle size={32} className="text-amber-500" />
-                <p className="text-[10px] font-black uppercase text-brand-900">Mapa no disponible</p>
+                <p className="text-[10px] font-black uppercase text-brand-900">Mapa interactivo no disponible</p>
               </div>
            )}
         </div>
@@ -247,10 +274,10 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-8 bg-white rounded-[3rem] shadow-xl border border-slate-50 overflow-hidden flex flex-col relative">
+        <div className={`lg:col-span-8 bg-white rounded-[3rem] shadow-xl border border-slate-50 overflow-hidden flex flex-col relative ${!canEdit ? 'opacity-90' : ''}`}>
             {!canEdit && (
               <div className="absolute top-0 right-0 p-8 z-20">
-                 <div className="bg-amber-50 text-amber-700 px-4 py-2 rounded-2xl border border-amber-100 text-[9px] font-black uppercase tracking-widest flex items-center">
+                 <div className="bg-amber-50 text-amber-700 px-4 py-2 rounded-2xl border border-amber-100 text-[9px] font-black uppercase tracking-widest flex items-center shadow-sm">
                    <ShieldAlert size={14} className="mr-2" /> {isQuote ? 'Cotización' : 'Solo lectura'}
                  </div>
               </div>
@@ -261,7 +288,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                 <p className="text-[11px] text-slate-400 font-bold uppercase mt-1">{ALL_STAGES.find(s => s.key === activeStageKey)?.description}</p>
             </div>
 
-            <div className="p-10 space-y-12">
+            <div className={`p-10 space-y-12 ${!canEdit ? 'pointer-events-none' : ''}`}>
                 <section>
                     <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] mb-6">Checklist de Salida/Entrada</h4>
                     <div className="space-y-3">
@@ -274,7 +301,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                                         disabled={isCompleted || !canEdit}
                                         checked={check.verified}
                                         onChange={(e) => handleItemCheck(item.id, e.target.checked)}
-                                        className="w-6 h-6 rounded-lg text-brand-900"
+                                        className={`w-6 h-6 rounded-lg text-brand-900 focus:ring-0 ${!canEdit ? 'opacity-50 grayscale' : ''}`}
                                     />
                                     <div className="ml-4 flex-1">
                                       <p className="text-[11px] font-black text-slate-900 uppercase">{item.name}</p>
@@ -286,7 +313,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                                         value={check.notes}
                                         onChange={(e) => handleItemNote(item.id, e.target.value)}
                                         placeholder="Nota..."
-                                        className="ml-4 bg-white/50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-bold outline-none"
+                                        className={`ml-4 bg-white/50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-bold outline-none ${!canEdit ? 'placeholder:text-slate-300' : ''}`}
                                     />
                                 </div>
                             );
@@ -312,7 +339,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                         disabled={isCompleted || !canEdit}
                         value={tempStageData?.generalNotes || ''}
                         onChange={(e) => handleGeneralNotesChange(e.target.value)}
-                        className="w-full min-h-[140px] bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-8 text-sm font-bold text-slate-700 outline-none transition-all resize-none"
+                        className={`w-full min-h-[140px] bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-8 text-sm font-bold text-slate-700 outline-none transition-all resize-none ${!canEdit ? 'opacity-70 cursor-default' : 'focus:border-brand-900'}`}
                     />
                 </section>
 
@@ -326,11 +353,16 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                             </div>
                         ) : (
                             !isCompleted && canEdit && (
-                                <button onClick={() => setActiveSigningField('signature')} className="w-full h-40 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-300">
+                                <button onClick={() => setActiveSigningField('signature')} className="w-full h-40 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-300 hover:text-brand-900 hover:border-brand-900 transition-all">
                                     <PenTool size={24} className="mb-2" />
                                     <span className="text-[9px] font-black uppercase">Firmar Autorización</span>
                                 </button>
                             )
+                        )}
+                        {!tempStageData?.signature && !canEdit && (
+                          <div className="w-full h-40 border-2 border-dashed border-slate-100 rounded-[2rem] flex items-center justify-center text-slate-200">
+                             <span className="text-[9px] font-black uppercase">Sin firma registrada</span>
+                          </div>
                         )}
                     </div>
 
@@ -344,11 +376,16 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                                 </div>
                             ) : (
                                 !isCompleted && canEdit && (
-                                    <button onClick={() => setActiveSigningField('receivedBy')} className="w-full h-40 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-300">
+                                    <button onClick={() => setActiveSigningField('receivedBy')} className="w-full h-40 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-300 hover:text-brand-900 hover:border-brand-900 transition-all">
                                         <PenTool size={24} className="mb-2" />
                                         <span className="text-[9px] font-black uppercase">Capturar Recibido</span>
                                     </button>
                                 )
+                            )}
+                            {!tempStageData?.receivedBy && !canEdit && (
+                              <div className="w-full h-40 border-2 border-dashed border-slate-100 rounded-[2rem] flex items-center justify-center text-slate-200">
+                                 <span className="text-[9px] font-black uppercase">Sin firma registrada</span>
+                              </div>
                             )}
                         </div>
                     )}
@@ -357,7 +394,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                 {!isCompleted && canEdit && (
                     <button 
                         onClick={handleCompleteStage}
-                        className="w-full py-6 bg-brand-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.3em] shadow-xl"
+                        className="w-full py-6 bg-brand-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.3em] shadow-xl hover:bg-black transition-all"
                     >
                         <span>Finalizar Etapa y Notificar</span>
                     </button>
