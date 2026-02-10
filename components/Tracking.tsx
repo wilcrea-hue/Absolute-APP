@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Order, WorkflowStageKey, StageData, Signature, User } from '../types';
-import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle, FileText, ExternalLink, MapPin as MapPinIcon } from 'lucide-react';
+import { Order, WorkflowStageKey, StageData, Signature, User, NoteEntry } from '../types';
+import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle, FileText, ExternalLink, MapPin as MapPinIcon, Send, Calendar, Save } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { SignaturePad } from './SignaturePad';
 import { GoogleGenAI } from "@google/genai";
@@ -33,7 +33,6 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
   }, [currentUser.role]);
 
   const canEdit = useMemo(() => {
-    // Se incluye 'admin' en los roles operativos para permitir correcciones
     const operationalRoles = ['admin', 'logistics', 'coordinator', 'operations_manager'];
     return operationalRoles.includes(currentUser.role) && order?.status !== 'Cotización';
   }, [currentUser.role, order?.status]);
@@ -48,6 +47,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
   const [showMap, setShowMap] = useState(false);
   const [signatureSuccess, setSignatureSuccess] = useState<string | null>(null);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
   useEffect(() => {
     if (order && order.workflow) {
@@ -55,6 +55,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
       setTempStageData(data ? JSON.parse(JSON.stringify(data)) : null);
       setActiveSigningField(null);
       setSignatureSuccess(null);
+      setSaveStatus('idle');
     }
   }, [order, activeStageKey]);
 
@@ -99,6 +100,37 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
     setTempStageData({ ...tempStageData, generalNotes: notes });
   };
 
+  const handleSavePartial = () => {
+    if (!tempStageData || !canEdit || isCompleted) return;
+    setSaveStatus('saving');
+    onUpdateStage(order.id, activeStageKey, tempStageData);
+    setTimeout(() => {
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    }, 500);
+  };
+
+  const handleAddNoteToHistory = () => {
+    if (!tempStageData?.generalNotes?.trim() || isCompleted || !canEdit) return;
+
+    const newNote: NoteEntry = {
+      text: tempStageData.generalNotes.trim(),
+      timestamp: new Date().toISOString(),
+      userEmail: currentUser.email,
+      userName: currentUser.name
+    };
+
+    const updatedHistory = [...(tempStageData.notesHistory || []), newNote];
+    const updatedData: StageData = { 
+      ...tempStageData, 
+      notesHistory: updatedHistory,
+      generalNotes: '' 
+    };
+
+    setTempStageData(updatedData);
+    onUpdateStage(order.id, activeStageKey, updatedData);
+  };
+
   const professionalizeNote = async () => {
     if (!tempStageData?.generalNotes || !canEdit || isAiProcessing || !apiKey) return;
     
@@ -106,7 +138,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
     try {
       const ai = new GoogleGenAI({ apiKey });
       const prompt = `Actúa como un supervisor logístico senior de ABSOLUTE COMPANY. 
-      Transforma la siguiente nota técnica informal en un reporte profesional. 
+      Transforma la siguiente nota técnica informal en un reporte profesional y elegante. 
       Nota original: "${tempStageData.generalNotes}"`;
 
       const response = await ai.models.generateContent({
@@ -124,8 +156,8 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
     }
   };
 
-  const saveSignature = (field: 'signature' | 'receivedBy', sig: Signature) => {
-    if (!tempStageData || !canEdit) return;
+  const saveSignature = (field: 'signature' | 'receivedBy' | null, sig: Signature) => {
+    if (!tempStageData || !canEdit || !field) return;
     setSignatureSuccess(`Firma de ${sig.name} guardada correctamente.`);
     const updatedData = { ...tempStageData, [field]: sig };
     setTempStageData(updatedData);
@@ -283,9 +315,23 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
               </div>
             )}
 
-            <div className="p-8 border-b bg-slate-50/50">
-                <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest">{ALL_STAGES.find(s => s.key === activeStageKey)?.label}</h3>
-                <p className="text-[11px] text-slate-400 font-bold uppercase mt-1">{ALL_STAGES.find(s => s.key === activeStageKey)?.description}</p>
+            <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
+                <div>
+                  <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest">{ALL_STAGES.find(s => s.key === activeStageKey)?.label}</h3>
+                  <p className="text-[11px] text-slate-400 font-bold uppercase mt-1">{ALL_STAGES.find(s => s.key === activeStageKey)?.description}</p>
+                </div>
+                {canEdit && !isCompleted && (
+                  <button 
+                    onClick={handleSavePartial}
+                    disabled={saveStatus !== 'idle'}
+                    className={`flex items-center space-x-2 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md ${
+                      saveStatus === 'saved' ? 'bg-emerald-500 text-white' : 'bg-white text-brand-900 hover:bg-slate-50 border border-slate-100'
+                    }`}
+                  >
+                    {saveStatus === 'saving' ? <Loader2 size={12} className="animate-spin" /> : saveStatus === 'saved' ? <CheckCircle2 size={12} /> : <Save size={12} />}
+                    <span>{saveStatus === 'saved' ? 'Guardado' : 'Guardar Progreso'}</span>
+                  </button>
+                )}
             </div>
 
             <div className={`p-10 space-y-12 ${!canEdit ? 'pointer-events-none' : ''}`}>
@@ -321,26 +367,71 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                     </div>
                 </section>
 
-                <section>
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em]">Observaciones Técnicas</h4>
-                      {canEdit && !isCompleted && apiKey && (
-                        <button 
-                          onClick={professionalizeNote}
-                          disabled={!tempStageData?.generalNotes || isAiProcessing}
-                          className="text-[9px] font-black text-brand-500 uppercase flex items-center space-x-2"
-                        >
-                          {isAiProcessing ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                          <span>Absolute AI: Corregir</span>
-                        </button>
-                      )}
+                <section className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em]">Notas y Bitácora de la Etapa</h4>
+                      <div className="flex space-x-3">
+                        {canEdit && !isCompleted && apiKey && (
+                          <button 
+                            onClick={professionalizeNote}
+                            disabled={!tempStageData?.generalNotes || isAiProcessing}
+                            className="text-[9px] font-black text-brand-500 uppercase flex items-center space-x-2"
+                          >
+                            {isAiProcessing ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                            <span>Absolute AI: Corregir</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <textarea 
-                        disabled={isCompleted || !canEdit}
-                        value={tempStageData?.generalNotes || ''}
-                        onChange={(e) => handleGeneralNotesChange(e.target.value)}
-                        className={`w-full min-h-[140px] bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-8 text-sm font-bold text-slate-700 outline-none transition-all resize-none ${!canEdit ? 'opacity-70 cursor-default' : 'focus:border-brand-900'}`}
-                    />
+
+                    {/* Historial de Notas Interno de la Etapa */}
+                    {tempStageData?.notesHistory && tempStageData.notesHistory.length > 0 && (
+                      <div className="space-y-4 max-h-[300px] overflow-y-auto no-scrollbar p-1">
+                        {tempStageData.notesHistory.map((note, idx) => (
+                          <div key={idx} className="bg-slate-50 border border-slate-100 p-5 rounded-[2rem] relative group animate-in fade-in slide-in-from-left-2 duration-300">
+                            <div className="flex justify-between items-start mb-2">
+                               <div className="flex items-center space-x-2">
+                                  <div className="w-5 h-5 bg-brand-900 text-white rounded-lg flex items-center justify-center text-[8px] font-black uppercase">
+                                    {note.userName.charAt(0)}
+                                  </div>
+                                  <span className="text-[9px] font-black text-brand-900 uppercase">{note.userName}</span>
+                               </div>
+                               <span className="text-[8px] font-black text-slate-400 uppercase flex items-center">
+                                 <Clock size={8} className="mr-1" /> {new Date(note.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                               </span>
+                            </div>
+                            <p className="text-[11px] font-medium text-slate-600 leading-relaxed italic">"{note.text}"</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {!isCompleted && canEdit && (
+                      <div className="space-y-3">
+                        <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Comentarios adicionales / Notas de campo</label>
+                        <textarea 
+                            value={tempStageData?.generalNotes || ''}
+                            onChange={(e) => handleGeneralNotesChange(e.target.value)}
+                            placeholder="Ingrese aquí notas sobre el estado de los equipos, incidencias en sitio o detalles del despacho..."
+                            className="w-full min-h-[140px] bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-8 text-sm font-bold text-slate-700 outline-none transition-all resize-none focus:border-brand-900"
+                        />
+                        <div className="flex justify-end">
+                           <button 
+                            onClick={handleAddNoteToHistory}
+                            disabled={!tempStageData?.generalNotes?.trim()}
+                            className="bg-brand-50 text-brand-900 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest border border-brand-100 hover:bg-brand-900 hover:text-white transition-all disabled:opacity-30 flex items-center space-x-2"
+                           >
+                             <Send size={12} />
+                             <span>Adjuntar Nota a la Bitácora</span>
+                           </button>
+                        </div>
+                      </div>
+                    )}
+                    {isCompleted && tempStageData?.generalNotes && (
+                        <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                            <p className="text-[11px] font-medium text-slate-600 italic">"{tempStageData.generalNotes}"</p>
+                        </div>
+                    )}
                 </section>
 
                 <section className="grid md:grid-cols-2 gap-10">
@@ -403,27 +494,38 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
         </div>
 
         <div className="lg:col-span-4">
-            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden sticky top-6">
                 <div className="p-6 bg-brand-900 text-white">
                   <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center">
-                    <History size={16} className="mr-2 text-brand-400" /> Novedades Registradas
+                    <History size={16} className="mr-2 text-brand-400" /> Resumen de Etapas
                   </h3>
                 </div>
                 <div className="p-6 space-y-6">
                   {visibleStages.map(s => {
                     const data = order.workflow[s.key];
-                    if (!data.generalNotes && data.status !== 'completed') return null;
+                    const hasNotes = (data.notesHistory && data.notesHistory.length > 0);
+                    if (!hasNotes && data.status !== 'completed') return null;
+                    
                     return (
-                      <div key={s.key} className="relative pl-6 pb-2 border-l-2 border-slate-100 last:border-0">
-                        <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-2 border-brand-900" />
-                        <p className="text-[9px] font-black text-brand-900 uppercase">{s.label.split('.')[1]}</p>
-                        <p className="text-[10px] font-bold text-slate-600 mt-2 bg-slate-50 p-4 rounded-2xl italic">
-                          {data.generalNotes || "Verificado correctamente."}
-                        </p>
+                      <div key={s.key} className="relative pl-6 pb-4 border-l-2 border-slate-100 last:border-0">
+                        <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 ${data.status === 'completed' ? 'bg-green-500 border-green-200' : 'bg-white border-brand-900'}`} />
+                        <p className="text-[9px] font-black text-brand-900 uppercase leading-none">{s.label.split('.')[1]}</p>
+                        
+                        <div className="space-y-2 mt-3">
+                          {data.notesHistory && data.notesHistory.map((n, i) => (
+                            <div key={i} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                               <p className="text-[9px] font-bold text-slate-600 leading-snug">"{n.text}"</p>
+                               <span className="text-[7px] font-black text-slate-400 uppercase block mt-1">{new Date(n.timestamp).toLocaleDateString()}</span>
+                            </div>
+                          ))}
+                          {(!data.notesHistory || data.notesHistory.length === 0) && data.status === 'completed' && (
+                            <p className="text-[9px] font-bold text-slate-400 italic">Completado sin observaciones.</p>
+                          )}
+                        </div>
                       </div>
                     );
                   }).reverse().filter(x => x !== null).length === 0 && (
-                    <p className="text-center py-10 text-[9px] font-black uppercase text-slate-300">Sin historial registrado</p>
+                    <p className="text-center py-10 text-[9px] font-black uppercase text-slate-300">Sin actividad registrada</p>
                   )}
                 </div>
             </div>

@@ -37,6 +37,13 @@ export interface ItemCheck {
   notes: string;
 }
 
+export interface NoteEntry {
+  text: string;
+  timestamp: string;
+  userEmail: string;
+  userName: string;
+}
+
 export interface StageData {
   status: 'pending' | 'completed';
   timestamp?: string;
@@ -46,6 +53,7 @@ export interface StageData {
   photos: string[];
   files: string[];
   generalNotes?: string;
+  notesHistory?: NoteEntry[];
 }
 
 export interface Order {

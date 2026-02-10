@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { Mail, CheckCircle, X, ExternalLink, ShieldCheck, Edit3, Save, Send, ShieldAlert, Lock } from 'lucide-react';
+import { Mail, CheckCircle, X, ExternalLink, ShieldCheck, Edit3, Save, Send, ShieldAlert, Lock, FileText } from 'lucide-react';
 import { LOGO_URL } from '../constants';
+import { Order } from '../types';
 
 interface EmailNotificationProps {
   email: {
@@ -10,6 +11,7 @@ interface EmailNotificationProps {
     subject: string;
     body: string;
     stage: string;
+    order?: Order;
   } | null;
   onClose: () => void;
 }
@@ -19,7 +21,6 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
   const [isEditing, setIsEditing] = useState(false);
   const [isSent, setIsSent] = useState(false);
 
-  // Sincronizar el cuerpo editable cuando llega un nuevo correo
   useEffect(() => {
     if (email) {
       setEditableBody(email.body);
@@ -32,67 +33,101 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
 
   const handleSend = () => {
     setIsSent(true);
-    setTimeout(() => {
-      onClose();
-    }, 2000);
+    setTimeout(() => onClose(), 2000);
   };
 
   const openPreview = () => {
     const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(`
-        <html>
-          <head>
-            <title>ABSOLUTE - Previsualización Final</title>
-            <style>
-              @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-              body { font-family: 'Inter', sans-serif; line-height: 1.6; color: #000033; background: #f1f5f9; margin: 0; padding: 40px; }
-              .card { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 32px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,51,0.15); border: 1px solid #e2e8f0; }
-              .header { background: #000033; padding: 50px 40px; text-align: center; position: relative; }
-              .logo { height: 45px; filter: brightness(1.1); }
-              .content { padding: 50px 60px; }
-              h1 { font-size: 20px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em; color: #000033; border-bottom: 3px solid #f1f5f9; padding-bottom: 25px; margin-bottom: 35px; }
-              .body-text { font-size: 15px; color: #334155; white-space: pre-wrap; line-height: 1.8; }
-              .footer { padding: 35px 40px; background: #f8fafc; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8; text-align: center; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; }
-              .cc-notice { margin-top: 40px; padding: 20px; background: #f0f9ff; border-radius: 20px; font-size: 11px; font-weight: 800; color: #0ea5e9; text-align: center; border: 1px border-blue-100; }
-            </style>
-          </head>
-          <body>
-            <div class="card">
-              <div class="header"><img src="${LOGO_URL}" class="logo" /></div>
-              <div class="content">
-                <h1>${email.subject}</h1>
-                <div class="body-text">${editableBody}</div>
-                <div class="cc-notice">COPIA DE SEGURIDAD ENVIADA A: admin@absolutecompany.co</div>
+    if (!win) return;
+
+    const isQuote = email.order?.orderType === 'quote';
+    const s = new Date(email.order?.startDate || '');
+    const e = new Date(email.order?.endDate || '');
+    const days = Math.ceil(Math.abs(e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    const itemsHtml = email.order?.items.map(item => `
+      <tr>
+        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px;">${item.name}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; text-align: center;">$${item.priceRent.toLocaleString()}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; text-align: center;">${days}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; text-align: center;">${item.quantity}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; text-align: right;">$${(item.priceRent * item.quantity * days).toLocaleString()}</td>
+      </tr>
+    `).join('');
+
+    win.document.write(`
+      <html>
+        <head>
+          <title>ABSOLUTE - Documento Corporativo</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+            body { font-family: 'Inter', sans-serif; line-height: 1.6; color: #000033; background: #f1f5f9; margin: 0; padding: 40px; }
+            .card { max-width: 800px; margin: 0 auto; background: #fff; border-radius: 40px; overflow: hidden; box-shadow: 0 40px 100px -20px rgba(0,0,51,0.2); border: 1px solid #e2e8f0; }
+            .header { background: #000033; padding: 60px 40px; text-align: center; }
+            .logo { height: 70px; filter: brightness(1.2); }
+            .content { padding: 60px; }
+            h1 { font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em; color: #000033; border-bottom: 4px solid #f1f5f9; padding-bottom: 30px; margin-bottom: 40px; }
+            .item-table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+            .item-table th { background: #f8fafc; padding: 15px 12px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; border-bottom: 2px solid #e2e8f0; }
+            .body-text { font-size: 15px; color: #334155; white-space: pre-wrap; line-height: 1.8; margin-bottom: 40px; }
+            .summary { background: #000033; color: #fff; padding: 30px; border-radius: 24px; text-align: right; margin-bottom: 40px; }
+            .summary p { margin: 0; font-size: 12px; text-transform: uppercase; opacity: 0.7; }
+            .summary h2 { margin: 5px 0 0; font-size: 32px; font-weight: 900; }
+            .policies { background: #fff7ed; border: 1px solid #ffedd5; padding: 25px; border-radius: 20px; font-size: 12px; color: #9a3412; }
+            .policies h4 { margin: 0 0 10px; text-transform: uppercase; font-weight: 900; }
+            .footer { padding: 40px; background: #f8fafc; text-align: center; font-size: 10px; color: #94a3b8; font-weight: 800; text-transform: uppercase; letter-spacing: 0.2em; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="header"><img src="${LOGO_URL}" class="logo" /></div>
+            <div class="content">
+              <h1>${email.subject}</h1>
+              
+              <table class="item-table">
+                <thead>
+                  <tr>
+                    <th>Descripción Item</th>
+                    <th style="text-align: center;">V. Unitario</th>
+                    <th style="text-align: center;">Días</th>
+                    <th style="text-align: center;">Cant.</th>
+                    <th style="text-align: right;">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>${itemsHtml}</tbody>
+              </table>
+
+              <div class="summary">
+                <p>Inversión Total Estimada</p>
+                <h2>$${email.order?.totalAmount.toLocaleString() || '0'}</h2>
               </div>
-              <div class="footer">&copy; ${new Date().getFullYear()} ABSOLUTE COMPANY - LOGÍSTICA DE EVENTOS</div>
+
+              <div class="body-text">${editableBody}</div>
+
+              <div class="policies">
+                <h4>Políticas de Cotización</h4>
+                <p>• La validez de esta cotización es de 15 días hábiles a partir de la fecha de emisión.</p>
+                <p>• La disponibilidad de los ítems y servicios está sujeta a la existencia física en el inventario al momento de la confirmación formal del pedido.</p>
+              </div>
             </div>
-          </body>
-        </html>
-      `);
-    }
+            <div class="footer">&copy; ${new Date().getFullYear()} ABSOLUTE COMPANY - LOGÍSTICA Y EVENTOS DE ALTO IMPACTO</div>
+          </div>
+        </body>
+      </html>
+    `);
   };
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-brand-900/70 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-[#0c0c2a] text-white w-full max-w-2xl rounded-[3rem] shadow-[0_60px_120px_-20px_rgba(0,0,51,0.6)] border border-white/10 overflow-hidden flex flex-col animate-in zoom-in-95 duration-500 relative">
+      <div className="bg-[#0c0c2a] text-white w-full max-w-3xl rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden flex flex-col animate-in zoom-in-95 duration-500">
         
-        {/* Marca de Agua Admin */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none rotate-[-15deg]">
-           <ShieldAlert size={400} />
-        </div>
-
-        {/* Header del Editor Administrativo */}
         <div className="p-8 border-b border-white/5 flex items-center justify-between bg-black/40">
           <div className="flex items-center space-x-5">
-            <div className="w-14 h-14 bg-brand-400/10 rounded-2xl flex items-center justify-center text-brand-400 border border-brand-400/20 shadow-inner">
-              <Lock size={28} />
+            <div className="w-14 h-14 bg-brand-400/10 rounded-2xl flex items-center justify-center text-brand-400 border border-brand-400/20">
+              <FileText size={28} />
             </div>
             <div>
-              <div className="flex items-center space-x-2 mb-1">
-                <span className="text-[9px] font-black uppercase tracking-[0.4em] text-brand-400">Panel de Control de Mensajería</span>
-                <span className="bg-brand-400/10 text-brand-400 px-2 py-0.5 rounded text-[7px] font-black uppercase border border-brand-400/20">Admin Only</span>
-              </div>
+              <span className="text-[9px] font-black uppercase tracking-[0.4em] text-brand-400">Editor Administrativo de Despacho</span>
               <h3 className="text-base font-black uppercase tracking-widest">{email.stage}</h3>
             </div>
           </div>
@@ -101,95 +136,47 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
           </button>
         </div>
 
-        <div className="p-8 space-y-6 flex-1 overflow-y-auto no-scrollbar max-h-[65vh] relative z-10">
-          {/* Logo en el cuerpo para contexto visual */}
-          <div className="flex justify-center mb-8 opacity-40">
-            <img src={LOGO_URL} alt="ABSOLUTE" className="h-6 w-auto" />
-          </div>
-
-          {/* Destinatarios */}
+        <div className="p-8 space-y-6 flex-1 overflow-y-auto no-scrollbar max-h-[60vh]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
-              <p className="text-[9px] text-white/40 font-black uppercase mb-1.5 flex items-center tracking-widest">
-                <Mail size={10} className="mr-1.5" /> Cliente (Para):
-              </p>
+              <p className="text-[9px] text-white/40 font-black uppercase mb-1 tracking-widest">Enviar A:</p>
               <p className="text-[11px] font-bold text-white/90 truncate">{email.to}</p>
             </div>
-            <div className="bg-emerald-500/5 rounded-2xl p-5 border border-emerald-500/20 flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-[9px] text-emerald-400/60 font-black uppercase mb-1.5 flex items-center tracking-widest">
-                  <ShieldCheck size={10} className="mr-1.5" /> Copia (Admin):
-                </p>
-                <p className="text-[11px] font-bold text-emerald-400 truncate">{email.cc}</p>
-              </div>
-              <CheckCircle size={16} className="text-emerald-500 ml-3 shrink-0" />
+            <div className="bg-emerald-500/5 rounded-2xl p-5 border border-emerald-500/20">
+              <p className="text-[9px] text-emerald-400/60 font-black uppercase mb-1 tracking-widest">Copia de Respaldo:</p>
+              <p className="text-[11px] font-bold text-emerald-400">{email.cc}</p>
             </div>
           </div>
 
-          {/* Asunto */}
           <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
-            <p className="text-[9px] text-white/40 font-black uppercase mb-1.5 tracking-widest">Asunto del Comunicado:</p>
+            <p className="text-[9px] text-white/40 font-black uppercase mb-1 tracking-widest">Asunto:</p>
             <p className="text-[12px] font-black text-white">{email.subject}</p>
           </div>
 
-          {/* Cuerpo Editable */}
           <div className="space-y-3">
             <div className="flex justify-between items-center px-1">
-              <p className="text-[9px] text-white/30 font-black uppercase flex items-center tracking-widest">
-                <Edit3 size={10} className="mr-2" /> Redacción de Mensaje
-              </p>
-              <button 
-                onClick={() => setIsEditing(!isEditing)}
-                className={`text-[9px] font-black uppercase flex items-center space-x-2 px-3 py-1.5 rounded-xl transition-all ${isEditing ? 'bg-emerald-500 text-white shadow-lg' : 'bg-white/5 text-brand-400 hover:bg-white/10'}`}
-              >
-                {isEditing ? <><Save size={12} /> <span>Validar Cambios</span></> : <><Edit3 size={12} /> <span>Modificar Texto</span></>}
+              <p className="text-[9px] text-white/30 font-black uppercase tracking-widest">Cuerpo del Mensaje (Editable)</p>
+              <button onClick={() => setIsEditing(!isEditing)} className={`text-[9px] font-black uppercase flex items-center space-x-2 px-3 py-1.5 rounded-xl transition-all ${isEditing ? 'bg-emerald-500 text-white' : 'bg-white/5 text-brand-400'}`}>
+                {isEditing ? <><Save size={12} /> <span>Guardar</span></> : <><Edit3 size={12} /> <span>Editar</span></>}
               </button>
             </div>
-            
-            <div className="relative">
-              <textarea 
-                value={editableBody}
-                readOnly={!isEditing}
-                onChange={(e) => setEditableBody(e.target.value)}
-                className={`w-full min-h-[220px] p-8 rounded-[2.5rem] text-[13px] font-medium leading-relaxed outline-none transition-all resize-none shadow-inner ${
-                  isEditing 
-                    ? 'bg-white text-brand-900 ring-4 ring-brand-400/30' 
-                    : 'bg-black/20 text-white/60 border border-white/5 cursor-default'
-                }`}
-              />
-              {!isEditing && (
-                <div className="absolute bottom-6 right-8 pointer-events-none">
-                   <div className="bg-white/5 backdrop-blur-md px-3 py-1.5 rounded-full text-[8px] font-black uppercase text-white/30 border border-white/5">Vista de Lectura</div>
-                </div>
-              )}
-            </div>
+            <textarea 
+              value={editableBody}
+              readOnly={!isEditing}
+              onChange={(e) => setEditableBody(e.target.value)}
+              className={`w-full min-h-[200px] p-8 rounded-[2rem] text-[13px] font-medium leading-relaxed outline-none transition-all resize-none ${isEditing ? 'bg-white text-brand-900' : 'bg-black/20 text-white/60 border border-white/5'}`}
+            />
+            <p className="text-[9px] text-amber-400 font-bold uppercase italic">* La tabla de ítems y las políticas se generarán automáticamente en el envío final.</p>
           </div>
         </div>
 
-        {/* Acciones de Despacho */}
-        <div className="p-8 bg-black/40 border-t border-white/5 flex flex-col md:flex-row gap-4 relative z-10">
-          <button 
-            onClick={openPreview}
-            className="flex-1 bg-white/5 text-white/70 py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center space-x-3 hover:bg-white/10 hover:text-white transition-all active:scale-[0.98] border border-white/5"
-          >
+        <div className="p-8 bg-black/40 border-t border-white/5 flex flex-col md:flex-row gap-4">
+          <button onClick={openPreview} className="flex-1 bg-white/5 text-white/70 py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center space-x-3 hover:bg-white/10 transition-all">
             <ExternalLink size={16} />
-            <span>Previsualización</span>
+            <span>Previsualizar</span>
           </button>
-
-          <button 
-            onClick={handleSend}
-            disabled={isSent}
-            className={`flex-[1.5] py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center space-x-3 shadow-2xl transition-all active:scale-[0.98] ${
-              isSent 
-                ? 'bg-emerald-500 text-white' 
-                : 'bg-brand-400 text-brand-900 hover:bg-white'
-            }`}
-          >
-            {isSent ? (
-              <><CheckCircle size={18} /> <span>Correo Despachado</span></>
-            ) : (
-              <><Send size={18} /> <span>Autorizar Despacho</span></>
-            )}
+          <button onClick={handleSend} disabled={isSent} className={`flex-[1.5] py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center space-x-3 shadow-2xl transition-all ${isSent ? 'bg-emerald-500 text-white' : 'bg-brand-400 text-brand-900 hover:bg-white'}`}>
+            {isSent ? <><CheckCircle size={18} /> <span>Enviado</span></> : <><Send size={18} /> <span>Autorizar Despacho</span></>}
           </button>
         </div>
       </div>

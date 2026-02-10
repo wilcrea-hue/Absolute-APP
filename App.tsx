@@ -27,7 +27,7 @@ const DEFAULT_USERS: User[] = [
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [sentEmail, setSentEmail] = useState<{ to: string, cc: string, subject: string, body: string, stage: string } | null>(null);
+  const [sentEmail, setSentEmail] = useState<{ to: string, cc: string, subject: string, body: string, stage: string, order?: Order } | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(false);
   const [lastSync, setLastSync] = useState<Date>(new Date());
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -56,6 +56,14 @@ const App: React.FC = () => {
     return PRODUCTS;
   });
 
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      setTimeout(() => {
+        Notification.requestPermission();
+      }, 3000);
+    }
+  }, []);
+
   const syncData = useCallback(async (dataToPush?: any) => {
     try {
       const response = await fetch(API_URL, {
@@ -69,7 +77,6 @@ const App: React.FC = () => {
         if (serverData.orders) setOrders(serverData.orders);
         if (serverData.inventory && serverData.inventory.length > 0) setProducts(serverData.inventory);
         if (serverData.orderCounter) setOrderCounter(serverData.orderCounter);
-        
         if (serverData.users && serverData.users.length > 0) {
           const mergedUsers = [...serverData.users];
           DEFAULT_USERS.forEach(du => {
@@ -79,7 +86,6 @@ const App: React.FC = () => {
           });
           setUsers(mergedUsers);
         }
-        
         setIsOnline(true);
         setLastSync(new Date());
         return true;
@@ -105,7 +111,6 @@ const App: React.FC = () => {
     localStorage.setItem('absolute_order_counter', orderCounter.toString());
   }, [orders, products, users, orderCounter]);
 
-  // Función para detectar solapamiento de fechas
   const isDateOverlap = (s1: string, e1: string, s2: string, e2: string) => {
     const start1 = new Date(s1).getTime();
     const end1 = new Date(e1).getTime();
@@ -114,13 +119,11 @@ const App: React.FC = () => {
     return (start1 <= end2) && (end1 >= start2);
   };
 
-  // Función para obtener stock disponible en un rango de fechas
   const getAvailableStock = (productId: string, startDate: string, endDate: string) => {
     const product = products.find(p => p.id === productId);
     if (!product) return 0;
     if (!startDate || !endDate) return product.stock;
 
-    // Sumar cantidades de pedidos activos que se solapen con estas fechas
     const committedQuantity = orders
       .filter(o => 
         o.status !== 'Cancelado' && 
@@ -136,23 +139,31 @@ const App: React.FC = () => {
     return Math.max(0, product.stock - committedQuantity);
   };
 
-  const triggerEmailNotification = async (recipientEmail: string, subject: string, stage: string, context: string) => {
+  const triggerEmailNotification = async (recipientEmail: string, subject: string, stage: string, context: string, order?: Order) => {
     try {
       const apiKey = process.env.API_KEY;
-      let emailBody = "Notificación automática de ABSOLUTE COMPANY.";
+      let emailBody = "";
 
       if (apiKey) {
         const ai = new GoogleGenAI({ apiKey });
-        const prompt = `Escribe un correo electrónico profesional y elegante para ABSOLUTE COMPANY. 
+        const prompt = `Escribe un correo electrónico profesional y ejecutivo para ABSOLUTE COMPANY. 
         Contexto: ${context}. 
-        Etapa/Asunto: ${stage}. 
-        Debe sonar ejecutivo, servicial y corporativo. Incluye despedida del equipo de ABSOLUTE.`;
+        Etapa: ${stage}. 
+        Si es una cotización, asegúrate de mencionar que el detalle de los ítems está adjunto en la tabla superior.
+        Políticas obligatorias a incluir al final:
+        - La duración de esta cotización es de 15 días hábiles.
+        - La oferta está sujeta a disponibilidad de insumos físicos.
+        Suena muy corporativo y servicial.`;
         
         const response = await ai.models.generateContent({ 
           model: 'gemini-3-flash-preview', 
           contents: prompt 
         });
-        emailBody = response.text || emailBody;
+        emailBody = response.text || "";
+      }
+
+      if (!emailBody) {
+        emailBody = `Estimado cliente, se ha registrado una actividad importante en su cuenta relacionada con ${context}.\n\nPolíticas:\n- Validez: 15 días hábiles.\n- Sujeto a disponibilidad de inventario.`;
       }
 
       if (user?.role === 'admin') {
@@ -161,22 +172,12 @@ const App: React.FC = () => {
           cc: ADMIN_EMAIL,
           subject: `ABSOLUTE: ${subject}`,
           body: emailBody,
-          stage: stage
+          stage: stage,
+          order: order
         });
-      } else {
-        console.log(`[Email Auto-Sent] To: ${recipientEmail}, Subject: ${subject}`);
       }
     } catch (err) {
       console.error("Error generating email:", err);
-      if (user?.role === 'admin') {
-        setSentEmail({
-          to: recipientEmail,
-          cc: ADMIN_EMAIL,
-          subject: `ABSOLUTE: ${subject}`,
-          body: `Se ha registrado una actividad importante en su cuenta: ${context}. Por favor verifique el portal.`,
-          stage: stage
-        });
-      }
     }
   };
 
@@ -184,25 +185,15 @@ const App: React.FC = () => {
     if (type === 'orders') setOrders(newData);
     if (type === 'inventory') setProducts(newData);
     if (type === 'users') setUsers(newData);
-    
-    await syncData({
-      type,
-      data: newData,
-      timestamp: new Date().toISOString(),
-      updatedBy: user?.email
-    });
+    await syncData({ type, data: newData, timestamp: new Date().toISOString(), updatedBy: user?.email });
   };
 
   const handleLogin = (email: string, password?: string) => {
     const lowerEmail = email.toLowerCase().trim();
     const foundUser = users.find(u => u.email.toLowerCase() === lowerEmail);
     if (foundUser) {
-      if (foundUser.password && password && foundUser.password !== password) {
-        return { success: false, message: 'Contraseña incorrecta.' };
-      }
-      if (foundUser.status === 'on-hold') {
-        return { success: false, message: 'Cuenta en espera. Contacte al administrador.' };
-      }
+      if (foundUser.password && password && foundUser.password !== password) return { success: false, message: 'Contraseña incorrecta.' };
+      if (foundUser.status === 'on-hold') return { success: false, message: 'Cuenta en espera. Contacte al administrador.' };
       setUser(foundUser);
       return { success: true };
     }
@@ -214,22 +205,13 @@ const App: React.FC = () => {
     if (users.some(u => u.email.toLowerCase() === lowerEmail)) return false;
     const newUser: User = { name, email: lowerEmail, role: 'user', phone, status: 'on-hold', discountPercentage: 0, password };
     saveAndSync('users', [...users, newUser]);
-    
-    triggerEmailNotification(
-      lowerEmail, 
-      "Registro Exitoso - Pendiente de Aprobación", 
-      "Registro de Usuario", 
-      `El usuario ${name} se ha registrado y espera aprobación.`
-    );
-    
     return true;
   };
 
   const handleUpdatePassword = (newPassword: string) => {
     if (!user) return;
     const updatedUsers = users.map(u => u.email === user.email ? { ...u, password: newPassword } : u);
-    const updatedUser = { ...user, password: newPassword };
-    setUser(updatedUser);
+    setUser({ ...user, password: newPassword });
     saveAndSync('users', updatedUsers);
   };
 
@@ -244,17 +226,10 @@ const App: React.FC = () => {
           'coord_to_client': 'Entrega en el Evento', 'client_to_coord': 'Recogida de Equipos',
           'coord_to_bodega': 'Retorno a Bodega Central'
         };
-
         if (stageKey === 'bodega_check') newStatus = 'En Proceso';
         else if (stageKey === 'coord_to_client') newStatus = 'Entregado';
         else if (stageKey === 'coord_to_bodega') newStatus = 'Finalizado';
-        
-        triggerEmailNotification(
-          order.userEmail, 
-          `Avance Logístico: ${order.id}`, 
-          stageLabels[stageKey], 
-          `Su pedido ha completado con éxito la etapa de ${stageLabels[stageKey]}.`
-        );
+        triggerEmailNotification(order.userEmail, `Avance Logístico: ${order.id}`, stageLabels[stageKey], `Su pedido ha completado con éxito la etapa de ${stageLabels[stageKey]}.`, order);
       }
       return { ...order, status: newStatus, workflow: updatedWorkflow };
     });
@@ -264,24 +239,16 @@ const App: React.FC = () => {
   const handleConfirmQuote = (orderId: string) => {
     const updatedOrders = orders.map(order => {
       if (order.id === orderId && order.status === 'Cotización') {
-        // Validación de stock antes de confirmar cotización
         let canConfirm = true;
         order.items.forEach(item => {
           const available = getAvailableStock(item.id, order.startDate, order.endDate);
           if (item.quantity > available) canConfirm = false;
         });
-
         if (!canConfirm) {
-          alert("No se puede confirmar la cotización: El inventario ya no está disponible para las fechas seleccionadas.");
+          alert("No se puede confirmar la cotización: El inventario ya no está disponible.");
           return order;
         }
-
-        triggerEmailNotification(
-          order.userEmail,
-          `Confirmación de Cotización ${order.id}`,
-          "Cotización Confirmada",
-          "Su cotización ha sido confirmada y ahora es una reserva pendiente de despacho."
-        );
+        triggerEmailNotification(order.userEmail, `Confirmación de Cotización ${order.id}`, "Cotización Confirmada", "Su cotización ha sido confirmada y ahora es una reserva pendiente de despacho.", order);
         return { ...order, status: 'Pendiente' as OrderStatus };
       }
       return order;
@@ -289,35 +256,12 @@ const App: React.FC = () => {
     saveAndSync('orders', updatedOrders);
   };
 
-  const createOrder = (startDate: string, endDate: string, destination: string, type: OrderType = 'rental') => {
+  const createOrder = (startDate: string, endDate: string, origin: string, destination: string, type: OrderType = 'rental') => {
     if (!user) return;
-
-    // Validación final de stock antes de crear
-    let overbookedItems = [];
-    for (const item of cart) {
-      const available = getAvailableStock(item.id, startDate, endDate);
-      if (item.quantity > available) {
-        overbookedItems.push(`${item.name} (Requerido: ${item.quantity}, Disponible: ${available})`);
-      }
-    }
-
-    if (overbookedItems.length > 0 && type === 'rental') {
-      alert("Error: Stock insuficiente para las fechas seleccionadas:\n" + overbookedItems.join("\n"));
-      return;
-    }
-
     const s = new Date(startDate);
     const e = new Date(endDate);
-    const diffTime = Math.abs(e.getTime() - s.getTime());
-    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    
-    const subtotal = cart.reduce((acc, item) => {
-      return acc + (item.priceRent * item.quantity * days);
-    }, 0);
-    const discountPerc = user.discountPercentage || 0;
-    const totalAmount = subtotal * (1 - discountPerc / 100);
+    const days = Math.ceil(Math.abs(e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     const orderId = `${type === 'quote' ? 'COT' : 'ORD'}-${String(orderCounter).padStart(4, '0')}`;
-    
     const emptyStage: StageData = { status: 'pending', itemChecks: {}, photos: [], files: [] };
     const coordinators = users.filter(u => u.role === 'coordinator');
     const assignedCoord = coordinators[orderCounter % (coordinators.length || 1)];
@@ -326,133 +270,42 @@ const App: React.FC = () => {
       id: orderId, items: [...cart], userEmail: user.email, assignedCoordinatorEmail: assignedCoord?.email,
       status: type === 'quote' ? 'Cotización' : 'Pendiente', orderType: type,
       startDate, endDate, createdAt: new Date().toISOString(),
-      originLocation: 'Bogotá, Colombia', destinationLocation: destination,
-      totalAmount, discountApplied: discountPerc,
+      originLocation: origin, destinationLocation: destination,
+      totalAmount: cart.reduce((acc, item) => acc + (item.priceRent * item.quantity * days), 0) * (1 - (user.discountPercentage || 0) / 100),
+      discountApplied: user.discountPercentage,
       workflow: { 'bodega_check': {...emptyStage}, 'bodega_to_coord': {...emptyStage}, 'coord_to_client': {...emptyStage}, 'client_to_coord': {...emptyStage}, 'coord_to_bodega': {...emptyStage} }
     };
 
-    const nextCounter = orderCounter + 1;
-    setOrderCounter(nextCounter);
+    setOrderCounter(orderCounter + 1);
     saveAndSync('orders', [newOrder, ...orders]);
     setCart([]);
-
-    triggerEmailNotification(
-      user.email,
-      `${type === 'quote' ? 'Nueva Cotización' : 'Nueva Reserva'} Registrada: ${orderId}`,
-      type === 'quote' ? 'Generación de Cotización' : 'Creación de Reserva',
-      `Se ha generado un documento de ${type === 'quote' ? 'cotización' : 'reserva'} para el evento en ${destination}.`
-    );
+    triggerEmailNotification(user.email, `${type === 'quote' ? 'Nueva Cotización' : 'Nueva Reserva'}: ${orderId}`, type === 'quote' ? 'Cotización Registrada' : 'Creación de Reserva', `Se ha generado un documento de ${type === 'quote' ? 'cotización' : 'reserva'} para el evento en ${destination}.`, newOrder);
   };
 
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = (product: Product, quantity: number = 1) => {
     setCart(prev => {
-      const existingItem = prev.find(item => item.id === product.id);
-      if (existingItem) {
-        if (existingItem.quantity < product.stock) {
-          return prev.map(item => 
-            item.id === product.id 
-              ? { ...item, quantity: item.quantity + 1 } 
-              : item
-          );
-        }
-        return prev;
+      const existing = prev.find(item => item.id === product.id);
+      if (existing) {
+        return prev.map(item => 
+          item.id === product.id 
+            ? { ...item, quantity: Math.min(item.quantity + quantity, product.stock) } 
+            : item
+        );
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, quantity }];
     });
   };
 
   return (
     <HashRouter>
-      {!user ? (
-        <Login onLogin={handleLogin} onRegister={handleRegister} />
-      ) : (
-        <Layout 
-          user={user} 
-          cartCount={cart.length} 
-          onLogout={() => setUser(null)}
-          syncStatus={{ isOnline, lastSync }}
-          onChangePassword={() => setIsPasswordModalOpen(true)}
-        >
+      {!user ? <Login onLogin={handleLogin} onRegister={handleRegister} /> : (
+        <Layout user={user} cartCount={cart.length} onLogout={() => setUser(null)} syncStatus={{ isOnline, lastSync }} onChangePassword={() => setIsPasswordModalOpen(true)}>
           <Routes>
             <Route path="/" element={<Catalog products={products} onAddToCart={handleAddToCart} />} />
-            <Route path="/cart" element={
-              <Cart 
-                items={cart} 
-                currentUser={user} 
-                orders={orders}
-                onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} 
-                onUpdateQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, q)} : i))} 
-                onCheckout={createOrder} 
-                getAvailableStock={getAvailableStock}
-              />
-            } />
-            <Route path="/orders" element={
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-black text-brand-900 uppercase">Reservas</h2>
-                </div>
-                <div className="grid gap-4">
-                  {orders.filter(o => user.role === 'admin' || user.role === 'logistics' || o.userEmail === user.email || o.assignedCoordinatorEmail === user.email).map(o => (
-                    <div key={o.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                      <div className="flex items-center space-x-4">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${o.orderType === 'quote' ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-900'}`}>
-                          {o.orderType === 'quote' ? 'Q' : 'R'}
-                        </div>
-                        <div>
-                          <span className="text-[10px] font-black text-slate-400 uppercase">REF: {o.id}</span>
-                          <h4 className="font-black text-brand-900 uppercase text-sm leading-tight">{o.destinationLocation}</h4>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3 w-full md:w-auto justify-end">
-                        <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border ${o.status === 'Finalizado' ? 'bg-green-50 text-green-700 border-green-100' : o.status === 'Cotización' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-brand-50 text-brand-900 border-brand-100'}`}>{o.status}</span>
-                        <div className="flex space-x-2">
-                           <Link to={`/tracking/${o.id}`} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2 hover:bg-slate-200 transition-all">
-                              <Eye size={14} />
-                              <span>Detalles</span>
-                           </Link>
-                           {o.status === 'Cotización' && (
-                             <button onClick={() => handleConfirmQuote(o.id)} className="bg-brand-900 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2 shadow-lg">
-                               <CheckCircle size={14} />
-                               <span>Confirmar</span>
-                             </button>
-                           )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            } />
+            <Route path="/cart" element={<Cart items={cart} currentUser={user} orders={orders} onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} onUpdateQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, q)} : i))} onCheckout={createOrder} getAvailableStock={getAvailableStock} />} />
+            <Route path="/orders" element={<div className="space-y-6"><h2 className="text-2xl font-black text-brand-900 uppercase">Reservas</h2><div className="grid gap-4">{orders.filter(o => user.role === 'admin' || user.role === 'logistics' || o.userEmail === user.email || o.assignedCoordinatorEmail === user.email).map(o => (<div key={o.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4"><div className="flex items-center space-x-4"><div className={`w-10 h-10 rounded-xl flex items-center justify-center ${o.orderType === 'quote' ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-900'}`}>{o.orderType === 'quote' ? 'Q' : 'R'}</div><div><span className="text-[10px] font-black text-slate-400 uppercase">REF: {o.id}</span><h4 className="font-black text-brand-900 uppercase text-sm">{o.destinationLocation}</h4></div></div><div className="flex items-center space-x-3 w-full md:w-auto justify-end"><span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border ${o.status === 'Finalizado' ? 'bg-green-50 text-green-700' : 'bg-brand-50 text-brand-900'}`}>{o.status}</span><div className="flex space-x-2"><Link to={`/tracking/${o.id}`} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2"> <Eye size={14} /> <span>Detalles</span> </Link> {o.status === 'Cotización' && (<button onClick={() => handleConfirmQuote(o.id)} className="bg-brand-900 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2"> <CheckCircle size={14} /> <span>Confirmar</span> </button>)}</div></div></div>))}</div></div>} />
             <Route path="/tracking/:id" element={<Tracking orders={orders} onUpdateStage={handleUpdateStage} onConfirmQuote={handleConfirmQuote} currentUser={user} users={users} />} />
-            <Route path="/admin" element={
-              <AdminDashboard 
-                currentUser={user} products={products} orders={orders} users={users} 
-                onAddProduct={(p) => saveAndSync('inventory', [...products, p])} 
-                onUpdateProduct={(p) => saveAndSync('inventory', products.map(old => old.id === p.id ? p : old))} 
-                onDeleteProduct={(id) => saveAndSync('inventory', products.filter(p => p.id !== id))} 
-                onApproveOrder={(id) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, status: 'En Proceso'} : o))} 
-                onCancelOrder={(id) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, status: 'Cancelado'} : o))}
-                onDeleteOrder={(id) => saveAndSync('orders', orders.filter(o => o.id !== id))}
-                onUpdateOrderDates={() => {}} 
-                onChangeUserRole={(email, role) => saveAndSync('users', users.map(u => u.email === email ? {...u, role} : u))} 
-                onChangeUserDiscount={(email, disc) => saveAndSync('users', users.map(u => u.email === email ? {...u, discountPercentage: disc} : u))}
-                onToggleUserStatus={(email) => {
-                  const updatedUsers = users.map(u => u.email === email ? {...u, status: u.status === 'active' ? 'on-hold' : 'active'} : u);
-                  const targetedUser = updatedUsers.find(u => u.email === email);
-                  if (targetedUser && targetedUser.status === 'active') {
-                    triggerEmailNotification(
-                      email, 
-                      "Cuenta Activada con Éxito", 
-                      "Activación de Cuenta", 
-                      "Su cuenta ha sido aprobada por un administrador. Ya puede acceder a todas las funcionalidades de ABSOLUTE."
-                    );
-                  }
-                  saveAndSync('users', updatedUsers);
-                }} 
-                onDeleteUser={(email) => saveAndSync('users', users.filter(u => u.email !== email))} 
-                onUpdateStage={handleUpdateStage} onToggleUserRole={() => {}}
-              />
-            } />
+            <Route path="/admin" element={<AdminDashboard currentUser={user} products={products} orders={orders} users={users} onAddProduct={(p) => saveAndSync('inventory', [...products, p])} onUpdateProduct={(p) => saveAndSync('inventory', products.map(old => old.id === p.id ? p : old))} onDeleteProduct={(id) => saveAndSync('inventory', products.filter(p => p.id !== id))} onApproveOrder={(id) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, status: 'En Proceso'} : o))} onCancelOrder={(id) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, status: 'Cancelado'} : o))} onDeleteOrder={(id) => saveAndSync('orders', orders.filter(o => o.id !== id))} onUpdateOrderDates={() => {}} onChangeUserRole={(email, role) => saveAndSync('users', users.map(u => u.email === email ? {...u, role} : u))} onChangeUserDiscount={(email, disc) => saveAndSync('users', users.map(u => u.email === email ? {...u, discountPercentage: disc} : u))} onToggleUserStatus={(email) => saveAndSync('users', users.map(u => u.email === email ? {...u, status: u.status === 'active' ? 'on-hold' : 'active'} : u))} onDeleteUser={(email) => saveAndSync('users', users.filter(u => u.email !== email))} onUpdateStage={handleUpdateStage} onToggleUserRole={() => {}} />} />
             <Route path="/logistics-map" element={<ServiceMap />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

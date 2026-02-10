@@ -38,7 +38,7 @@ export const PRODUCTS: Product[] = [
     description: 'Mesa plegable para eventos.',
     image: 'https://absolutecompany.co/app/imagenes/mobiliario/Mesa Blanca Rectangular.png',
     stock: 50,
-    priceRent: 15000,
+    priceRent: 14000, // Basado en el "Costo unitario" de la tabla del usuario
   },
   {
     id: 'mob-2',
@@ -47,7 +47,7 @@ export const PRODUCTS: Product[] = [
     description: 'Silla de diseño ergonómico.',
     image: 'https://absolutecompany.co/app/imagenes/mobiliario/sillas Rattan Sintético Mesedoras.png',
     stock: 100,
-    priceRent: 25000,
+    priceRent: 14000, // Basado en el "Costo unitario" de la tabla del usuario
   },
   {
     id: 'mob-3',

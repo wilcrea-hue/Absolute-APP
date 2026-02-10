@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo } from 'react';
 import { CartItem, OrderType, User, Order } from './types';
-import { Trash2, Calendar, ShoppingBag, Clock, MapPin, FileText, CheckCircle, Percent, AlertTriangle, RefreshCw, XCircle } from 'lucide-react';
+import { Trash2, Calendar, ShoppingBag, Clock, MapPin, FileText, CheckCircle, Percent, AlertTriangle, RefreshCw, XCircle, Navigation, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface CartProps {
@@ -10,7 +9,7 @@ interface CartProps {
   orders: Order[];
   onRemove: (id: string) => void;
   onUpdateQuantity: (id: string, qty: number) => void;
-  onCheckout: (startDate: string, endDate: string, destination: string, type: OrderType) => void;
+  onCheckout: (startDate: string, endDate: string, origin: string, destination: string, type: OrderType) => void;
   getAvailableStock: (productId: string, startDate: string, endDate: string) => number;
 }
 
@@ -18,6 +17,7 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
   const navigate = useNavigate();
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [origin, setOrigin] = useState('Bogotá, Colombia');
   const [destination, setDestination] = useState('');
   const [isReplenishing, setIsReplenishing] = useState<string | null>(null);
 
@@ -31,9 +31,32 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
     return Math.max(1, diffDays);
   }, [startDate, endDate]);
 
+  // Función para calcular el precio escalonado según la tabla del usuario
+  const getTieredPrice = (item: CartItem, days: number) => {
+    if (item.category !== 'Mobiliario') {
+      return item.priceRent * days; // Otros siguen cobro por día
+    }
+
+    // Lógica basada en la tabla del usuario para Mobiliario
+    // Precios específicos para costo unitario de 14.000
+    if (item.priceRent === 14000) {
+      if (days <= 3) return 14800;
+      if (days <= 5) return 17800;
+      if (days <= 15) return 21400;
+      return 25700;
+    }
+
+    // Si el mobiliario tiene otro precio base, aplicamos los mismos multiplicadores proporcionales
+    const baseIPC = item.priceRent * 1.057; // 14800 / 14000 approx
+    if (days <= 3) return baseIPC;
+    if (days <= 5) return baseIPC * 1.20; // 17800 / 14800 approx
+    if (days <= 15) return baseIPC * 1.44; // 21400 / 14800 approx
+    return baseIPC * 1.73; // 25700 / 14800 approx
+  };
+
   const subtotalAmount = useMemo(() => {
     return items.reduce((acc, item) => {
-      return acc + (item.priceRent * item.quantity * eventDays);
+      return acc + (getTieredPrice(item, eventDays) * item.quantity);
     }, 0);
   }, [items, eventDays]);
 
@@ -41,7 +64,6 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
   const discountAmount = (subtotalAmount * discountPercentage) / 100;
   const totalAmount = subtotalAmount - discountAmount;
 
-  // Verificar si hay sobrealquiler para las fechas seleccionadas
   const overbookedProducts = useMemo(() => {
     if (!startDate || !endDate) return [];
     return items.filter(item => {
@@ -51,8 +73,8 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
   }, [items, startDate, endDate, getAvailableStock]);
 
   const handleCheckout = (type: OrderType) => {
-    if (!startDate || !endDate || !destination) {
-      alert("Por favor complete los datos de destino y fechas.");
+    if (!startDate || !endDate || !origin || !destination) {
+      alert("Por favor complete los datos de origen, destino y fechas.");
       return;
     }
     
@@ -61,16 +83,24 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
       return;
     }
 
-    onCheckout(startDate, endDate, destination, type);
+    onCheckout(startDate, endDate, origin, destination, type);
     navigate('/orders');
   };
 
+  // Fix: Added missing handleRequestReplenishment function
   const handleRequestReplenishment = (item: CartItem) => {
     setIsReplenishing(item.id);
     setTimeout(() => {
       alert(`Se ha enviado una solicitud de reposición para: ${item.name}.`);
       setIsReplenishing(null);
     }, 1500);
+  };
+
+  const getTierLabel = (days: number) => {
+    if (days <= 3) return "Tramo 1-3 días";
+    if (days <= 5) return "Tramo 3-5 días";
+    if (days <= 15) return "Tramo 5-15 días";
+    return "Tramo 15+ días";
   };
 
   if (items.length === 0) {
@@ -90,7 +120,7 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
       <div className="flex justify-between items-end">
         <div>
           <h2 className="text-2xl font-black text-brand-900 uppercase">Configuración de Reserva</h2>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Valide sus fechas para asegurar disponibilidad de stock.</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Costos ajustados según tabla de permanencia IPC 2024.</p>
         </div>
         {overbookedProducts.length > 0 && (
           <div className="bg-red-50 text-red-600 px-4 py-2 rounded-xl border border-red-100 flex items-center space-x-2 animate-pulse">
@@ -103,10 +133,11 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         <div className="lg:col-span-8 space-y-4">
           {items.map(item => {
-            const subtotal = item.priceRent * item.quantity * eventDays;
+            const itemFinalPrice = getTieredPrice(item, eventDays);
+            const subtotal = itemFinalPrice * item.quantity;
             const availableForDates = (startDate && endDate) ? getAvailableStock(item.id, startDate, endDate) : item.stock;
             const isOverbooked = item.quantity > availableForDates;
-            const isM2 = item.name.toLowerCase().includes('impresión');
+            const isMobiliario = item.category === 'Mobiliario';
 
             return (
               <div key={item.id} className={`bg-white p-6 rounded-[2rem] border transition-all flex flex-col space-y-4 group hover:shadow-md ${isOverbooked ? 'border-red-200 shadow-lg shadow-red-500/5' : 'border-slate-100 shadow-sm'}`}>
@@ -114,9 +145,15 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
                   <div className="flex items-center space-x-6">
                     <img src={item.image} className="w-20 h-20 rounded-2xl object-cover shadow-sm" alt="" />
                     <div>
-                      <h4 className={`font-black uppercase text-sm ${isOverbooked ? 'text-red-600' : 'text-slate-900'}`}>{item.name}</h4>
+                      <div className="flex items-center space-x-2">
+                        <h4 className={`font-black uppercase text-sm ${isOverbooked ? 'text-red-600' : 'text-slate-900'}`}>{item.name}</h4>
+                        {isMobiliario && (
+                          <span className="bg-brand-900 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">Plan Escalonado</span>
+                        )}
+                      </div>
                       <p className="text-[10px] font-bold text-brand-500 uppercase mt-1 tracking-widest flex items-center">
-                        <Clock size={10} className="mr-1.5" /> {isM2 ? 'Valor por m²:' : 'Alquiler por día:'} ${item.priceRent.toLocaleString()}
+                        <Clock size={10} className="mr-1.5" /> 
+                        {isMobiliario ? `${getTierLabel(eventDays)}: $${itemFinalPrice.toLocaleString()}` : `Alquiler/día: $${item.priceRent.toLocaleString()}`}
                       </p>
                     </div>
                   </div>
@@ -128,25 +165,32 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
                               onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} 
                               className="w-8 h-8 flex items-center justify-center font-black hover:text-brand-900 transition-colors"
                             >-</button>
-                            <span className="w-12 text-center font-black text-sm">{item.quantity}{isM2 ? 'm²' : ''}</span>
+                            <span className="w-12 text-center font-black text-sm">{item.quantity}</span>
                             <button 
                               onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} 
                               className={`w-8 h-8 flex items-center justify-center font-black transition-colors hover:text-brand-900`}
                             >+</button>
                         </div>
                         <p className={`text-[7px] font-black uppercase mt-1 ${isOverbooked ? 'text-red-500' : 'text-slate-400'}`}>
-                          {isOverbooked ? `Sólo ${availableForDates} disponibles` : `${isM2 ? 'Área disponible' : 'Stock total'}: ${item.stock}`}
+                          {isOverbooked ? `Sólo ${availableForDates} disponibles` : `Stock total: ${item.stock}`}
                         </p>
                      </div>
                      <div className="text-right min-w-[120px]">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                          {eventDays} {eventDays === 1 ? 'día' : 'días'} de servicio
+                          {eventDays} {eventDays === 1 ? 'día' : 'días'} {isMobiliario && 'evento'}
                         </p>
                         <p className="font-black text-brand-900 text-base">${subtotal.toLocaleString()}</p>
                      </div>
                      <button onClick={() => onRemove(item.id)} className="p-3 text-red-200 hover:text-red-500 transition-all"><Trash2 size={20} /></button>
                   </div>
                 </div>
+
+                {isMobiliario && (
+                  <div className="flex items-center space-x-2 bg-slate-50 p-2 px-4 rounded-xl border border-slate-100">
+                    <Info size={12} className="text-brand-900" />
+                    <p className="text-[8px] font-bold text-slate-500 uppercase">Tarifa aplicada por tramo de días para mobiliario corporativo.</p>
+                  </div>
+                )}
 
                 {isOverbooked && (
                   <div className="flex items-center justify-between p-4 bg-red-50 rounded-2xl border border-red-100">
@@ -176,10 +220,17 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
             <h3 className="text-xs font-black text-brand-900 uppercase tracking-widest mb-8 flex items-center"><Calendar className="mr-2" size={16} /> Parámetros del Evento</h3>
             
             <div className="space-y-6 mb-10">
-              <div className="relative">
-                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input type="text" placeholder="Ciudad Destino" value={destination} onChange={e => setDestination(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 border-0 rounded-2xl font-bold text-sm focus:ring-2 focus:ring-brand-900" />
+              <div className="space-y-4">
+                <div className="relative">
+                  <Navigation className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input type="text" placeholder="Ciudad Origen" value={origin} onChange={e => setOrigin(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 border-0 rounded-2xl font-bold text-sm focus:ring-2 focus:ring-brand-900" />
+                </div>
+                <div className="relative">
+                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input type="text" placeholder="Ciudad Destino" value={destination} onChange={e => setDestination(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 border-0 rounded-2xl font-bold text-sm focus:ring-2 focus:ring-brand-900" />
+                </div>
               </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-black uppercase text-slate-400 ml-3">Inicio</label>
@@ -203,7 +254,7 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
             <div className="border-t pt-8 space-y-4">
               <div className="flex flex-col space-y-1 bg-slate-50 p-5 rounded-2xl mb-4">
                 <div className="flex justify-between items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  <span>Subtotal Alquiler/Servicios</span>
+                  <span>Subtotal Servicios/Mobiliario</span>
                   <span>${subtotalAmount.toLocaleString()}</span>
                 </div>
                 {discountPercentage > 0 && (
@@ -240,9 +291,6 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
                   <span>Confirmar Reserva</span>
                 </button>
               </div>
-              {overbookedProducts.length > 0 && (
-                <p className="text-[8px] text-red-500 font-black uppercase text-center mt-2 italic">Ajuste las cantidades en rojo para proceder con la reserva.</p>
-              )}
             </div>
           </div>
         </div>

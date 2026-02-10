@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
 import { Category, Product } from './types';
-import { Search, Plus, Clock, PackageX, AlertCircle } from 'lucide-react';
+import { Search, Plus, Clock, PackageX, AlertCircle, Info, Minus, ChevronDown, ChevronUp, CalendarDays } from 'lucide-react';
 
 interface CatalogProps {
   products: Product[];
-  onAddToCart: (product: Product) => void;
+  onAddToCart: (product: Product, quantity: number) => void;
 }
 
 const CATEGORIES: Category[] = ['Mobiliario', 'Electrónica', 'Arquitectura Efímera', 'Decoración', 'Servicios'];
@@ -13,12 +13,46 @@ const CATEGORIES: Category[] = ['Mobiliario', 'Electrónica', 'Arquitectura Efí
 export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
   const [selectedCategory, setSelectedCategory] = useState<Category | 'Todos'>('Todos');
   const [searchTerm, setSearchTerm] = useState('');
+  const [localQuantities, setLocalQuantities] = useState<Record<string, number>>({});
+  const [expandedPrices, setExpandedPrices] = useState<Record<string, boolean>>({});
   
   const filteredProducts = (products || []).filter(product => {
     const matchesCategory = selectedCategory === 'Todos' || product.category === selectedCategory;
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
   });
+
+  const getQuantity = (id: string) => localQuantities[id] || 1;
+
+  const updateLocalQuantity = (id: string, delta: number, stock: number) => {
+    const current = getQuantity(id);
+    const next = Math.max(1, Math.min(stock, current + delta));
+    setLocalQuantities(prev => ({ ...prev, [id]: next }));
+  };
+
+  const togglePriceTable = (id: string) => {
+    setExpandedPrices(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Función para obtener los precios de los tramos según el precio base
+  const getTieredPrices = (basePrice: number) => {
+    const p1 = basePrice === 14000 ? 14800 : basePrice;
+    if (basePrice === 14000) {
+      return [
+        { label: '1 - 3 días', value: 14800 },
+        { label: '3 - 5 días', value: 17800 },
+        { label: '5 - 15 días', value: 21400 },
+        { label: '15+ días', value: 25700 }
+      ];
+    }
+    // Cálculo proporcional si es otro precio base de mobiliario
+    return [
+      { label: '1 - 3 días', value: p1 },
+      { label: '3 - 5 días', value: Math.round(p1 * 1.20) },
+      { label: '5 - 15 días', value: Math.round(p1 * 1.44) },
+      { label: '15+ días', value: Math.round(p1 * 1.73) }
+    ];
+  };
 
   return (
     <div className="space-y-4">
@@ -63,11 +97,16 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
           {filteredProducts.map(product => {
             const isOutOfStock = product.stock <= 0;
             const isLowStock = product.stock > 0 && product.stock <= 3;
+            const isMobiliario = product.category === 'Mobiliario';
             const isM2 = product.name.toLowerCase().includes('impresión');
+            const qty = getQuantity(product.id);
+            const isExpanded = expandedPrices[product.id];
+
+            // Mostrar precio inicial del tramo 1 si es mobiliario (según tabla usuario)
+            const displayPrice = isMobiliario && product.priceRent === 14000 ? 14800 : product.priceRent;
 
             return (
               <div key={product.id} className="bg-white rounded-[2rem] shadow-sm hover:shadow-xl transition-all duration-500 border border-slate-50 overflow-hidden flex flex-col group">
-                {/* Contenedor con proporción exacta 842:950 */}
                 <div className="aspect-[842/950] overflow-hidden relative bg-slate-100">
                   <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                   
@@ -81,29 +120,109 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                     {isLowStock && <AlertCircle size={8} />}
                     <span>{isOutOfStock ? 'Agotado' : `Stock: ${product.stock}`}</span>
                   </div>
+
+                  {isMobiliario && (
+                    <div className="absolute bottom-3 left-3 flex space-x-2">
+                       <span className="bg-brand-900/80 backdrop-blur-sm text-white text-[7px] font-black px-2 py-1 rounded-lg uppercase tracking-widest border border-white/10">
+                         Plan Escalonado
+                       </span>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="p-5 flex-1 flex flex-col">
-                  <span className="text-[9px] text-brand-500 font-black uppercase mb-1">{product.category}</span>
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="text-[9px] text-brand-500 font-black uppercase">{product.category}</span>
+                    {isMobiliario && (
+                      <div className="flex items-center text-[7px] font-black text-brand-900 uppercase bg-brand-400 px-2 py-0.5 rounded-full">
+                         <Info size={8} className="mr-1" /> IPC 2024
+                      </div>
+                    )}
+                  </div>
                   <h3 className="font-black text-slate-900 text-sm mb-3 line-clamp-1">{product.name}</h3>
                   
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4">
-                    <p className="text-[8px] font-black text-slate-400 uppercase flex items-center mb-1">
-                      <Clock size={10} className="mr-1.5" /> {isM2 ? 'Tarifa por metro cuadrado' : 'Tarifa de Alquiler'}
-                    </p>
-                    <p className="text-xl font-black text-brand-900">
-                      ${product.priceRent?.toLocaleString()} <span className="text-[10px] text-slate-400 font-bold uppercase ml-1">/ {isM2 ? 'm²' : 'día'}</span>
-                    </p>
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4 transition-all duration-300">
+                    <div className="flex justify-between items-end">
+                        <div>
+                            <p className="text-[8px] font-black text-slate-400 uppercase flex items-center mb-1">
+                            <Clock size={10} className="mr-1.5" /> {isMobiliario ? 'Tarifa por evento' : isM2 ? 'Tarifa por m²' : 'Tarifa por día'}
+                            </p>
+                            <p className="text-xl font-black text-brand-900">
+                            ${displayPrice?.toLocaleString()} 
+                            <span className="text-[10px] text-slate-400 font-bold uppercase ml-1">
+                                / {isM2 ? 'm²' : isMobiliario ? 'evento' : 'día'}
+                            </span>
+                            </p>
+                        </div>
+                        <div className="text-right">
+                             <p className="text-[7px] font-black text-slate-400 uppercase mb-1">Subtotal {qty > 1 && `(${qty})`}</p>
+                             <p className="text-[10px] font-black text-brand-900">
+                                ${(displayPrice * qty).toLocaleString()}
+                             </p>
+                        </div>
+                    </div>
+
+                    {isMobiliario && (
+                      <div className="mt-3 border-t border-slate-200 pt-3">
+                        <button 
+                          onClick={() => togglePriceTable(product.id)}
+                          className="w-full flex items-center justify-between text-[8px] font-black text-brand-900 uppercase tracking-widest hover:text-brand-500 transition-colors"
+                        >
+                          <span className="flex items-center"><CalendarDays size={10} className="mr-1.5" /> Ver tabla de tarifas</span>
+                          {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                        </button>
+
+                        {isExpanded && (
+                          <div className="mt-3 space-y-1 animate-in slide-in-from-top-2 duration-300">
+                            {getTieredPrices(product.priceRent).map((tier, idx) => (
+                              <div key={idx} className="flex justify-between items-center py-1 border-b border-slate-100 last:border-0">
+                                <span className="text-[8px] font-bold text-slate-400 uppercase">{tier.label}</span>
+                                <span className="text-[9px] font-black text-brand-900">${tier.value.toLocaleString()}</span>
+                              </div>
+                            ))}
+                            <p className="text-[6px] text-slate-400 mt-2 leading-tight italic">
+                              * Precios calculados según tramos de permanencia IPC 2024.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  <button 
-                    onClick={() => onAddToCart(product)}
-                    disabled={isOutOfStock}
-                    className="w-full py-4 bg-brand-900 text-white rounded-xl font-black text-[10px] uppercase shadow-md active:scale-95 transition-all flex items-center justify-center space-x-2 hover:bg-black disabled:opacity-30 disabled:grayscale"
-                  >
-                    <Plus size={14} />
-                    <span>Añadir a la Reserva</span>
-                  </button>
+                  <div className="mt-auto space-y-3">
+                    <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-2xl p-1.5">
+                        <button 
+                            disabled={isOutOfStock}
+                            onClick={() => updateLocalQuantity(product.id, -1, product.stock)}
+                            className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm text-brand-900 disabled:opacity-30 active:scale-90 transition-all"
+                        >
+                            <Minus size={14} />
+                        </button>
+                        <div className="flex flex-col items-center">
+                            <span className="text-sm font-black text-brand-900">{qty}</span>
+                            <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Cant.</span>
+                        </div>
+                        <button 
+                            disabled={isOutOfStock || qty >= product.stock}
+                            onClick={() => updateLocalQuantity(product.id, 1, product.stock)}
+                            className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm text-brand-900 disabled:opacity-30 active:scale-90 transition-all"
+                        >
+                            <Plus size={14} />
+                        </button>
+                    </div>
+
+                    <button 
+                        onClick={() => {
+                            onAddToCart(product, qty);
+                            setLocalQuantities(prev => ({ ...prev, [product.id]: 1 }));
+                        }}
+                        disabled={isOutOfStock}
+                        className="w-full py-4 bg-brand-900 text-white rounded-xl font-black text-[10px] uppercase shadow-md active:scale-95 transition-all flex items-center justify-center space-x-2 hover:bg-black disabled:opacity-30 disabled:grayscale"
+                    >
+                        <Plus size={14} />
+                        <span>Añadir {qty > 1 ? `(${qty})` : ''} a la Reserva</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             );
