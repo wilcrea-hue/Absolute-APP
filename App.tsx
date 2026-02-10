@@ -105,6 +105,37 @@ const App: React.FC = () => {
     localStorage.setItem('absolute_order_counter', orderCounter.toString());
   }, [orders, products, users, orderCounter]);
 
+  // Función para detectar solapamiento de fechas
+  const isDateOverlap = (s1: string, e1: string, s2: string, e2: string) => {
+    const start1 = new Date(s1).getTime();
+    const end1 = new Date(e1).getTime();
+    const start2 = new Date(s2).getTime();
+    const end2 = new Date(e2).getTime();
+    return (start1 <= end2) && (end1 >= start2);
+  };
+
+  // Función para obtener stock disponible en un rango de fechas
+  const getAvailableStock = (productId: string, startDate: string, endDate: string) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return 0;
+    if (!startDate || !endDate) return product.stock;
+
+    // Sumar cantidades de pedidos activos que se solapen con estas fechas
+    const committedQuantity = orders
+      .filter(o => 
+        o.status !== 'Cancelado' && 
+        o.status !== 'Finalizado' &&
+        o.items.some(i => i.id === productId) &&
+        isDateOverlap(o.startDate, o.endDate, startDate, endDate)
+      )
+      .reduce((sum, o) => {
+        const item = o.items.find(i => i.id === productId);
+        return sum + (item?.quantity || 0);
+      }, 0);
+
+    return Math.max(0, product.stock - committedQuantity);
+  };
+
   const triggerEmailNotification = async (recipientEmail: string, subject: string, stage: string, context: string) => {
     try {
       const apiKey = process.env.API_KEY;
@@ -117,11 +148,13 @@ const App: React.FC = () => {
         Etapa/Asunto: ${stage}. 
         Debe sonar ejecutivo, servicial y corporativo. Incluye despedida del equipo de ABSOLUTE.`;
         
-        const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
+        const response = await ai.models.generateContent({ 
+          model: 'gemini-3-flash-preview', 
+          contents: prompt 
+        });
         emailBody = response.text || emailBody;
       }
 
-      // Solo mostramos el editor si el usuario actual es administrador
       if (user?.role === 'admin') {
         setSentEmail({
           to: recipientEmail,
@@ -131,7 +164,6 @@ const App: React.FC = () => {
           stage: stage
         });
       } else {
-        // Para no-admins, simulamos el envío en consola (o lo registramos en logs)
         console.log(`[Email Auto-Sent] To: ${recipientEmail}, Subject: ${subject}`);
       }
     } catch (err) {
@@ -183,8 +215,6 @@ const App: React.FC = () => {
     const newUser: User = { name, email: lowerEmail, role: 'user', phone, status: 'on-hold', discountPercentage: 0, password };
     saveAndSync('users', [...users, newUser]);
     
-    // El disparador intentará mostrar el editor si un admin lo está haciendo (ej. desde panel)
-    // Pero si es un registro externo, solo lo enviaría silenciosamente
     triggerEmailNotification(
       lowerEmail, 
       "Registro Exitoso - Pendiente de Aprobación", 
@@ -234,6 +264,18 @@ const App: React.FC = () => {
   const handleConfirmQuote = (orderId: string) => {
     const updatedOrders = orders.map(order => {
       if (order.id === orderId && order.status === 'Cotización') {
+        // Validación de stock antes de confirmar cotización
+        let canConfirm = true;
+        order.items.forEach(item => {
+          const available = getAvailableStock(item.id, order.startDate, order.endDate);
+          if (item.quantity > available) canConfirm = false;
+        });
+
+        if (!canConfirm) {
+          alert("No se puede confirmar la cotización: El inventario ya no está disponible para las fechas seleccionadas.");
+          return order;
+        }
+
         triggerEmailNotification(
           order.userEmail,
           `Confirmación de Cotización ${order.id}`,
@@ -249,6 +291,21 @@ const App: React.FC = () => {
 
   const createOrder = (startDate: string, endDate: string, destination: string, type: OrderType = 'rental') => {
     if (!user) return;
+
+    // Validación final de stock antes de crear
+    let overbookedItems = [];
+    for (const item of cart) {
+      const available = getAvailableStock(item.id, startDate, endDate);
+      if (item.quantity > available) {
+        overbookedItems.push(`${item.name} (Requerido: ${item.quantity}, Disponible: ${available})`);
+      }
+    }
+
+    if (overbookedItems.length > 0 && type === 'rental') {
+      alert("Error: Stock insuficiente para las fechas seleccionadas:\n" + overbookedItems.join("\n"));
+      return;
+    }
+
     const s = new Date(startDate);
     const e = new Date(endDate);
     const diffTime = Math.abs(e.getTime() - s.getTime());
@@ -287,6 +344,23 @@ const App: React.FC = () => {
     );
   };
 
+  const handleAddToCart = (product: Product) => {
+    setCart(prev => {
+      const existingItem = prev.find(item => item.id === product.id);
+      if (existingItem) {
+        if (existingItem.quantity < product.stock) {
+          return prev.map(item => 
+            item.id === product.id 
+              ? { ...item, quantity: item.quantity + 1 } 
+              : item
+          );
+        }
+        return prev;
+      }
+      return [...prev, { ...product, quantity: 1 }];
+    });
+  };
+
   return (
     <HashRouter>
       {!user ? (
@@ -300,8 +374,18 @@ const App: React.FC = () => {
           onChangePassword={() => setIsPasswordModalOpen(true)}
         >
           <Routes>
-            <Route path="/" element={<Catalog products={products} onAddToCart={(p) => setCart(prev => [...prev, { ...p, quantity: 1 }])} />} />
-            <Route path="/cart" element={<Cart items={cart} currentUser={user} onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} onUpdateQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, q)} : i))} onCheckout={createOrder} />} />
+            <Route path="/" element={<Catalog products={products} onAddToCart={handleAddToCart} />} />
+            <Route path="/cart" element={
+              <Cart 
+                items={cart} 
+                currentUser={user} 
+                orders={orders}
+                onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} 
+                onUpdateQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, q)} : i))} 
+                onCheckout={createOrder} 
+                getAvailableStock={getAvailableStock}
+              />
+            } />
             <Route path="/orders" element={
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
@@ -375,7 +459,6 @@ const App: React.FC = () => {
           <ChangePasswordModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} onUpdate={handleUpdatePassword} currentUser={user} />
         </Layout>
       )}
-      {/* Solo mostramos el editor si el rol es Admin */}
       {user?.role === 'admin' && <EmailNotification email={sentEmail} onClose={() => setSentEmail(null)} />}
     </HashRouter>
   );

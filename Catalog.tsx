@@ -63,6 +63,7 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
           {filteredProducts.map(product => {
             const isOutOfStock = product.stock <= 0;
             const isLowStock = product.stock > 0 && product.stock <= 3;
+            const isM2 = product.name.toLowerCase().includes('impresión');
 
             return (
               <div key={product.id} className="bg-white rounded-[2rem] shadow-sm hover:shadow-xl transition-all duration-500 border border-slate-50 overflow-hidden flex flex-col group">
@@ -88,10 +89,10 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                   
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4">
                     <p className="text-[8px] font-black text-slate-400 uppercase flex items-center mb-1">
-                      <Clock size={10} className="mr-1.5" /> Tarifa de Alquiler
+                      <Clock size={10} className="mr-1.5" /> {isM2 ? 'Tarifa por metro cuadrado' : 'Tarifa de Alquiler'}
                     </p>
                     <p className="text-xl font-black text-brand-900">
-                      ${product.priceRent?.toLocaleString()} <span className="text-[10px] text-slate-400 font-bold uppercase ml-1">/ día</span>
+                      ${product.priceRent?.toLocaleString()} <span className="text-[10px] text-slate-400 font-bold uppercase ml-1">/ {isM2 ? 'm²' : 'día'}</span>
                     </p>
                   </div>
 

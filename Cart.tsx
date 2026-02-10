@@ -1,18 +1,20 @@
 
 import React, { useState, useMemo } from 'react';
-import { CartItem, OrderType, User } from './types';
-import { Trash2, Calendar, ShoppingBag, Clock, MapPin, FileText, CheckCircle, Percent, AlertTriangle, RefreshCw } from 'lucide-react';
+import { CartItem, OrderType, User, Order } from './types';
+import { Trash2, Calendar, ShoppingBag, Clock, MapPin, FileText, CheckCircle, Percent, AlertTriangle, RefreshCw, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface CartProps {
   items: CartItem[];
   currentUser: User | null;
+  orders: Order[];
   onRemove: (id: string) => void;
   onUpdateQuantity: (id: string, qty: number) => void;
   onCheckout: (startDate: string, endDate: string, destination: string, type: OrderType) => void;
+  getAvailableStock: (productId: string, startDate: string, endDate: string) => number;
 }
 
-export const Cart: React.FC<CartProps> = ({ items, currentUser, onRemove, onUpdateQuantity, onCheckout }) => {
+export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove, onUpdateQuantity, onCheckout, getAvailableStock }) => {
   const navigate = useNavigate();
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -39,11 +41,26 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, onRemove, onUpda
   const discountAmount = (subtotalAmount * discountPercentage) / 100;
   const totalAmount = subtotalAmount - discountAmount;
 
+  // Verificar si hay sobrealquiler para las fechas seleccionadas
+  const overbookedProducts = useMemo(() => {
+    if (!startDate || !endDate) return [];
+    return items.filter(item => {
+      const available = getAvailableStock(item.id, startDate, endDate);
+      return item.quantity > available;
+    });
+  }, [items, startDate, endDate, getAvailableStock]);
+
   const handleCheckout = (type: OrderType) => {
     if (!startDate || !endDate || !destination) {
       alert("Por favor complete los datos de destino y fechas.");
       return;
     }
+    
+    if (type === 'rental' && overbookedProducts.length > 0) {
+      alert("No se puede confirmar la reserva: Algunos artículos exceden el stock disponible para estas fechas.");
+      return;
+    }
+
     onCheckout(startDate, endDate, destination, type);
     navigate('/orders');
   };
@@ -70,46 +87,60 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, onRemove, onUpda
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
-      <h2 className="text-2xl font-black text-brand-900 uppercase">Configuración de Reserva</h2>
+      <div className="flex justify-between items-end">
+        <div>
+          <h2 className="text-2xl font-black text-brand-900 uppercase">Configuración de Reserva</h2>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Valide sus fechas para asegurar disponibilidad de stock.</p>
+        </div>
+        {overbookedProducts.length > 0 && (
+          <div className="bg-red-50 text-red-600 px-4 py-2 rounded-xl border border-red-100 flex items-center space-x-2 animate-pulse">
+            <XCircle size={16} />
+            <span className="text-[9px] font-black uppercase tracking-tighter">Error: Conflicto de Disponibilidad</span>
+          </div>
+        )}
+      </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         <div className="lg:col-span-8 space-y-4">
           {items.map(item => {
             const subtotal = item.priceRent * item.quantity * eventDays;
-            const atStockLimit = item.quantity >= item.stock;
+            const availableForDates = (startDate && endDate) ? getAvailableStock(item.id, startDate, endDate) : item.stock;
+            const isOverbooked = item.quantity > availableForDates;
+            const isM2 = item.name.toLowerCase().includes('impresión');
 
             return (
-              <div key={item.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col space-y-4 group hover:shadow-md transition-all">
+              <div key={item.id} className={`bg-white p-6 rounded-[2rem] border transition-all flex flex-col space-y-4 group hover:shadow-md ${isOverbooked ? 'border-red-200 shadow-lg shadow-red-500/5' : 'border-slate-100 shadow-sm'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-6">
                     <img src={item.image} className="w-20 h-20 rounded-2xl object-cover shadow-sm" alt="" />
                     <div>
-                      <h4 className="font-black text-slate-900 uppercase text-sm">{item.name}</h4>
+                      <h4 className={`font-black uppercase text-sm ${isOverbooked ? 'text-red-600' : 'text-slate-900'}`}>{item.name}</h4>
                       <p className="text-[10px] font-bold text-brand-500 uppercase mt-1 tracking-widest flex items-center">
-                        <Clock size={10} className="mr-1.5" /> Alquiler por día: ${item.priceRent.toLocaleString()}
+                        <Clock size={10} className="mr-1.5" /> {isM2 ? 'Valor por m²:' : 'Alquiler por día:'} ${item.priceRent.toLocaleString()}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center space-x-8">
                      <div className="flex flex-col items-center">
-                        <div className="flex items-center bg-slate-50 border border-slate-100 rounded-2xl p-1.5">
+                        <div className={`flex items-center border rounded-2xl p-1.5 transition-colors ${isOverbooked ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-100'}`}>
                             <button 
                               onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} 
                               className="w-8 h-8 flex items-center justify-center font-black hover:text-brand-900 transition-colors"
                             >-</button>
-                            <span className="w-10 text-center font-black text-sm">{item.quantity}</span>
+                            <span className="w-12 text-center font-black text-sm">{item.quantity}{isM2 ? 'm²' : ''}</span>
                             <button 
-                              disabled={atStockLimit}
                               onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} 
-                              className={`w-8 h-8 flex items-center justify-center font-black transition-colors ${atStockLimit ? 'text-slate-300 cursor-not-allowed' : 'hover:text-brand-900'}`}
+                              className={`w-8 h-8 flex items-center justify-center font-black transition-colors hover:text-brand-900`}
                             >+</button>
                         </div>
-                        <p className="text-[7px] font-black text-slate-400 uppercase mt-1">Stock: {item.stock}</p>
+                        <p className={`text-[7px] font-black uppercase mt-1 ${isOverbooked ? 'text-red-500' : 'text-slate-400'}`}>
+                          {isOverbooked ? `Sólo ${availableForDates} disponibles` : `${isM2 ? 'Área disponible' : 'Stock total'}: ${item.stock}`}
+                        </p>
                      </div>
                      <div className="text-right min-w-[120px]">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                          {eventDays} días de servicio
+                          {eventDays} {eventDays === 1 ? 'día' : 'días'} de servicio
                         </p>
                         <p className="font-black text-brand-900 text-base">${subtotal.toLocaleString()}</p>
                      </div>
@@ -117,19 +148,21 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, onRemove, onUpda
                   </div>
                 </div>
 
-                {atStockLimit && (
-                  <div className="flex items-center justify-between p-3 bg-amber-50 rounded-2xl border border-amber-100">
+                {isOverbooked && (
+                  <div className="flex items-center justify-between p-4 bg-red-50 rounded-2xl border border-red-100">
                     <div className="flex items-center space-x-3">
-                       <AlertTriangle size={16} className="text-amber-500" />
-                       <p className="text-[9px] font-black text-amber-700 uppercase tracking-tight">Límite de stock alcanzado ({item.stock}).</p>
+                       <AlertTriangle size={16} className="text-red-500" />
+                       <p className="text-[9px] font-black text-red-700 uppercase tracking-tight">
+                         Excede disponibilidad para estas fechas. Ajuste cantidad o cambie fechas.
+                       </p>
                     </div>
                     <button 
                       onClick={() => handleRequestReplenishment(item)}
                       disabled={isReplenishing === item.id}
-                      className="bg-white text-brand-900 px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest border border-amber-200 shadow-sm hover:bg-brand-900 hover:text-white transition-all flex items-center space-x-2"
+                      className="bg-white text-red-600 px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest border border-red-200 shadow-sm hover:bg-red-600 hover:text-white transition-all flex items-center space-x-2"
                     >
                       {isReplenishing === item.id ? <RefreshCw size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                      <span>Pedir Reposición</span>
+                      <span>Solicitud Urgente</span>
                     </button>
                   </div>
                 )}
@@ -170,7 +203,7 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, onRemove, onUpda
             <div className="border-t pt-8 space-y-4">
               <div className="flex flex-col space-y-1 bg-slate-50 p-5 rounded-2xl mb-4">
                 <div className="flex justify-between items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  <span>Subtotal Alquiler</span>
+                  <span>Subtotal Alquiler/Servicios</span>
                   <span>${subtotalAmount.toLocaleString()}</span>
                 </div>
                 {discountPercentage > 0 && (
@@ -196,12 +229,20 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, onRemove, onUpda
 
                 <button 
                   onClick={() => handleCheckout('rental')} 
-                  className="w-full py-4 bg-brand-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-black transition-all active:scale-[0.98] flex items-center justify-center space-x-2"
+                  disabled={overbookedProducts.length > 0}
+                  className={`w-full py-4 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl transition-all active:scale-[0.98] flex items-center justify-center space-x-2 ${
+                    overbookedProducts.length > 0 
+                      ? 'bg-slate-300 cursor-not-allowed' 
+                      : 'bg-brand-900 hover:bg-black shadow-brand-900/20'
+                  }`}
                 >
                   <CheckCircle size={16} />
                   <span>Confirmar Reserva</span>
                 </button>
               </div>
+              {overbookedProducts.length > 0 && (
+                <p className="text-[8px] text-red-500 font-black uppercase text-center mt-2 italic">Ajuste las cantidades en rojo para proceder con la reserva.</p>
+              )}
             </div>
           </div>
         </div>

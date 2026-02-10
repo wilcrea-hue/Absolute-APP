@@ -86,6 +86,15 @@ export const PRODUCTS: Product[] = [
     priceRent: 500000,
   },
   {
+    id: 'serv-3',
+    name: 'Servicio de Impresión',
+    category: 'Servicios',
+    description: 'Impresión en gran formato para piezas de marca. Valor por m².',
+    image: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=800&auto=format&fit=crop',
+    stock: 999,
+    priceRent: 45000,
+  },
+  {
     id: 'serv-2',
     name: 'Transporte',
     category: 'Servicios',
