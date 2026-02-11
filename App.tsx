@@ -20,8 +20,14 @@ const ADMIN_EMAIL = 'admin@absolutecompany.co';
 
 const DEFAULT_USERS: User[] = [
   { email: ADMIN_EMAIL, password: 'absolute2024', name: 'Administrador Principal', role: 'admin', phone: '3101234567', status: 'active', discountPercentage: 0 },
-  { email: 'logistics@absolutecompany.co', password: 'absolute2024', name: 'Encargado Logística', role: 'logistics', phone: '3119876543', status: 'active', discountPercentage: 0 },
+  { email: 'bodegaabsolutecompany@gmail.com', password: 'absolute2024', name: 'Jefe de Bodega', role: 'logistics', phone: '3218533959', status: 'active', discountPercentage: 0 },
   { email: 'manager@absolutecompany.co', password: 'absolute2024', name: 'Gerente de Operaciones', role: 'operations_manager', phone: '3151112233', status: 'active', discountPercentage: 0 },
+  // Nómina de Coordinadores Nacionales
+  { email: 'Coordinadordavidabsolute@gmail.com', password: 'absolute2024', name: 'David (Coordinador)', role: 'coordinator', phone: '3000000001', status: 'active', discountPercentage: 0 },
+  { email: 'Coordinadorharoldabsolute@gmail.com', password: 'absolute2024', name: 'Harold (Coordinador)', role: 'coordinator', phone: '3000000002', status: 'active', discountPercentage: 0 },
+  { email: 'Coordinadoredwinabsolute@gmail.com', password: 'absolute2024', name: 'Edwin (Coordinador)', role: 'coordinator', phone: '3000000003', status: 'active', discountPercentage: 0 },
+  { email: 'Coordinadormichaelabsolute@gmail.com', password: 'absolute2024', name: 'Michael (Coordinador)', role: 'coordinator', phone: '3000000004', status: 'active', discountPercentage: 0 },
+  { email: 'Coordinadorwilliamabsolute@gmail.com', password: 'absolute2024', name: 'William (Coordinador)', role: 'coordinator', phone: '3000000005', status: 'active', discountPercentage: 0 },
 ];
 
 const App: React.FC = () => {
@@ -296,16 +302,21 @@ const App: React.FC = () => {
     });
   };
 
+  const handleUpdateUserDetails = (email: string, details: Partial<User>) => {
+    const updatedUsers = users.map(u => u.email === email ? { ...u, ...details } : u);
+    saveAndSync('users', updatedUsers);
+  };
+
   return (
     <HashRouter>
       {!user ? <Login onLogin={handleLogin} onRegister={handleRegister} /> : (
         <Layout user={user} cartCount={cart.length} onLogout={() => setUser(null)} syncStatus={{ isOnline, lastSync }} onChangePassword={() => setIsPasswordModalOpen(true)}>
           <Routes>
-            <Route path="/" element={<Catalog products={products} onAddToCart={handleAddToCart} />} />
-            <Route path="/cart" element={<Cart items={cart} currentUser={user} orders={orders} onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} onUpdateQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, q)} : i))} onCheckout={createOrder} getAvailableStock={getAvailableStock} />} />
+            <Route path="/" element={(user.role === 'logistics' || user.role === 'coordinator') ? <Navigate to="/orders" replace /> : <Catalog products={products} onAddToCart={handleAddToCart} />} />
+            <Route path="/cart" element={(user.role === 'logistics' || user.role === 'coordinator') ? <Navigate to="/orders" replace /> : <Cart items={cart} currentUser={user} orders={orders} onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} onUpdateQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, q)} : i))} onCheckout={createOrder} getAvailableStock={getAvailableStock} />} />
             <Route path="/orders" element={<div className="space-y-6"><h2 className="text-2xl font-black text-brand-900 uppercase">Reservas</h2><div className="grid gap-4">{orders.filter(o => user.role === 'admin' || user.role === 'logistics' || o.userEmail === user.email || o.assignedCoordinatorEmail === user.email).map(o => (<div key={o.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4"><div className="flex items-center space-x-4"><div className={`w-10 h-10 rounded-xl flex items-center justify-center ${o.orderType === 'quote' ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-900'}`}>{o.orderType === 'quote' ? 'Q' : 'R'}</div><div><span className="text-[10px] font-black text-slate-400 uppercase">REF: {o.id}</span><h4 className="font-black text-brand-900 uppercase text-sm">{o.destinationLocation}</h4></div></div><div className="flex items-center space-x-3 w-full md:w-auto justify-end"><span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border ${o.status === 'Finalizado' ? 'bg-green-50 text-green-700' : 'bg-brand-50 text-brand-900'}`}>{o.status}</span><div className="flex space-x-2"><Link to={`/tracking/${o.id}`} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2"> <Eye size={14} /> <span>Detalles</span> </Link> {o.status === 'Cotización' && (<button onClick={() => handleConfirmQuote(o.id)} className="bg-brand-900 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2"> <CheckCircle size={14} /> <span>Confirmar</span> </button>)}</div></div></div>))}</div></div>} />
             <Route path="/tracking/:id" element={<Tracking orders={orders} onUpdateStage={handleUpdateStage} onConfirmQuote={handleConfirmQuote} currentUser={user} users={users} />} />
-            <Route path="/admin" element={<AdminDashboard currentUser={user} products={products} orders={orders} users={users} onAddProduct={(p) => saveAndSync('inventory', [...products, p])} onUpdateProduct={(p) => saveAndSync('inventory', products.map(old => old.id === p.id ? p : old))} onDeleteProduct={(id) => saveAndSync('inventory', products.filter(p => p.id !== id))} onApproveOrder={(id) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, status: 'En Proceso'} : o))} onCancelOrder={(id) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, status: 'Cancelado'} : o))} onDeleteOrder={(id) => saveAndSync('orders', orders.filter(o => o.id !== id))} onUpdateOrderDates={() => {}} onChangeUserRole={(email, role) => saveAndSync('users', users.map(u => u.email === email ? {...u, role} : u))} onChangeUserDiscount={(email, disc) => saveAndSync('users', users.map(u => u.email === email ? {...u, discountPercentage: disc} : u))} onToggleUserStatus={(email) => saveAndSync('users', users.map(u => u.email === email ? {...u, status: u.status === 'active' ? 'on-hold' : 'active'} : u))} onDeleteUser={(email) => saveAndSync('users', users.filter(u => u.email !== email))} onUpdateStage={handleUpdateStage} onToggleUserRole={() => {}} />} />
+            <Route path="/admin" element={<AdminDashboard currentUser={user} products={products} orders={orders} users={users} onAddProduct={(p) => saveAndSync('inventory', [...products, p])} onUpdateProduct={(p) => saveAndSync('inventory', products.map(old => old.id === p.id ? p : old))} onDeleteProduct={(id) => saveAndSync('inventory', products.filter(p => p.id !== id))} onApproveOrder={(id) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, status: 'En Proceso'} : o))} onCancelOrder={(id) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, status: 'Cancelado'} : o))} onDeleteOrder={(id) => saveAndSync('orders', orders.filter(o => o.id !== id))} onUpdateOrderDates={() => {}} onChangeUserRole={(email, role) => saveAndSync('users', users.map(u => u.email === email ? {...u, role} : u))} onChangeUserDiscount={(email, disc) => saveAndSync('users', users.map(u => u.email === email ? {...u, discountPercentage: disc} : u))} onToggleUserStatus={(email) => saveAndSync('users', users.map(u => u.email === email ? {...u, status: u.status === 'active' ? 'on-hold' : 'active'} : u))} onDeleteUser={(email) => saveAndSync('users', users.filter(u => u.email !== email))} onUpdateStage={handleUpdateStage} onToggleUserRole={() => {}} onUpdateUserDetails={handleUpdateUserDetails} />} />
             <Route path="/logistics-map" element={<ServiceMap />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -21,6 +21,7 @@ interface AdminDashboardProps {
   onToggleUserRole: (email: string) => void;
   onChangeUserRole?: (email: string, newRole: User['role']) => void;
   onChangeUserDiscount: (email: string, discount: number) => void;
+  onUpdateUserDetails?: (email: string, details: Partial<User>) => void;
   onToggleUserStatus?: (email: string) => void;
   onDeleteUser?: (email: string) => void;
   onUpdateStage: (orderId: string, stageKey: WorkflowStageKey, data: StageData) => void;
@@ -32,7 +33,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   currentUser, products, orders, users,
   onAddProduct, onUpdateProduct, onDeleteProduct,
   onApproveOrder, onCancelOrder, onDeleteOrder,
-  onChangeUserRole, onChangeUserDiscount, onToggleUserStatus, onDeleteUser,
+  onChangeUserRole, onChangeUserDiscount, onUpdateUserDetails, onToggleUserStatus, onDeleteUser,
 }) => {
   const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'users'>(currentUser.role === 'admin' ? 'inventory' : 'orders');
   const [isEditingProduct, setIsEditingProduct] = useState<string | null>(null);
@@ -61,19 +62,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const saveProduct = () => {
-    // Sincronizar descripción final desde el ref antes de guardar
     const finalDescription = editorRef.current?.innerHTML || editForm.description || '';
-    
     if (!editForm.name || !editForm.category || !editForm.image) {
       alert("Complete los campos obligatorios.");
       return;
     }
-    
     const productData = { ...editForm, description: finalDescription } as Product;
-    
     if (isEditingProduct === 'new') onAddProduct({ ...productData, id: Math.random().toString(36).substr(2, 9) });
     else onUpdateProduct(productData);
-    
     setIsEditingProduct(null);
   };
 
@@ -89,7 +85,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const professionalizeDescription = async () => {
     const currentText = editorRef.current?.innerHTML || editForm.description || '';
     if (!currentText || isAiOptimizing || !apiKey) return;
-    
     setIsAiOptimizing(true);
     try {
       const ai = new GoogleGenAI({ apiKey });
@@ -98,12 +93,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       MANTÉN EL FORMATO HTML (etiquetas b, i, ul, li) para resaltar características clave.
       Producto: ${editForm.name}
       Descripción original: "${currentText}"`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt
-      });
-
+      const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
       if (response.text && editorRef.current) {
         const optimizedHtml = response.text.trim();
         editorRef.current.innerHTML = optimizedHtml;
@@ -398,47 +388,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     )}
                   </div>
                   
-                  {/* Rich Text Editor Container */}
                   <div className="border border-slate-200 rounded-[2rem] overflow-hidden bg-slate-50/50 group focus-within:border-brand-900 transition-all">
                     <div className="bg-white/80 backdrop-blur-sm p-3 flex items-center space-x-2 border-b border-slate-200">
-                      <button 
-                        type="button" 
-                        onClick={() => execFormat('bold')} 
-                        className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-600 transition-all active:scale-90"
-                        title="Negrita"
-                      >
-                        <Bold size={16} />
-                      </button>
-                      <button 
-                        type="button" 
-                        onClick={() => execFormat('italic')} 
-                        className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-600 transition-all active:scale-90"
-                        title="Cursiva"
-                      >
-                        <Italic size={16} />
-                      </button>
+                      <button type="button" onClick={() => execFormat('bold')} className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-600 transition-all active:scale-90" title="Negrita"><Bold size={16} /></button>
+                      <button type="button" onClick={() => execFormat('italic')} className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-600 transition-all active:scale-90" title="Cursiva"><Italic size={16} /></button>
                       <div className="w-px h-6 bg-slate-200 mx-1" />
-                      <button 
-                        type="button" 
-                        onClick={() => execFormat('insertUnorderedList')} 
-                        className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-600 transition-all active:scale-90"
-                        title="Lista"
-                      >
-                        <List size={16} />
-                      </button>
+                      <button type="button" onClick={() => execFormat('insertUnorderedList')} className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-600 transition-all active:scale-90" title="Lista"><List size={16} /></button>
                     </div>
-                    
-                    <div 
-                      ref={editorRef}
-                      contentEditable
-                      onBlur={() => {
-                        if(editorRef.current) {
-                          setEditForm({ ...editForm, description: editorRef.current.innerHTML });
-                        }
-                      }}
-                      dangerouslySetInnerHTML={{ __html: editForm.description || '' }}
-                      className="min-h-[160px] p-8 text-sm font-medium text-slate-700 outline-none leading-relaxed prose prose-sm max-w-none focus:bg-white transition-colors"
-                    />
+                    <div ref={editorRef} contentEditable onBlur={() => editorRef.current && setEditForm({ ...editForm, description: editorRef.current.innerHTML })} dangerouslySetInnerHTML={{ __html: editForm.description || '' }} className="min-h-[160px] p-8 text-sm font-medium text-slate-700 outline-none leading-relaxed prose prose-sm max-w-none focus:bg-white transition-colors" />
                   </div>
                 </div>
 
@@ -472,6 +429,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             currentUser={currentUser} 
             onChangeUserRole={onChangeUserRole!} 
             onChangeUserDiscount={onChangeUserDiscount}
+            onUpdateUserDetails={onUpdateUserDetails}
             onToggleStatus={onToggleUserStatus} 
             onDeleteUser={onDeleteUser} 
           />

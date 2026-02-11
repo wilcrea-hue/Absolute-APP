@@ -25,6 +25,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
   const location = useLocation();
   const isStaff = user.role === 'admin' || user.role === 'logistics' || user.role === 'coordinator';
 
+  // Usuarios que NO pueden ver el catálogo (Solo flujos operativos)
+  const isOperationalOnly = user.role === 'logistics' || user.role === 'coordinator';
+
   useEffect(() => {
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
@@ -103,8 +106,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
         <div className="p-4 space-y-0.5 flex-1 overflow-y-auto no-scrollbar">
           <div className="mb-4">
              <p className="px-4 text-[8px] font-black text-white/20 uppercase tracking-[0.2em] mb-2">Principal</p>
-             <NavItem to="/" icon={LayoutGrid} label="Catálogo" />
-             {user.role !== 'logistics' && user.role !== 'coordinator' && <NavItem to="/cart" icon={ShoppingCart} label="Configurar Pedido" />}
+             {!isOperationalOnly && <NavItem to="/" icon={LayoutGrid} label="Catálogo" />}
+             {!isOperationalOnly && <NavItem to="/cart" icon={ShoppingCart} label="Configurar Pedido" />}
              <NavItem to="/orders" icon={ClipboardList} label={isStaff ? "Listado Maestro" : "Mis Reservas"} />
           </div>
           

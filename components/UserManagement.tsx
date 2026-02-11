@@ -1,13 +1,14 @@
 
 import React, { useState, useMemo } from 'react';
 import { User } from '../types';
-import { Search, User as UserIcon, Shield, Truck, UserCircle, Mail, Phone, MapPin, Trash2, Pause, Play, Clock, ArrowUpDown, ChevronUp, ChevronDown, Percent } from 'lucide-react';
+import { Search, User as UserIcon, Shield, Truck, UserCircle, Mail, Phone, MapPin, Trash2, Pause, Play, Clock, ArrowUpDown, ChevronUp, ChevronDown, Percent, Edit3 } from 'lucide-react';
 
 interface UserManagementProps {
   users: User[];
   currentUser: User;
   onChangeUserRole: (email: string, newRole: User['role']) => void;
   onChangeUserDiscount: (email: string, discount: number) => void;
+  onUpdateUserDetails?: (email: string, details: Partial<User>) => void;
   onToggleStatus?: (email: string) => void;
   onDeleteUser?: (email: string) => void;
 }
@@ -20,12 +21,15 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   currentUser, 
   onChangeUserRole,
   onChangeUserDiscount,
+  onUpdateUserDetails,
   onToggleStatus,
   onDeleteUser
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [editingEmail, setEditingEmail] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<{ name: string; phone: string }>({ name: '', phone: '' });
 
   const sortedAndFilteredUsers = useMemo(() => {
     let result = users.filter(user => 
@@ -78,6 +82,18 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     }
   };
 
+  const startEditing = (user: User) => {
+    setEditingEmail(user.email);
+    setEditValues({ name: user.name, phone: user.phone || '' });
+  };
+
+  const saveEdit = (email: string) => {
+    if (onUpdateUserDetails) {
+      onUpdateUserDetails(email, { name: editValues.name, phone: editValues.phone });
+    }
+    setEditingEmail(null);
+  };
+
   const getRoleIcon = (role: string) => {
     switch (role) {
       case 'admin': return <Shield size={14} className="mr-1" />;
@@ -108,7 +124,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest">Nómina del Sistema</h3>
-          <p className="text-[11px] text-gray-500 font-bold uppercase">Gestión de privilegios, acceso jerárquico y descuentos comerciales.</p>
+          <p className="text-[11px] text-gray-500 font-bold uppercase">Gestión de privilegios, acceso jerárquico y datos de contacto.</p>
         </div>
         
         <div className="relative w-full md:w-80">
@@ -170,6 +186,8 @@ export const UserManagement: React.FC<UserManagementProps> = ({
             <tbody className="divide-y divide-slate-50">
               {sortedAndFilteredUsers.map(user => {
                 const isOnHold = user.status === 'on-hold';
+                const isEditing = editingEmail === user.email;
+
                 return (
                   <tr key={user.email} className={`hover:bg-slate-50/30 transition-colors group ${isOnHold ? 'bg-orange-50/30' : ''}`}>
                     <td className="px-6 py-5">
@@ -177,17 +195,44 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${isOnHold ? 'bg-orange-100 text-orange-600 border-orange-200' : 'bg-brand-50 text-brand-900 border-brand-100'}`}>
                           {isOnHold ? <Clock size={20} /> : <UserIcon size={20} />}
                         </div>
-                        <div>
-                          <div className="text-sm font-black text-gray-900 flex items-center">
-                            {user.name}
-                            {user.email === currentUser.email && (
-                              <span className="ml-2 text-[9px] bg-brand-900 text-white px-2 py-0.5 rounded-full uppercase tracking-tighter">Tú</span>
-                            )}
-                          </div>
-                          <div className="text-[10px] text-gray-400 font-bold flex flex-col mt-0.5">
-                            <span className="flex items-center"><Mail size={12} className="mr-1.5 opacity-50" /> {user.email}</span>
-                            <span className="flex items-center mt-1"><Phone size={12} className="mr-1.5 opacity-50" /> {user.phone || 'Sin número'}</span>
-                          </div>
+                        <div className="flex-1 min-w-[180px]">
+                          {isEditing ? (
+                            <div className="space-y-2">
+                              <input 
+                                type="text"
+                                value={editValues.name}
+                                onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
+                                className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold"
+                              />
+                              <input 
+                                type="tel"
+                                value={editValues.phone}
+                                onChange={(e) => setEditValues({ ...editValues, phone: e.target.value })}
+                                className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs"
+                                placeholder="Teléfono"
+                              />
+                              <button 
+                                onClick={() => saveEdit(user.email)}
+                                className="text-[8px] bg-brand-900 text-white px-3 py-1 rounded-md uppercase font-black"
+                              >Guardar</button>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="text-sm font-black text-gray-900 flex items-center">
+                                {user.name}
+                                {user.email === currentUser.email && (
+                                  <span className="ml-2 text-[9px] bg-brand-900 text-white px-2 py-0.5 rounded-full uppercase tracking-tighter">Tú</span>
+                                )}
+                                <button onClick={() => startEditing(user)} className="ml-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-brand-900 transition-all">
+                                  <Edit3 size={12} />
+                                </button>
+                              </div>
+                              <div className="text-[10px] text-gray-400 font-bold flex flex-col mt-0.5">
+                                <span className="flex items-center"><Mail size={12} className="mr-1.5 opacity-50" /> {user.email}</span>
+                                <span className="flex items-center mt-1"><Phone size={12} className="mr-1.5 opacity-50" /> {user.phone || 'Sin número'}</span>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -230,7 +275,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                             onClick={() => onChangeUserRole(user.email, 'logistics')}
                             className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-tighter transition-all ${user.role === 'logistics' ? 'bg-white text-orange-700 shadow-md' : 'text-gray-400 hover:text-gray-600'}`}
                           >
-                            Logística
+                            Bodega
                           </button>
                           <button 
                             onClick={() => onChangeUserRole(user.email, 'coordinator')}
