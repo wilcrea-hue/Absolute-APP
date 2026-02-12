@@ -1,14 +1,14 @@
 
 import React, { useState } from 'react';
 import { Category, Product } from './types';
-import { Search, Plus, Clock, PackageX, AlertCircle, Info, Minus, ChevronDown, ChevronUp, CalendarDays } from 'lucide-react';
+import { Search, Plus, Clock, PackageX, AlertCircle, Info, Minus, ChevronDown, ChevronUp, CalendarDays, Filter } from 'lucide-react';
 
 interface CatalogProps {
   products: Product[];
   onAddToCart: (product: Product, quantity: number) => void;
 }
 
-const CATEGORIES: Category[] = ['Mobiliario', 'Electrónica', 'Arquitectura Efímera', 'Decoración', 'Servicios'];
+const CATEGORIES: Category[] = ['Mobiliario', 'Electrónica', 'Arquitectura Efímera', 'Decoración', 'Servicios', 'Impresión'];
 
 export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
   const [selectedCategory, setSelectedCategory] = useState<Category | 'Todos'>('Todos');
@@ -34,7 +34,6 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
     setExpandedPrices(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // Función para obtener los precios de los tramos según el precio base
   const getTieredPrices = (basePrice: number) => {
     const p1 = basePrice === 14000 ? 14800 : basePrice;
     if (basePrice === 14000) {
@@ -45,7 +44,6 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
         { label: '15+ días', value: 25700 }
       ];
     }
-    // Cálculo proporcional si es otro precio base de mobiliario
     return [
       { label: '1 - 3 días', value: p1 },
       { label: '3 - 5 días', value: Math.round(p1 * 1.20) },
@@ -55,7 +53,7 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-xl md:text-2xl font-black text-brand-900 uppercase">Catálogo de Alquiler</h2>
@@ -74,22 +72,36 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
         </div>
       </div>
 
-      <div className="flex overflow-x-auto pb-2 gap-2 no-scrollbar">
-        <button
-          onClick={() => setSelectedCategory('Todos')}
-          className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-            selectedCategory === 'Todos' ? 'bg-brand-900 text-white shadow-lg' : 'bg-white text-gray-500 border border-slate-100 hover:bg-slate-50'
-          }`}
-        >Todos</button>
-        {CATEGORIES.map(cat => (
-          <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
-            className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-              selectedCategory === cat ? 'bg-brand-900 text-white shadow-lg' : 'bg-white text-gray-500 border border-slate-100 hover:bg-slate-50'
-            }`}
-          >{cat}</button>
-        ))}
+      {/* Menú de categorías mejorado para vista móvil con fondo #d2eeff */}
+      <div className="bg-[#d2eeff] p-2 rounded-[1.5rem] border border-slate-200/50 backdrop-blur-sm overflow-hidden shadow-inner">
+        <div className="flex items-center">
+          <div className="px-3 py-2 border-r border-blue-200/50 mr-2 shrink-0 hidden sm:flex items-center space-x-2">
+            <Filter size={12} className="text-blue-500/60" />
+            <span className="text-[8px] font-black text-blue-500/60 uppercase tracking-widest">Filtrar:</span>
+          </div>
+          
+          <div className="flex overflow-x-auto no-scrollbar gap-2 pb-1 scroll-smooth snap-x">
+            <button
+              onClick={() => setSelectedCategory('Todos')}
+              className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap snap-start ${
+                selectedCategory === 'Todos' 
+                  ? 'bg-brand-900 text-white shadow-lg' 
+                  : 'bg-white text-gray-500 border border-slate-100 hover:bg-slate-50'
+              }`}
+            >Todos</button>
+            {CATEGORIES.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap snap-start ${
+                  selectedCategory === cat 
+                    ? 'bg-brand-900 text-white shadow-lg' 
+                    : 'bg-white text-gray-500 border border-slate-100 hover:bg-slate-50'
+                }`}
+              >{cat}</button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {filteredProducts.length > 0 ? (
@@ -98,11 +110,11 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
             const isOutOfStock = product.stock <= 0;
             const isLowStock = product.stock > 0 && product.stock <= 3;
             const isMobiliario = product.category === 'Mobiliario';
-            const isM2 = product.name.toLowerCase().includes('impresión');
+            const isImpresion = product.category === 'Impresión';
+            const isM2 = isImpresion && product.name.includes('M2');
             const qty = getQuantity(product.id);
             const isExpanded = expandedPrices[product.id];
 
-            // Mostrar precio inicial del tramo 1 si es mobiliario (según tabla usuario)
             const displayPrice = isMobiliario && product.priceRent === 14000 ? 14800 : product.priceRent;
 
             return (
@@ -134,12 +146,12 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                   <div className="flex justify-between items-start mb-1">
                     <span className="text-[9px] text-brand-500 font-black uppercase">{product.category}</span>
                     {isMobiliario && (
-                      <div className="flex items-center text-[7px] font-black text-brand-900 uppercase bg-brand-400 px-2 py-0.5 rounded-full">
+                      <div className="flex items-center text-[7px] font-black text-brand-900 uppercase bg-[#4fb7f7] px-2 py-0.5 rounded-full">
                          <Info size={8} className="mr-1" /> IPC 2024
                       </div>
                     )}
                   </div>
-                  <h3 className="font-black text-slate-900 text-sm mb-3 line-clamp-1">{product.name}</h3>
+                  <h3 className="font-black text-slate-900 text-sm mb-3 line-clamp-2 min-h-[40px]">{product.name}</h3>
                   
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4 transition-all duration-300">
                     <div className="flex justify-between items-end">
@@ -166,7 +178,7 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                       <div className="mt-3 border-t border-slate-200 pt-3">
                         <button 
                           onClick={() => togglePriceTable(product.id)}
-                          className="w-full flex items-center justify-between text-[8px] font-black text-brand-900 uppercase tracking-widest hover:text-brand-500 transition-colors"
+                          className="w-full flex items-center justify-between text-[8px] font-black text-brand-900 uppercase tracking-widest hover:text-[#4fb7f7] transition-colors"
                         >
                           <span className="flex items-center"><CalendarDays size={10} className="mr-1.5" /> Ver tabla de tarifas</span>
                           {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
@@ -180,9 +192,6 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                                 <span className="text-[9px] font-black text-brand-900">${tier.value.toLocaleString()}</span>
                               </div>
                             ))}
-                            <p className="text-[6px] text-slate-400 mt-2 leading-tight italic">
-                              * Precios calculados según tramos de permanencia IPC 2024.
-                            </p>
                           </div>
                         )}
                       </div>
@@ -200,10 +209,10 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                         </button>
                         <div className="flex flex-col items-center">
                             <span className="text-sm font-black text-brand-900">{qty}</span>
-                            <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Cant.</span>
+                            <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{isM2 ? 'm²' : 'Cant.'}</span>
                         </div>
                         <button 
-                            disabled={isOutOfStock || qty >= product.stock}
+                            disabled={isOutOfStock || (product.stock !== 999 && qty >= product.stock)}
                             onClick={() => updateLocalQuantity(product.id, 1, product.stock)}
                             className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm text-brand-900 disabled:opacity-30 active:scale-90 transition-all"
                         >
@@ -235,12 +244,6 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
           </div>
           <h3 className="text-md font-black text-brand-900 uppercase">Sin coincidencias</h3>
           <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1 text-center px-4">No encontramos artículos para esta categoría o búsqueda.</p>
-          <button 
-            onClick={() => { setSelectedCategory('Todos'); setSearchTerm(''); }}
-            className="mt-6 text-brand-900 font-black text-[9px] uppercase tracking-widest border-b-2 border-brand-900 pb-1 hover:text-brand-500 hover:border-brand-500 transition-all"
-          >
-            Limpiar Filtros
-          </button>
         </div>
       )}
     </div>

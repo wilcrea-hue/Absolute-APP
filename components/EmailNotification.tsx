@@ -142,9 +142,9 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
               <p className="text-[9px] text-white/40 font-black uppercase mb-1 tracking-widest">Enviar A:</p>
               <p className="text-[11px] font-bold text-white/90 truncate">{email.to}</p>
             </div>
-            <div className="bg-emerald-500/5 rounded-2xl p-5 border border-emerald-500/20">
-              <p className="text-[9px] text-emerald-400/60 font-black uppercase mb-1 tracking-widest">Copia de Respaldo:</p>
-              <p className="text-[11px] font-bold text-emerald-400">{email.cc}</p>
+            <div className="bg-[#4fb7f7]/10 rounded-2xl p-5 border border-[#4fb7f7]/20">
+              <p className="text-[9px] text-[#4fb7f7] font-black uppercase mb-1 tracking-widest">Copia de Respaldo:</p>
+              <p className="text-[11px] font-bold text-[#4fb7f7]">admin@absolutecompany.co</p>
             </div>
           </div>
 
@@ -156,7 +156,7 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
           <div className="space-y-3">
             <div className="flex justify-between items-center px-1">
               <p className="text-[9px] text-white/30 font-black uppercase tracking-widest">Cuerpo del Mensaje (Editable)</p>
-              <button onClick={() => setIsEditing(!isEditing)} className={`text-[9px] font-black uppercase flex items-center space-x-2 px-3 py-1.5 rounded-xl transition-all ${isEditing ? 'bg-emerald-500 text-white' : 'bg-white/5 text-brand-400'}`}>
+              <button onClick={() => setIsEditing(!isEditing)} className={`text-[9px] font-black uppercase flex items-center space-x-2 px-3 py-1.5 rounded-xl transition-all ${isEditing ? 'bg-[#4fb7f7] text-white' : 'bg-white/5 text-brand-400'}`}>
                 {isEditing ? <><Save size={12} /> <span>Guardar</span></> : <><Edit3 size={12} /> <span>Editar</span></>}
               </button>
             </div>
@@ -175,7 +175,7 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
             <ExternalLink size={16} />
             <span>Previsualizar</span>
           </button>
-          <button onClick={handleSend} disabled={isSent} className={`flex-[1.5] py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center space-x-3 shadow-2xl transition-all ${isSent ? 'bg-emerald-500 text-white' : 'bg-brand-400 text-brand-900 hover:bg-white'}`}>
+          <button onClick={handleSend} disabled={isSent} className={`flex-[1.5] py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center space-x-3 shadow-2xl transition-all ${isSent ? 'bg-[#4fb7f7] text-white' : 'bg-[#4fb7f7] text-white hover:bg-white hover:text-[#4fb7f7]'}`}>
             {isSent ? <><CheckCircle size={18} /> <span>Enviado</span></> : <><Send size={18} /> <span>Autorizar Despacho</span></>}
           </button>
         </div>

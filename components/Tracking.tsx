@@ -2,7 +2,7 @@
 // @ts-nocheck
 import React, { useState, useEffect, useMemo } from 'react';
 import { Order, WorkflowStageKey, StageData, Signature, User, NoteEntry } from '../types';
-import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle, FileText, ExternalLink, MapPin as MapPinIcon, Send, Calendar, Save, Eye } from 'lucide-react';
+import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle, FileText, ExternalLink, MapPin as MapPinIcon, Send, Calendar, Save, Eye, List, Package } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { SignaturePad } from './SignaturePad';
 import { GoogleGenAI } from "@google/genai";
@@ -33,6 +33,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
   const [tempStageData, setTempStageData] = useState<StageData | null>(null);
   const [activeSigningField, setActiveSigningField] = useState<'signature' | 'receivedBy' | null>(null);
   const [showMap, setShowMap] = useState(false);
+  const [showItems, setShowItems] = useState(false);
   const [signatureSuccess, setSignatureSuccess] = useState<string | null>(null);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -42,19 +43,15 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
   }, [currentUser.role]);
 
   const canEdit = useMemo(() => {
-    // EL ADMINISTRADOR TIENE MODO AUDITORÍA: Solo lectura para integridad de datos operativos
     if (currentUser.role === 'admin') return false;
-    
     if (order?.status === 'Cotización') return false;
 
-    // Lógica específica para Jefe de Bodega (logistics)
     if (currentUser.role === 'logistics') {
-      return activeStageKey === 'bodega_check' || activeStageKey === 'coord_to_bodega';
+      return activeStageKey === 'bodega_check' || activeStageKey === 'bodega_to_coord' || activeStageKey === 'coord_to_bodega';
     }
     
-    // Lógica para Coordinadores (etapas de campo)
     if (currentUser.role === 'coordinator') {
-      return activeStageKey !== 'bodega_check' && activeStageKey !== 'coord_to_bodega';
+      return activeStageKey === 'coord_to_client' || activeStageKey === 'client_to_coord';
     }
 
     if (currentUser.role === 'operations_manager') return true;
@@ -89,6 +86,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
 
   const isCompleted = order.workflow[activeStageKey]?.status === 'completed';
   const isQuote = order.status === 'Cotización';
+  const isPending = order.status === 'Pendiente';
 
   const handleItemCheck = (productId: string, checked: boolean) => {
     if (!tempStageData || !canEdit || isCompleted) return;
@@ -187,6 +185,11 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
         alert("Falta la firma de 'Entregado por / Autorizado'.");
         return;
     }
+    if (['bodega_to_coord', 'coord_to_client', 'client_to_coord', 'coord_to_bodega'].includes(activeStageKey) && !tempStageData.receivedBy) {
+        alert("Falta la firma de 'Recibido de Conforme'.");
+        return;
+    }
+
     const finalData: StageData = {
         ...tempStageData,
         status: 'completed',
@@ -200,7 +203,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
     window.open(url, '_blank');
   };
 
-  const showReceivedBy = ['coord_to_client', 'client_to_coord', 'coord_to_bodega'].includes(activeStageKey);
+  const showReceivedBy = ['bodega_to_coord', 'coord_to_client', 'client_to_coord', 'coord_to_bodega'].includes(activeStageKey);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-20">
@@ -240,7 +243,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                   <span className="bg-slate-100 px-3 py-1 rounded-full mr-4 tracking-widest border border-slate-200">Ref: {order.id}</span>
                   {assignedCoord && (
                     <div className="flex items-center bg-brand-50 text-brand-900 px-4 py-1 rounded-full border border-brand-100">
-                      <UserCheck size={12} className="mr-2" /> Campo: {assignedCoord.name}
+                      <UserCheck size={12} className="mr-2" /> Responsable Campo: {assignedCoord.name}
                     </div>
                   )}
                 </div>
@@ -267,16 +270,58 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
              <div className="flex flex-col items-end space-y-3 min-w-[150px]">
                 <span className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase border shadow-sm ${order.status === 'Finalizado' ? 'bg-green-50 text-green-700' : 'bg-brand-50 text-brand-900'}`}>{order.status}</span>
                 <div className="flex space-x-2">
+                  <button 
+                    onClick={() => setShowItems(!showItems)} 
+                    className={`text-[9px] font-black uppercase tracking-widest transition-all px-4 py-2 rounded-xl flex items-center space-x-2 border shadow-sm ${showItems ? 'bg-brand-900 text-white border-brand-900' : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'}`}
+                  >
+                    <List size={14} />
+                    <span>{showItems ? 'Cerrar Detalle' : 'Ver Detalle Ítems'}</span>
+                  </button>
                   <button onClick={() => setShowMap(!showMap)} className="text-[9px] font-black text-brand-500 uppercase tracking-widest hover:text-brand-900 transition-colors bg-brand-50 px-4 py-2 rounded-xl">
                     {showMap ? 'Ocultar Mapa' : 'Ver Mapa Interactivo'}
-                  </button>
-                  <button onClick={openExternalRoute} className="text-[9px] font-black text-white uppercase tracking-widest bg-brand-900 px-4 py-2 rounded-xl flex items-center shadow-lg">
-                    <ExternalLink size={12} className="mr-2" /> Fallback
                   </button>
                 </div>
              </div>
         </div>
       </div>
+
+      {(showItems || isQuote || isPending) && (
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl animate-in fade-in slide-in-from-top-4 duration-500">
+           <div className="flex items-center space-x-3 mb-6">
+              <div className="w-10 h-10 bg-brand-900 text-white rounded-xl flex items-center justify-center">
+                 <Package size={20} />
+              </div>
+              <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest">Resumen del Pedido</h3>
+           </div>
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {order.items.map(item => (
+                <div key={item.id} className="flex items-center space-x-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                   <img src={item.image} className="w-14 h-14 rounded-xl object-cover shadow-sm" alt="" />
+                   <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-black text-brand-900 uppercase truncate">{item.name}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{item.category}</p>
+                   </div>
+                   <div className="text-right">
+                      <p className="text-[14px] font-black text-brand-900">x{item.quantity}</p>
+                      <p className="text-[8px] font-black text-brand-400 uppercase">Cantidad</p>
+                   </div>
+                </div>
+              ))}
+           </div>
+           {(isQuote || isPending) && (
+             <div className="mt-8 pt-6 border-t border-slate-100 flex justify-between items-center bg-slate-50/50 p-6 rounded-3xl">
+                <div>
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lugar del Evento:</p>
+                   <p className="text-sm font-black text-brand-900 uppercase">{order.destinationLocation}</p>
+                </div>
+                <div className="text-right">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inversión Alquiler:</p>
+                   <p className="text-xl font-black text-brand-900">${order.totalAmount.toLocaleString()}</p>
+                </div>
+             </div>
+           )}
+        </div>
+      )}
 
       {showMap && (
         <div className="relative h-80 bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-xl animate-in zoom-in duration-500">
@@ -404,7 +449,6 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                       </div>
                     </div>
 
-                    {/* Historial de Notas Interno de la Etapa */}
                     {tempStageData?.notesHistory && tempStageData.notesHistory.length > 0 && (
                       <div className="space-y-4 max-h-[300px] overflow-y-auto no-scrollbar p-1">
                         {tempStageData.notesHistory.map((note, idx) => (
@@ -530,12 +574,19 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                   {visibleStages.map(s => {
                     const data = order.workflow[s.key];
                     const hasNotes = (data.notesHistory && data.notesHistory.length > 0);
-                    if (!hasNotes && data.status !== 'completed') return null;
+                    const isFieldStage = ['bodega_to_coord', 'coord_to_client', 'client_to_coord', 'coord_to_bodega'].includes(s.key);
+                    
+                    if (!hasNotes && data.status !== 'completed' && !isFieldStage) return null;
                     
                     return (
                       <div key={s.key} className="relative pl-6 pb-4 border-l-2 border-slate-100 last:border-0">
                         <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 ${data.status === 'completed' ? 'bg-green-500 border-green-200' : 'bg-white border-brand-900'}`} />
-                        <p className="text-[9px] font-black text-brand-900 uppercase leading-none">{s.label.split('.')[1]}</p>
+                        <div className="flex justify-between items-start">
+                           <p className="text-[9px] font-black text-brand-900 uppercase leading-none">{s.label.split('.')[1]}</p>
+                           {isFieldStage && assignedCoord && (
+                             <span className="text-[7px] font-black text-emerald-600 uppercase tracking-tighter">Coord: {assignedCoord.name}</span>
+                           )}
+                        </div>
                         
                         <div className="space-y-2 mt-3">
                           {data.notesHistory && data.notesHistory.map((n, i) => (
@@ -546,6 +597,9 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                           ))}
                           {(!data.notesHistory || data.notesHistory.length === 0) && data.status === 'completed' && (
                             <p className="text-[9px] font-bold text-slate-400 italic">Completado sin observaciones.</p>
+                          )}
+                          {data.status !== 'completed' && !hasNotes && (
+                            <p className="text-[8px] font-black text-slate-300 uppercase italic">Pendiente de ejecución</p>
                           )}
                         </div>
                       </div>

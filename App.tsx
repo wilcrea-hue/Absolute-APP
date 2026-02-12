@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { User, Product, CartItem, Order, OrderStatus, WorkflowStageKey, StageData, OrderType } from './types';
@@ -13,7 +12,7 @@ import { EmailNotification } from './components/EmailNotification';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { PRODUCTS, LOGO_URL } from './constants';
 import { GoogleGenAI } from "@google/genai";
-import { CheckCircle, Eye } from 'lucide-react';
+import { CheckCircle, Eye, UserCheck } from 'lucide-react';
 
 const API_URL = './api/sync.php'; 
 const ADMIN_EMAIL = 'admin@absolutecompany.co';
@@ -22,7 +21,6 @@ const DEFAULT_USERS: User[] = [
   { email: ADMIN_EMAIL, password: 'absolute2024', name: 'Administrador Principal', role: 'admin', phone: '3101234567', status: 'active', discountPercentage: 0 },
   { email: 'bodegaabsolutecompany@gmail.com', password: 'absolute2024', name: 'Jefe de Bodega', role: 'logistics', phone: '3218533959', status: 'active', discountPercentage: 0 },
   { email: 'manager@absolutecompany.co', password: 'absolute2024', name: 'Gerente de Operaciones', role: 'operations_manager', phone: '3151112233', status: 'active', discountPercentage: 0 },
-  // Nómina de Coordinadores Nacionales
   { email: 'Coordinadordavidabsolute@gmail.com', password: 'absolute2024', name: 'David (Coordinador)', role: 'coordinator', phone: '3000000001', status: 'active', discountPercentage: 0 },
   { email: 'Coordinadorharoldabsolute@gmail.com', password: 'absolute2024', name: 'Harold (Coordinador)', role: 'coordinator', phone: '3000000002', status: 'active', discountPercentage: 0 },
   { email: 'Coordinadoredwinabsolute@gmail.com', password: 'absolute2024', name: 'Edwin (Coordinador)', role: 'coordinator', phone: '3000000003', status: 'active', discountPercentage: 0 },
@@ -151,15 +149,15 @@ const App: React.FC = () => {
       let emailBody = "";
 
       if (apiKey) {
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const prompt = `Escribe un correo electrónico profesional y ejecutivo para ABSOLUTE COMPANY. 
         Contexto: ${context}. 
         Etapa: ${stage}. 
-        Si es una cotización, asegúrate de mencionar que el detalle de los ítems está adjunto en la tabla superior.
-        Políticas obligatorias a incluir al final:
+        Si es una cotización o nueva asignación, asegúrate de mencionar que los detalles están disponibles en la plataforma.
+        Políticas obligatorias a incluir al final si aplica:
         - La duración de esta cotización es de 15 días hábiles.
         - La oferta está sujeta a disponibilidad de insumos físicos.
-        Suena muy corporativo y servicial.`;
+        Suena muy corporativo, servicial y directo.`;
         
         const response = await ai.models.generateContent({ 
           model: 'gemini-3-flash-preview', 
@@ -169,7 +167,7 @@ const App: React.FC = () => {
       }
 
       if (!emailBody) {
-        emailBody = `Estimado cliente, se ha registrado una actividad importante en su cuenta relacionada con ${context}.\n\nPolíticas:\n- Validez: 15 días hábiles.\n- Sujeto a disponibilidad de inventario.`;
+        emailBody = `Estimado usuario, se ha registrado una actividad importante en su cuenta relacionada con ${context}.\n\nPor favor revise su panel en la aplicación para más detalles.`;
       }
 
       if (user?.role === 'admin') {
@@ -269,11 +267,9 @@ const App: React.FC = () => {
     const days = Math.ceil(Math.abs(e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     const orderId = `${type === 'quote' ? 'COT' : 'ORD'}-${String(orderCounter).padStart(4, '0')}`;
     const emptyStage: StageData = { status: 'pending', itemChecks: {}, photos: [], files: [] };
-    const coordinators = users.filter(u => u.role === 'coordinator');
-    const assignedCoord = coordinators[orderCounter % (coordinators.length || 1)];
 
     const newOrder: Order = {
-      id: orderId, items: [...cart], userEmail: user.email, assignedCoordinatorEmail: assignedCoord?.email,
+      id: orderId, items: [...cart], userEmail: user.email,
       status: type === 'quote' ? 'Cotización' : 'Pendiente', orderType: type,
       startDate, endDate, createdAt: new Date().toISOString(),
       originLocation: origin, destinationLocation: destination,
@@ -307,6 +303,23 @@ const App: React.FC = () => {
     saveAndSync('users', updatedUsers);
   };
 
+  const handleApproveOrder = (orderId: string, coordinatorEmail: string) => {
+    const orderToApprove = orders.find(o => o.id === orderId);
+    const updatedOrders = orders.map(o => o.id === orderId ? { ...o, status: 'En Proceso' as OrderStatus, assignedCoordinatorEmail: coordinatorEmail } : o);
+    saveAndSync('orders', updatedOrders);
+
+    if (orderToApprove) {
+      // Notificación automática al coordinador asignado
+      triggerEmailNotification(
+        coordinatorEmail, 
+        `Nueva Asignación de Evento: ${orderId}`, 
+        "Asignación Logística", 
+        `Se le ha asignado oficialmente como Coordinador Responsable para el evento en ${orderToApprove.destinationLocation}. Por favor ingrese al sistema para validar el stock asignado y proceder con la verificación de salida en bodega. Su rol es crítico para garantizar la calidad del servicio ABSOLUTE.`, 
+        { ...orderToApprove, status: 'En Proceso' as OrderStatus, assignedCoordinatorEmail: coordinatorEmail }
+      );
+    }
+  };
+
   return (
     <HashRouter>
       {!user ? <Login onLogin={handleLogin} onRegister={handleRegister} /> : (
@@ -314,9 +327,34 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={(user.role === 'logistics' || user.role === 'coordinator') ? <Navigate to="/orders" replace /> : <Catalog products={products} onAddToCart={handleAddToCart} />} />
             <Route path="/cart" element={(user.role === 'logistics' || user.role === 'coordinator') ? <Navigate to="/orders" replace /> : <Cart items={cart} currentUser={user} orders={orders} onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} onUpdateQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, q)} : i))} onCheckout={createOrder} getAvailableStock={getAvailableStock} />} />
-            <Route path="/orders" element={<div className="space-y-6"><h2 className="text-2xl font-black text-brand-900 uppercase">Reservas</h2><div className="grid gap-4">{orders.filter(o => user.role === 'admin' || user.role === 'logistics' || o.userEmail === user.email || o.assignedCoordinatorEmail === user.email).map(o => (<div key={o.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4"><div className="flex items-center space-x-4"><div className={`w-10 h-10 rounded-xl flex items-center justify-center ${o.orderType === 'quote' ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-900'}`}>{o.orderType === 'quote' ? 'Q' : 'R'}</div><div><span className="text-[10px] font-black text-slate-400 uppercase">REF: {o.id}</span><h4 className="font-black text-brand-900 uppercase text-sm">{o.destinationLocation}</h4></div></div><div className="flex items-center space-x-3 w-full md:w-auto justify-end"><span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border ${o.status === 'Finalizado' ? 'bg-green-50 text-green-700' : 'bg-brand-50 text-brand-900'}`}>{o.status}</span><div className="flex space-x-2"><Link to={`/tracking/${o.id}`} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2"> <Eye size={14} /> <span>Detalles</span> </Link> {o.status === 'Cotización' && (<button onClick={() => handleConfirmQuote(o.id)} className="bg-brand-900 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2"> <CheckCircle size={14} /> <span>Confirmar</span> </button>)}</div></div></div>))}</div></div>} />
+            <Route path="/orders" element={<div className="space-y-6"><h2 className="text-2xl font-black text-brand-900 uppercase">Reservas</h2><div className="grid gap-4">{orders.filter(o => user.role === 'admin' || user.role === 'logistics' || o.userEmail === user.email || o.assignedCoordinatorEmail === user.email).map(o => {
+              const assignedCoord = users.find(u => u.email === o.assignedCoordinatorEmail);
+              return (
+                <div key={o.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="flex items-center space-x-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${o.orderType === 'quote' ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-900'}`}>{o.orderType === 'quote' ? 'Q' : 'R'}</div>
+                    <div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase">REF: {o.id}</span>
+                      <h4 className="font-black text-brand-900 uppercase text-sm">{o.destinationLocation}</h4>
+                      {assignedCoord && (
+                        <div className="flex items-center text-[8px] font-black text-emerald-600 uppercase mt-1 tracking-widest">
+                          <UserCheck size={10} className="mr-1" /> Resp: {assignedCoord.name}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3 w-full md:w-auto justify-end">
+                    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border ${o.status === 'Finalizado' ? 'bg-green-50 text-green-700' : 'bg-brand-50 text-brand-900'}`}>{o.status}</span>
+                    <div className="flex space-x-2">
+                      <Link to={`/tracking/${o.id}`} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2"> <Eye size={14} /> <span>Detalles</span> </Link> 
+                      {o.status === 'Cotización' && (<button onClick={() => handleConfirmQuote(o.id)} className="bg-brand-900 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2"> <CheckCircle size={14} /> <span>Confirmar</span> </button>)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}</div></div>} />
             <Route path="/tracking/:id" element={<Tracking orders={orders} onUpdateStage={handleUpdateStage} onConfirmQuote={handleConfirmQuote} currentUser={user} users={users} />} />
-            <Route path="/admin" element={<AdminDashboard currentUser={user} products={products} orders={orders} users={users} onAddProduct={(p) => saveAndSync('inventory', [...products, p])} onUpdateProduct={(p) => saveAndSync('inventory', products.map(old => old.id === p.id ? p : old))} onDeleteProduct={(id) => saveAndSync('inventory', products.filter(p => p.id !== id))} onApproveOrder={(id) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, status: 'En Proceso'} : o))} onCancelOrder={(id) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, status: 'Cancelado'} : o))} onDeleteOrder={(id) => saveAndSync('orders', orders.filter(o => o.id !== id))} onUpdateOrderDates={() => {}} onChangeUserRole={(email, role) => saveAndSync('users', users.map(u => u.email === email ? {...u, role} : u))} onChangeUserDiscount={(email, disc) => saveAndSync('users', users.map(u => u.email === email ? {...u, discountPercentage: disc} : u))} onToggleUserStatus={(email) => saveAndSync('users', users.map(u => u.email === email ? {...u, status: u.status === 'active' ? 'on-hold' : 'active'} : u))} onDeleteUser={(email) => saveAndSync('users', users.filter(u => u.email !== email))} onUpdateStage={handleUpdateStage} onToggleUserRole={() => {}} onUpdateUserDetails={handleUpdateUserDetails} />} />
+            <Route path="/admin" element={<AdminDashboard currentUser={user} products={products} orders={orders} users={users} onAddProduct={(p) => saveAndSync('inventory', [...products, p])} onUpdateProduct={(p) => saveAndSync('inventory', products.map(old => old.id === p.id ? p : old))} onDeleteProduct={(id) => saveAndSync('inventory', products.filter(p => p.id !== id))} onApproveOrder={handleApproveOrder} onCancelOrder={(id) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, status: 'Cancelado'} : o))} onDeleteOrder={(id) => saveAndSync('orders', orders.filter(o => o.id !== id))} onUpdateOrderDates={() => {}} onChangeUserRole={(email, role) => saveAndSync('users', users.map(u => u.email === email ? {...u, role} : u))} onChangeUserDiscount={(email, disc) => saveAndSync('users', users.map(u => u.email === email ? {...u, discountPercentage: disc} : u))} onToggleUserStatus={(email) => saveAndSync('users', users.map(u => u.email === email ? {...u, status: u.status === 'active' ? 'on-hold' : 'active'} : u))} onDeleteUser={(email) => saveAndSync('users', users.filter(u => u.email !== email))} onUpdateStage={handleUpdateStage} onToggleUserRole={() => {}} onUpdateUserDetails={handleUpdateUserDetails} />} />
             <Route path="/logistics-map" element={<ServiceMap />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

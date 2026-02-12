@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import { Product, Order, User, WorkflowStageKey, StageData, Category, CartItem } from './types';
-import { Package, Plus, Edit2, Trash2, CheckCircle, Lock, XCircle, DollarSign, UserCheck, Calendar, MapPin, ArrowRight, ClipboardList, FileText, X, Filter, RefreshCw, Bold, Italic, Sparkles, Loader2, List, Type } from 'lucide-react';
+// Added Shield to the imports
+import { Package, Plus, Edit2, Trash2, CheckCircle, Lock, XCircle, DollarSign, UserCheck, Calendar, MapPin, ArrowRight, ClipboardList, FileText, X, Filter, RefreshCw, Bold, Italic, Sparkles, Loader2, List, Type, UserPlus, Clock, Tags, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserManagement } from './components/UserManagement';
 import { GoogleGenAI } from "@google/genai";
@@ -15,7 +16,7 @@ interface AdminDashboardProps {
   onUpdateProduct: (product: Product) => void;
   onDeleteProduct: (id: string) => void;
   onUpdateOrderDates: (id: string, start: string, end: string) => void;
-  onApproveOrder: (id: string) => void;
+  onApproveOrder: (id: string, coordinatorEmail: string) => void;
   onCancelOrder?: (id: string) => void;
   onDeleteOrder?: (id: string) => void;
   onToggleUserRole: (email: string) => void;
@@ -27,7 +28,7 @@ interface AdminDashboardProps {
   onUpdateStage: (orderId: string, stageKey: WorkflowStageKey, data: StageData) => void;
 }
 
-const CATEGORIES: Category[] = ['Mobiliario', 'Electrónica', 'Arquitectura Efímera', 'Decoración', 'Servicios'];
+const CATEGORIES: Category[] = ['Mobiliario', 'Electrónica', 'Arquitectura Efímera', 'Decoración', 'Servicios', 'Impresión'];
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   currentUser, products, orders, users,
@@ -40,6 +41,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [isAiOptimizing, setIsAiOptimizing] = useState(false);
+  const [approvalCoord, setApprovalCoord] = useState<Record<string, string>>({});
   const editorRef = useRef<HTMLDivElement>(null);
 
   const [showFilters, setShowFilters] = useState(false);
@@ -49,7 +51,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [serviceEnd, setServiceEnd] = useState('');
 
   const isAdmin = currentUser.role === 'admin';
-  const apiKey = process.env.API_KEY;
+
+  const coordinators = useMemo(() => users.filter(u => u.role === 'coordinator' && u.status === 'active'), [users]);
 
   const startEdit = (product?: Product) => {
     if (product) {
@@ -82,12 +85,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   };
 
+  const calculateDays = (start: string, end: string) => {
+    const s = new Date(start);
+    const e = new Date(end);
+    // Fixed typo: corrected iNaN to isNaN
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return 1;
+    const diffTime = Math.abs(e.getTime() - s.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return Math.max(1, diffDays);
+  };
+
+  const getTieredPrice = (item: CartItem, days: number) => {
+    if (item.category !== 'Mobiliario') return item.priceRent;
+    if (item.priceRent === 14000) {
+      if (days <= 3) return 14800;
+      if (days <= 5) return 17800;
+      if (days <= 15) return 21400;
+      return 25700;
+    }
+    const baseIPC = item.priceRent * 1.057;
+    if (days <= 3) return baseIPC;
+    if (days <= 5) return baseIPC * 1.20;
+    if (days <= 15) return baseIPC * 1.44;
+    return baseIPC * 1.73;
+  };
+
   const professionalizeDescription = async () => {
     const currentText = editorRef.current?.innerHTML || editForm.description || '';
-    if (!currentText || isAiOptimizing || !apiKey) return;
+    // Use process.env.API_KEY directly per guidelines
+    if (!currentText || isAiOptimizing || !process.env.API_KEY) return;
     setIsAiOptimizing(true);
     try {
-      const ai = new GoogleGenAI({ apiKey });
+      // Initialize GoogleGenAI with process.env.API_KEY directly
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `Actúa como un experto en marketing de eventos para ABSOLUTE COMPANY. 
       Optimiza la siguiente descripción de producto para que sea profesional, elegante y persuasiva. 
       MANTÉN EL FORMATO HTML (etiquetas b, i, ul, li) para resaltar características clave.
@@ -137,6 +167,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setCreationEnd('');
     setServiceStart('');
     setServiceEnd('');
+  };
+
+  const handleDeleteOrder = (orderId: string) => {
+    if (window.confirm("¿Está seguro de eliminar este pedido permanentemente? Esta acción borrará todo el historial y no se puede deshacer.")) {
+      onDeleteOrder?.(orderId);
+    }
+  };
+
+  const handleApproveWithCoord = (orderId: string) => {
+    const coordEmail = approvalCoord[orderId];
+    if (!coordEmail) {
+      alert("Debe seleccionar un coordinador responsable antes de aprobar.");
+      return;
+    }
+    onApproveOrder(orderId, coordEmail);
   };
 
   return (
@@ -252,6 +297,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 const isExpanded = expandedOrders.has(order.id);
                 const isApprovable = isAdmin && (order.status === 'Pendiente' || order.status === 'Cotización');
                 const canCancel = isAdmin && order.status !== 'Cancelado' && order.status !== 'Finalizado';
+                const assignedCoord = users.find(u => u.email === order.assignedCoordinatorEmail);
+                const eventDays = calculateDays(order.startDate, order.endDate);
 
                 return (
                   <div key={order.id} className={`bg-white border rounded-[2rem] overflow-hidden transition-all duration-300 ${isExpanded ? 'border-brand-900 shadow-2xl scale-[1.01]' : 'border-slate-100 shadow-sm hover:shadow-md'}`}>
@@ -262,7 +309,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             {order.orderType === 'quote' ? <FileText size={20} /> : <Package size={20} />}
                           </div>
                           <div>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">ID: {order.id} • {new Date(order.createdAt).toLocaleDateString()}</span>
+                            <div className="flex items-center space-x-2 mb-1">
+                               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">ID: {order.id} • {new Date(order.createdAt).toLocaleDateString()}</span>
+                               {assignedCoord && (
+                                 <span className="text-[7px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-lg uppercase tracking-widest flex items-center">
+                                   <UserCheck size={8} className="mr-1" /> Resp: {assignedCoord.name}
+                                 </span>
+                               )}
+                            </div>
                             <h4 className="font-black text-brand-900 uppercase text-sm flex items-center">
                               <MapPin size={12} className="mr-1 text-brand-400" /> {order.destinationLocation}
                             </h4>
@@ -271,7 +325,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                         <div className="flex items-center space-x-6 w-full md:w-auto justify-between md:justify-end">
                            <div className="text-center md:text-right">
-                             <p className="text-[9px] font-black text-slate-400 uppercase">Inversión Alquiler</p>
+                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Inversión Alquiler</p>
                              <p className="text-sm font-black text-brand-900">${order.totalAmount.toLocaleString()}</p>
                            </div>
                            <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border shadow-sm ${order.status === 'Finalizado' ? 'bg-green-50 text-green-700 border-green-100' : order.status === 'Cancelado' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-brand-50 text-brand-900 border-brand-100'}`}>
@@ -283,48 +337,144 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                     {isExpanded && (
                       <div className="p-8 bg-slate-50/50 border-t border-slate-100 animate-in slide-in-from-top-2 duration-300">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                          <div className="space-y-6">
-                            <h5 className="text-[10px] font-black text-brand-900 uppercase tracking-widest border-b pb-2">Artículos Rentados</h5>
-                            <div className="space-y-2">
-                              {order.items.map((item: CartItem, idx: number) => (
-                                <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
-                                  <div className="flex items-center space-x-3">
-                                    <img src={item.image} className="w-8 h-8 rounded-lg object-cover" alt="" />
-                                    <span className="text-[11px] font-bold text-slate-700 uppercase">{item.name}</span>
-                                  </div>
-                                  <span className="text-[10px] font-black text-brand-900 bg-brand-50 px-2.5 py-1 rounded-lg">x{item.quantity}</span>
-                                </div>
-                              ))}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                          <div className="lg:col-span-8 space-y-6">
+                            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                              <h5 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] flex items-center">
+                                <List size={14} className="mr-2" /> Detalle Técnico de Ítems
+                              </h5>
+                              <div className="flex items-center text-[9px] font-black text-slate-400 uppercase bg-white px-3 py-1.5 rounded-xl border border-slate-100 shadow-sm">
+                                <Clock size={10} className="mr-1.5" /> Permanencia: {eventDays} {eventDays === 1 ? 'día' : 'días'}
+                              </div>
                             </div>
+                            
+                            <div className="overflow-hidden bg-white rounded-3xl border border-slate-100 shadow-sm">
+                              <table className="w-full text-left">
+                                <thead className="bg-slate-50">
+                                  <tr>
+                                    <th className="p-4 text-[8px] font-black text-slate-400 uppercase">Artículo / Categoría</th>
+                                    <th className="p-4 text-[8px] font-black text-slate-400 uppercase text-center">Tarifa Unit.</th>
+                                    <th className="p-4 text-[8px] font-black text-slate-400 uppercase text-center">Cant.</th>
+                                    <th className="p-4 text-[8px] font-black text-slate-400 uppercase text-right">Subtotal</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {order.items.map((item: CartItem, idx: number) => {
+                                    const unitPrice = getTieredPrice(item, eventDays);
+                                    const lineSubtotal = unitPrice * item.quantity * (item.category === 'Mobiliario' ? 1 : eventDays);
+                                    
+                                    return (
+                                      <tr key={idx} className="hover:bg-brand-50/20 transition-colors">
+                                        <td className="p-4">
+                                          <div className="flex items-center space-x-3">
+                                            <img src={item.image} className="w-10 h-10 rounded-xl object-cover shadow-sm" alt="" />
+                                            <div className="overflow-hidden">
+                                              <p className="text-[11px] font-black text-slate-700 uppercase truncate">{item.name}</p>
+                                              <p className="text-[7px] font-bold text-brand-500 uppercase tracking-widest">{item.category}</p>
+                                            </div>
+                                          </div>
+                                        </td>
+                                        <td className="p-4 text-center">
+                                          <span className="text-[10px] font-black text-slate-600">${unitPrice.toLocaleString()}</span>
+                                          {item.category === 'Mobiliario' && (
+                                            <span className="block text-[6px] font-black text-brand-400 uppercase tracking-tighter">Plan Escalonado</span>
+                                          )}
+                                        </td>
+                                        <td className="p-4 text-center">
+                                          <span className="text-[10px] font-black text-brand-900 bg-slate-100 px-2 py-1 rounded-lg">x{item.quantity}</span>
+                                        </td>
+                                        <td className="p-4 text-right">
+                                          <span className="text-[11px] font-black text-brand-900">${lineSubtotal.toLocaleString()}</span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                                <tfoot className="bg-slate-50/50">
+                                  <tr>
+                                    <td colSpan={3} className="p-4 text-right">
+                                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Inversión Servicios (Sin Dto.)</span>
+                                    </td>
+                                    <td className="p-4 text-right">
+                                      <span className="text-sm font-black text-brand-900">
+                                        ${order.items.reduce((acc, item) => acc + (getTieredPrice(item, eventDays) * item.quantity * (item.category === 'Mobiliario' ? 1 : eventDays)), 0).toLocaleString()}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            </div>
+                            
+                            {assignedCoord && (
+                              <div className="p-5 bg-[#4fb7f7]/10 rounded-[2rem] border border-[#4fb7f7]/20 flex items-center space-x-4 shadow-sm">
+                                <div className="w-12 h-12 bg-[#4fb7f7] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-[#4fb7f7]/20">
+                                  <UserCheck size={24} />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-[8px] font-black text-[#4fb7f7] uppercase tracking-[0.2em] leading-none mb-1">Coordinador Principal Responsable</p>
+                                  <p className="text-sm font-black text-slate-700 uppercase tracking-tight">{assignedCoord.name}</p>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[8px] bg-[#4fb7f7]/20 text-[#4fb7f7] px-3 py-1 rounded-full font-black uppercase tracking-widest border border-[#4fb7f7]/30">Asignación Validada</span>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div className="space-y-6">
-                            <h5 className="text-[10px] font-black text-brand-900 uppercase tracking-widest border-b pb-2">Administración</h5>
+                          
+                          <div className="lg:col-span-4 space-y-6">
+                            <h5 className="text-[10px] font-black text-brand-900 uppercase tracking-widest border-b border-slate-200 pb-3 flex items-center">
+                              <Shield size={14} className="mr-2" /> Panel Administrativo
+                            </h5>
                             {isAdmin && (
-                              <div className="bg-brand-900 p-6 rounded-[2rem] shadow-xl space-y-4">
-                                <div className="grid grid-cols-2 gap-3">
-                                  {isApprovable && (
+                              <div className="bg-brand-900 p-8 rounded-[2.5rem] shadow-2xl space-y-5 border border-white/5 relative overflow-hidden group">
+                                <div className="absolute -top-10 -right-10 w-32 h-32 bg-brand-400/5 rounded-full blur-3xl group-hover:bg-brand-400/10 transition-all duration-700"></div>
+                                
+                                {isApprovable && (
+                                  <div className="space-y-4 mb-4 relative z-10">
+                                    <div className="space-y-2">
+                                      <label className="text-[9px] font-black uppercase text-brand-400 ml-1 flex items-center tracking-widest">
+                                        <UserPlus size={10} className="mr-1.5" /> Adjudicar Coordinador de Campo
+                                      </label>
+                                      <select 
+                                        value={approvalCoord[order.id] || ''}
+                                        onChange={(e) => setApprovalCoord({...approvalCoord, [order.id]: e.target.value})}
+                                        className="w-full bg-brand-800 border-0 text-white p-4 rounded-2xl font-black text-[10px] uppercase tracking-widest focus:ring-2 focus:ring-brand-400 outline-none shadow-inner"
+                                      >
+                                        <option value="">Seleccione Responsable...</option>
+                                        {coordinators.map(c => <option key={c.email} value={c.email}>{c.name}</option>)}
+                                      </select>
+                                    </div>
                                     <button 
-                                      onClick={() => onApproveOrder(order.id)}
-                                      className="col-span-2 bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center space-x-2"
+                                      onClick={() => handleApproveWithCoord(order.id)}
+                                      className="w-full bg-[#4fb7f7] hover:bg-[#3ea0e6] text-white py-5 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] transition-all flex items-center justify-center space-x-2 shadow-xl shadow-[#4fb7f7]/20 active:scale-95"
                                     >
-                                      <CheckCircle size={16} />
-                                      <span>Aprobar Reserva</span>
+                                      <CheckCircle size={18} />
+                                      <span>Aprobar y Asignar</span>
                                     </button>
-                                  )}
+                                  </div>
+                                )}
+                                
+                                <div className="grid grid-cols-1 gap-3 relative z-10">
                                   {canCancel && (
                                     <button 
                                       onClick={() => onCancelOrder?.(order.id)}
-                                      className="col-span-2 bg-brand-800 hover:bg-red-600 text-brand-300 hover:text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-brand-700"
+                                      className="w-full bg-brand-800 hover:bg-red-600 text-brand-300 hover:text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-brand-700 flex items-center justify-center space-x-2"
                                     >
-                                      <XCircle size={16} className="inline mr-2" />
-                                      <span>Anular</span>
+                                      <XCircle size={16} />
+                                      <span>Anular Reserva</span>
                                     </button>
                                   )}
+                                  <button 
+                                    onClick={() => handleDeleteOrder(order.id)}
+                                    className="w-full bg-red-500/10 hover:bg-red-600 text-red-500 hover:text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-red-200/50 flex items-center justify-center space-x-2"
+                                  >
+                                    <Trash2 size={16} />
+                                    <span>Eliminar Registro</span>
+                                  </button>
                                 </div>
-                                <div className="pt-2 text-center">
-                                   <Link to={`/tracking/${order.id}`} className="text-[9px] font-black text-brand-400 hover:text-white uppercase tracking-widest flex items-center justify-center group">
-                                     Ver detalles de seguimiento <ArrowRight size={10} className="ml-1 group-hover:translate-x-1 transition-transform" />
+                                <div className="pt-4 text-center border-t border-white/5 relative z-10">
+                                   <Link to={`/tracking/${order.id}`} className="text-[9px] font-black text-brand-400 hover:text-white uppercase tracking-[0.3em] flex items-center justify-center group transition-colors">
+                                     Rastrear Logística <ArrowRight size={10} className="ml-1.5 group-hover:translate-x-1 transition-transform" />
                                    </Link>
                                 </div>
                               </div>
@@ -350,7 +500,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {isEditingProduct && (
           <div className="fixed inset-0 bg-brand-900/90 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-            <div className="bg-white rounded-[3rem] shadow-2xl max-w-2xl w-full p-10 space-y-6 animate-in zoom-in duration-300">
+            <div className="bg-white rounded-[3rem] shadow-2xl max-w-2xl w-full p-10 space-y-6 animate-in zoom-in duration-300 overflow-hidden">
                 <div className="flex justify-between items-center border-b pb-6">
                   <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest flex items-center">
                     <Edit2 size={18} className="mr-2" /> {isEditingProduct === 'new' ? 'Nuevo Artículo' : 'Editor de Artículo'}
@@ -376,7 +526,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <label className="text-[10px] font-black uppercase text-slate-400 flex items-center">
                       <Type size={12} className="mr-2" /> Descripción Enriquecida
                     </label>
-                    {apiKey && (
+                    {process.env.API_KEY && (
                       <button 
                         onClick={professionalizeDescription}
                         disabled={isAiOptimizing}
