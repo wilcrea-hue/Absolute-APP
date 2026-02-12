@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '../types';
 import { LOGO_URL } from '../constants';
-import { Mail, Lock, User as UserIcon, ArrowRight, CheckCircle2, Phone, ShieldCheck, Download, Smartphone } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, ArrowRight, CheckCircle2, Phone, ShieldCheck, Download, Smartphone, LayoutGrid } from 'lucide-react';
 import { InstallModal } from './InstallModal';
 
 interface LoginProps {
@@ -44,7 +44,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, deferredPromp
       if (email && password) {
         const result = onLogin(email, password);
         if (result.success) {
-          navigate('/'); // Redirección automática al catálogo al ingresar
+          navigate('/'); 
         } else {
           setError(result.message || 'Error al iniciar sesión.');
         }
@@ -164,23 +164,24 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, deferredPromp
               </button>
             </form>
 
-            <div className="mt-8">
+            {/* BOTÓN DE INSTALACIÓN COMO PROGRAMA */}
+            <div className="mt-8 pt-8 border-t border-slate-100">
                <button 
                 onClick={() => setIsInstallModalOpen(true)}
-                className="w-full flex items-center justify-center space-x-3 bg-brand-900/5 hover:bg-brand-900/10 text-brand-900 py-4 rounded-2xl border border-brand-900/10 transition-all group"
+                className="w-full flex items-center justify-center space-x-3 bg-brand-900 text-white py-4 rounded-[1.5rem] border border-brand-900 transition-all group shadow-xl shadow-brand-900/20 active:scale-95"
                >
-                  <div className="w-8 h-8 bg-brand-900 text-white rounded-lg flex items-center justify-center shadow-md">
-                    <Smartphone size={16} />
+                  <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center shadow-inner">
+                    <Download size={16} />
                   </div>
                   <div className="text-left">
-                    <p className="text-[10px] font-black uppercase tracking-widest leading-none">Descargar App</p>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Instalar en este dispositivo</p>
+                    <p className="text-[11px] font-black uppercase tracking-widest leading-none">Instalar Aplicación</p>
+                    <p className="text-[8px] font-bold text-brand-400 uppercase tracking-tighter">Usar como programa nativo</p>
                   </div>
-                  <Download size={14} className="ml-auto mr-2 text-brand-400 group-hover:translate-y-0.5 transition-transform" />
+                  <Smartphone size={16} className="ml-auto mr-2 text-white/50 group-hover:scale-110 transition-transform" />
                </button>
             </div>
 
-            <div className="mt-14 pt-8 border-t border-slate-100 text-center">
+            <div className="mt-10 text-center">
               <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">
                 {isRegister ? '¿Ya tiene acceso?' : '¿No tiene una cuenta aún?'}
               </p>
