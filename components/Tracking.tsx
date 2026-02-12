@@ -2,8 +2,8 @@
 // @ts-nocheck
 import React, { useState, useEffect, useMemo } from 'react';
 import { Order, WorkflowStageKey, StageData, Signature, User, NoteEntry, CartItem } from '../types';
-import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle, FileText, ExternalLink, MapPin as MapPinIcon, Send, Calendar, Save, Eye, List, Package, Printer, FileCheck } from 'lucide-react';
-import { useParams } from 'react-router-dom';
+import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle, FileText, ExternalLink, MapPin as MapPinIcon, Send, Calendar, Save, Eye, List, Package, Printer, FileCheck, Edit3 } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { SignaturePad } from './SignaturePad';
 import { GoogleGenAI } from "@google/genai";
 import { LOGO_URL } from '../constants';
@@ -26,6 +26,7 @@ const ALL_STAGES: { key: WorkflowStageKey; label: string; description: string }[
 
 export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onConfirmQuote, currentUser, users }) => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const order = orders.find(o => o.id === id);
   const apiKey = process.env.API_KEY;
 
@@ -34,6 +35,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
   const [activeSigningField, setActiveSigningField] = useState<'signature' | 'receivedBy' | null>(null);
   const [showMap, setShowMap] = useState(false);
   const [showItems, setShowItems] = useState(false);
+  const [showFormalDoc, setShowFormalDoc] = useState(false);
   const [signatureSuccess, setSignatureSuccess] = useState<string | null>(null);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -217,156 +219,166 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-20">
       {isQuote && (
-        <div className="space-y-8 animate-in fade-in duration-700">
-           {/* Banner de Aprobación para el Cliente */}
-           <div className="bg-brand-900 text-white p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
-              <div className="absolute -right-20 -top-20 w-64 h-64 bg-[#4fb7f7]/10 rounded-full blur-3xl group-hover:bg-[#4fb7f7]/20 transition-all duration-700"></div>
-              <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
-                <div className="text-center md:text-left">
-                  <div className="flex items-center justify-center md:justify-start space-x-2 mb-2">
-                    <div className="w-8 h-8 bg-[#4fb7f7] rounded-lg flex items-center justify-center text-white shadow-lg">
-                      <FileCheck size={18} />
-                    </div>
-                    <h2 className="text-2xl font-black uppercase leading-tight tracking-tighter">Revisión de Cotización</h2>
-                  </div>
-                  <p className="text-brand-100/70 text-[11px] font-bold uppercase tracking-widest">Su presupuesto está listo para ser validado. Apruebe para iniciar la logística.</p>
+        <div className="animate-in fade-in duration-700">
+           {showFormalDoc ? (
+             <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden animate-in zoom-in duration-500">
+                <div className="p-8 border-b flex items-center justify-between bg-slate-50">
+                  <h3 className="text-xs font-black text-brand-900 uppercase">Previsualización de Documento</h3>
+                  <button onClick={() => setShowFormalDoc(false)} className="p-2 bg-white rounded-full border border-slate-200"><X size={20} className="text-slate-400" /></button>
                 </div>
-                {onConfirmQuote && currentUser.role === 'user' && (
-                  <button 
-                    onClick={() => onConfirmQuote(order.id)}
-                    className="bg-[#4fb7f7] hover:bg-white text-white hover:text-brand-900 px-10 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 flex items-center space-x-3 group"
-                  >
-                    <CheckCircle2 size={20} className="group-hover:scale-110 transition-transform" />
-                    <span>Aprobar Cotización y Confirmar Reserva</span>
-                  </button>
-                )}
-                {currentUser.role !== 'user' && (
-                  <div className="text-[9px] font-black text-brand-400 uppercase tracking-widest flex items-center bg-white/5 px-4 py-2 rounded-xl border border-white/10">
-                    <Clock size={12} className="mr-2" /> Esperando aprobación del cliente
+                <div className="p-10 md:p-16 space-y-12">
+                   <div className="flex justify-between items-center border-b border-slate-100 pb-8">
+                      <img src={LOGO_URL} className="h-10 opacity-90" alt="ABSOLUTE" />
+                      <div className="text-right">
+                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Cotización Oficial</h3>
+                         <p className="text-xl font-black text-brand-900 uppercase tracking-tighter">COT-{order.id.split('-')[1]}</p>
+                      </div>
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                      <div className="space-y-4">
+                         <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-widest border-b border-slate-200 pb-2">Información del Evento</h4>
+                         <div className="space-y-3">
+                            <div className="flex items-center space-x-3">
+                               <MapPinIcon size={14} className="text-[#4fb7f7]" />
+                               <div>
+                                  <p className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">Destino / Lugar</p>
+                                  <p className="text-[12px] font-black text-brand-900 uppercase">{order.destinationLocation}</p>
+                               </div>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                               <Calendar size={14} className="text-[#4fb7f7]" />
+                               <div>
+                                  <p className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">Duración del Evento</p>
+                                  <p className="text-[12px] font-black text-brand-900 uppercase">{new Date(order.startDate).toLocaleDateString()} al {new Date(order.endDate).toLocaleDateString()} ({eventDays} días)</p>
+                               </div>
+                            </div>
+                         </div>
+                      </div>
+
+                      <div className="space-y-4">
+                         <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-widest border-b border-slate-200 pb-2">Cliente / Solicitante</h4>
+                         <div className="space-y-3">
+                            <div className="flex items-center space-x-3">
+                               <UserCheck size={14} className="text-[#4fb7f7]" />
+                               <div>
+                                  <p className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">Representante</p>
+                                  <p className="text-[12px] font-black text-brand-900 uppercase">{currentUser.name}</p>
+                               </div>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+
+                   <div className="space-y-4">
+                      <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-widest border-b border-slate-200 pb-2">Desglose Técnico (Valores fuera de IVA)</h4>
+                      <div className="overflow-hidden border border-slate-100 rounded-2xl">
+                         <table className="w-full text-left">
+                            <thead className="bg-slate-50">
+                               <tr>
+                                  <th className="p-4 text-[8px] font-black text-slate-400 uppercase">Descripción Ítem</th>
+                                  <th className="p-4 text-[8px] font-black text-slate-400 uppercase text-center">Cant.</th>
+                                  <th className="p-4 text-[8px] font-black text-slate-400 uppercase text-right">Subtotal</th>
+                               </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                               {order.items.map((item, idx) => (
+                                  <tr key={idx}>
+                                     <td className="p-4">
+                                        <p className="text-[11px] font-black text-brand-900 uppercase">{item.name}</p>
+                                     </td>
+                                     <td className="p-4 text-center text-sm font-black text-brand-900">x{item.quantity}</td>
+                                     <td className="p-4 text-right text-sm font-black text-brand-900">${(item.priceRent * item.quantity * eventDays).toLocaleString()}</td>
+                                  </tr>
+                               ))}
+                            </tbody>
+                            <tfoot className="bg-slate-50/50">
+                               <tr>
+                                  <td colSpan={2} className="p-6 text-right font-black text-[9px] text-slate-400 uppercase">Inversión Total Estimada (Antes de IVA)</td>
+                                  <td className="p-6 text-right text-2xl font-black text-[#4fb7f7]">${order.totalAmount.toLocaleString()}</td>
+                               </tr>
+                            </tfoot>
+                         </table>
+                      </div>
+                   </div>
+                   <button onClick={() => window.print()} className="w-full py-4 border-2 border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center space-x-2"><Printer size={16} /> <span>Imprimir Cotización</span></button>
+                </div>
+             </div>
+           ) : (
+             <div className="bg-[#0c0c2a] text-white rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden flex flex-col animate-in zoom-in-95 duration-500">
+                
+                <div className="p-10 border-b border-white/5 flex items-center justify-between bg-black/40">
+                  <div className="flex items-center space-x-6">
+                    <div className="w-16 h-16 bg-brand-400/10 rounded-2xl flex items-center justify-center text-brand-400 border border-brand-400/20 shadow-lg">
+                      <FileText size={32} />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-[0.4em] text-brand-400/60 block mb-1">Editor Administrativo de Despacho</span>
+                      <h3 className="text-2xl font-black uppercase tracking-widest text-white leading-none">Cotización Registrada</h3>
+                    </div>
                   </div>
-                )}
-              </div>
-           </div>
+                  <button onClick={() => navigate('/orders')} className="p-3 text-white/30 hover:text-white transition-colors bg-white/5 rounded-full border border-white/10 group">
+                    <X size={24} className="group-hover:rotate-90 transition-transform" />
+                  </button>
+                </div>
 
-           {/* Vista de Documento de Cotización */}
-           <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden">
-              <div className="bg-slate-50/50 p-10 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-6">
-                 <img src={LOGO_URL} className="h-10 opacity-90" alt="ABSOLUTE" />
-                 <div className="text-center md:text-right">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Documento Oficial de Cotización</h3>
-                    <p className="text-xl font-black text-brand-900 uppercase tracking-tighter">COT-{order.id.split('-')[1]}</p>
-                 </div>
-              </div>
-
-              <div className="p-10 md:p-16 space-y-12">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <div className="space-y-4">
-                       <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-widest border-b border-slate-200 pb-2">Información del Evento</h4>
-                       <div className="space-y-3">
-                          <div className="flex items-center space-x-3">
-                             <MapPinIcon size={14} className="text-[#4fb7f7]" />
-                             <div>
-                                <p className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">Destino / Lugar</p>
-                                <p className="text-[12px] font-black text-brand-900 uppercase">{order.destinationLocation}</p>
-                             </div>
-                          </div>
-                          <div className="flex items-center space-x-3">
-                             <Calendar size={14} className="text-[#4fb7f7]" />
-                             <div>
-                                <p className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">Duración del Evento</p>
-                                <p className="text-[12px] font-black text-brand-900 uppercase">{new Date(order.startDate).toLocaleDateString()} al {new Date(order.endDate).toLocaleDateString()} ({eventDays} días)</p>
-                             </div>
-                          </div>
-                       </div>
+                <div className="p-10 space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white/5 rounded-3xl p-6 border border-white/10 hover:bg-white/[0.08] transition-all">
+                      <p className="text-[10px] text-white/40 font-black uppercase mb-2 tracking-[0.2em]">Enviar A:</p>
+                      <p className="text-sm font-bold text-white/90 truncate">{order.userEmail}</p>
                     </div>
-
-                    <div className="space-y-4">
-                       <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-widest border-b border-slate-200 pb-2">Cliente / Solicitante</h4>
-                       <div className="space-y-3">
-                          <div className="flex items-center space-x-3">
-                             <UserCheck size={14} className="text-[#4fb7f7]" />
-                             <div>
-                                <p className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">Representante</p>
-                                <p className="text-[12px] font-black text-brand-900 uppercase">{currentUser.name}</p>
-                             </div>
-                          </div>
-                          <div className="flex items-center space-x-3">
-                             <CreditCard size={14} className="text-[#4fb7f7]" />
-                             <div>
-                                <p className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">Estado de Pago</p>
-                                <p className="text-[12px] font-black text-brand-900 uppercase">Pre-aprobación requerida</p>
-                             </div>
-                          </div>
-                       </div>
+                    <div className="bg-[#4fb7f7]/10 rounded-3xl p-6 border border-[#4fb7f7]/20 hover:bg-[#4fb7f7]/15 transition-all">
+                      <p className="text-[10px] text-[#4fb7f7] font-black uppercase mb-2 tracking-[0.2em]">Copia de Respaldo:</p>
+                      <p className="text-sm font-bold text-[#4fb7f7]">admin@absolutecompany.co</p>
                     </div>
-                 </div>
+                  </div>
 
-                 <div className="space-y-4">
-                    <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-widest border-b border-slate-200 pb-2">Desglose Técnico de Servicios e Ítems</h4>
-                    <div className="overflow-hidden border border-slate-100 rounded-2xl">
-                       <table className="w-full text-left">
-                          <thead className="bg-slate-50">
-                             <tr>
-                                <th className="p-4 text-[8px] font-black text-slate-400 uppercase">Descripción Ítem</th>
-                                <th className="p-4 text-[8px] font-black text-slate-400 uppercase text-center">Cant.</th>
-                                <th className="p-4 text-[8px] font-black text-slate-400 uppercase text-right">Subtotal Inversión</th>
-                             </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                             {order.items.map((item, idx) => (
-                                <tr key={idx}>
-                                   <td className="p-4">
-                                      <div className="flex items-center space-x-3">
-                                         <img src={item.image} className="w-8 h-8 rounded-lg object-cover" alt="" />
-                                         <div>
-                                            <p className="text-[11px] font-black text-brand-900 uppercase">{item.name}</p>
-                                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">{item.category}</p>
-                                         </div>
-                                      </div>
-                                   </td>
-                                   <td className="p-4 text-center text-sm font-black text-brand-900">x{item.quantity}</td>
-                                   <td className="p-4 text-right text-sm font-black text-brand-900">${(item.priceRent * item.quantity * eventDays).toLocaleString()}</td>
-                                </tr>
-                             ))}
-                          </tbody>
-                          <tfoot className="bg-slate-50/50">
-                             <tr>
-                                <td colSpan={2} className="p-6 text-right">
-                                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Inversión Total Estimada</p>
-                                </td>
-                                <td className="p-6 text-right">
-                                   <p className="text-2xl font-black text-[#4fb7f7]">${order.totalAmount.toLocaleString()}</p>
-                                </td>
-                             </tr>
-                          </tfoot>
-                       </table>
+                  <div className="bg-white/5 rounded-3xl p-6 border border-white/10 hover:bg-white/[0.08] transition-all">
+                    <p className="text-[10px] text-white/40 font-black uppercase mb-2 tracking-[0.2em]">Asunto:</p>
+                    <p className="text-sm font-black text-white">ABSOLUTE: Nueva Cotización: {order.id}</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center px-1">
+                      <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.3em]">Cuerpo del Mensaje (Editable)</p>
+                      <button className="text-[10px] font-black uppercase flex items-center space-x-2 bg-[#4fb7f7]/10 text-[#4fb7f7] px-4 py-2 rounded-xl border border-[#4fb7f7]/20 hover:bg-[#4fb7f7] hover:text-white transition-all group">
+                        <Edit3 size={14} /> 
+                        <span>Editar</span>
+                      </button>
                     </div>
-                 </div>
-
-                 <div className="p-8 bg-amber-50 rounded-[2rem] border border-amber-100 space-y-4">
-                    <h5 className="text-[10px] font-black text-amber-900 uppercase tracking-widest flex items-center">
-                       <Info size={14} className="mr-2" /> Notas Importantes y Políticas
-                    </h5>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                       <ul className="text-[9px] font-bold text-amber-700/80 uppercase space-y-2 list-disc pl-4 tracking-tighter">
-                          <li>La validez de esta cotización es de 15 días hábiles a partir de la fecha de emisión.</li>
-                          <li>La disponibilidad de los ítems está sujeta a la existencia física en inventario al momento de la confirmación formal.</li>
-                       </ul>
-                       <ul className="text-[9px] font-bold text-amber-700/80 uppercase space-y-2 list-disc pl-4 tracking-tighter">
-                          <li>Los costos de transporte se calculan según la ruta dinámica y peajes vigentes.</li>
-                          <li>Al aprobar esta cotización, el cliente acepta los términos de servicio ABSOLUTE.</li>
-                       </ul>
+                    <div className="bg-black/40 rounded-[2.5rem] border border-white/10 p-10 min-h-[220px] shadow-inner">
+                      <p className="text-[14px] font-medium text-white/80 leading-relaxed">
+                        Estimado usuario, se ha registrado una actividad importante en su cuenta relacionada con la generación de un documento de cotización para el evento en <span className="text-[#4fb7f7] font-black uppercase">{order.destinationLocation}</span>.
+                      </p>
+                      <p className="text-[14px] font-medium text-white/80 leading-relaxed mt-4">
+                        Por favor revise su panel en la aplicación para conocer todos los detalles de inversión, ítems y políticas comerciales.
+                      </p>
                     </div>
-                 </div>
+                    <p className="text-[10px] text-amber-400 font-bold uppercase italic tracking-widest">* La tabla de ítems, las políticas y los valores fuera de IVA se generarán automáticamente en el envío final.</p>
+                  </div>
+                </div>
 
-                 <div className="flex flex-col items-center justify-center pt-8 space-y-4 border-t border-slate-100">
-                    <button onClick={() => window.print()} className="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-brand-900 transition-colors flex items-center">
-                       <Printer size={12} className="mr-2" /> Guardar PDF / Imprimir
+                <div className="p-10 bg-black/40 border-t border-white/5 flex flex-col md:flex-row gap-6">
+                  <button 
+                    onClick={() => setShowFormalDoc(true)}
+                    className="flex-1 bg-white/5 text-white/70 py-6 rounded-3xl text-[11px] font-black uppercase tracking-[0.3em] flex items-center justify-center space-x-3 hover:bg-white/10 transition-all border border-white/5 active:scale-95 shadow-lg shadow-black/20"
+                  >
+                    <ExternalLink size={20} />
+                    <span>Previsualizar</span>
+                  </button>
+                  {onConfirmQuote && currentUser.role === 'user' && (
+                    <button 
+                      onClick={() => onConfirmQuote(order.id)}
+                      className="flex-[1.8] bg-[#4fb7f7] text-white py-6 rounded-3xl text-[11px] font-black uppercase tracking-[0.3em] flex items-center justify-center space-x-4 shadow-2xl shadow-[#4fb7f7]/20 hover:bg-white hover:text-[#4fb7f7] transition-all group active:scale-95"
+                    >
+                      <Send size={22} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                      <span>Autorizar Despacho</span>
                     </button>
-                    <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">&copy; {new Date().getFullYear()} ABSOLUTE COMPANY - LOGÍSTICA DE ALTO IMPACTO</p>
-                 </div>
-              </div>
-           </div>
+                  )}
+                </div>
+             </div>
+           )}
         </div>
       )}
 
@@ -453,18 +465,6 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                     </div>
                   ))}
                </div>
-               {isPending && (
-                 <div className="mt-8 pt-6 border-t border-slate-100 flex justify-between items-center bg-slate-50/50 p-6 rounded-3xl">
-                    <div>
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lugar del Evento:</p>
-                       <p className="text-sm font-black text-brand-900 uppercase">{order.destinationLocation}</p>
-                    </div>
-                    <div className="text-right">
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inversión Alquiler:</p>
-                       <p className="text-xl font-black text-brand-900">${order.totalAmount.toLocaleString()}</p>
-                    </div>
-                 </div>
-               )}
             </div>
           )}
 
@@ -480,9 +480,6 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                         loading="lazy"
                         src={`https://www.google.com/maps/embed/v1/directions?key=${apiKey}&origin=Bogota&destination=${encodeURIComponent(order.destinationLocation)}&mode=driving`}
                    ></iframe>
-                   <div className="absolute top-4 right-4 bg-white/90 p-3 rounded-xl border border-amber-200 text-[8px] font-black uppercase max-w-[200px] shadow-lg pointer-events-none">
-                     Si ve error de API KEY, use el botón <b>FALLBACK EXTERNO</b> superior.
-                   </div>
                  </>
                ) : (
                   <div className="h-full flex flex-col items-center justify-center bg-slate-50">
@@ -563,14 +560,6 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                                           <p className="text-[11px] font-black text-slate-900 uppercase">{item.name}</p>
                                           <p className="text-[9px] font-bold text-slate-400">Cantidad: {item.quantity}</p>
                                         </div>
-                                        <input 
-                                            type="text" 
-                                            disabled={isCompleted || !canEdit}
-                                            value={check.notes}
-                                            onChange={(e) => handleItemNote(item.id, e.target.value)}
-                                            placeholder="Nota..."
-                                            className={`ml-4 bg-white/50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-bold outline-none ${!canEdit ? 'placeholder:text-slate-300' : ''}`}
-                                        />
                                     </div>
                                 );
                             })}
@@ -580,18 +569,6 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                     <section className="space-y-6">
                         <div className="flex items-center justify-between">
                           <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em]">Notas y Bitácora de la Etapa</h4>
-                          <div className="flex space-x-3">
-                            {canEdit && !isCompleted && apiKey && (
-                              <button 
-                                onClick={professionalizeNote}
-                                disabled={!tempStageData?.generalNotes || isAiProcessing}
-                                className="text-[9px] font-black text-brand-500 uppercase flex items-center space-x-2"
-                              >
-                                {isAiProcessing ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                                <span>Absolute AI: Corregir</span>
-                              </button>
-                            )}
-                          </div>
                         </div>
 
                         {tempStageData?.notesHistory && tempStageData.notesHistory.length > 0 && (
@@ -605,9 +582,6 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                                       </div>
                                       <span className="text-[9px] font-black text-brand-900 uppercase">{note.userName}</span>
                                    </div>
-                                   <span className="text-[8px] font-black text-slate-400 uppercase flex items-center">
-                                     <Clock size={8} className="mr-1" /> {new Date(note.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                   </span>
                                 </div>
                                 <p className="text-[11px] font-medium text-slate-600 leading-relaxed italic">"{note.text}"</p>
                               </div>
@@ -617,11 +591,10 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
 
                         {!isCompleted && canEdit && (
                           <div className="space-y-3">
-                            <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Comentarios adicionales / Notas de campo</label>
                             <textarea 
                                 value={tempStageData?.generalNotes || ''}
                                 onChange={(e) => handleGeneralNotesChange(e.target.value)}
-                                placeholder="Ingrese aquí notas sobre el estado de los equipos, incidencias en sitio o detalles del despacho..."
+                                placeholder="Notas de la etapa..."
                                 className="w-full min-h-[140px] bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-8 text-sm font-bold text-slate-700 outline-none transition-all resize-none focus:border-brand-900"
                             />
                             <div className="flex justify-end">
@@ -631,70 +604,30 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                                 className="bg-brand-50 text-brand-900 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest border border-brand-100 hover:bg-brand-900 hover:text-white transition-all disabled:opacity-30 flex items-center space-x-2"
                                >
                                  <Send size={12} />
-                                 <span>Adjuntar Nota a la Bitácora</span>
+                                 <span>Adjuntar Nota</span>
                                </button>
                             </div>
                           </div>
-                        )}
-                        {isCompleted && tempStageData?.generalNotes && (
-                            <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
-                                <p className="text-[11px] font-medium text-slate-600 italic">"{tempStageData.generalNotes}"</p>
-                            </div>
                         )}
                     </section>
 
                     <section className="grid md:grid-cols-2 gap-10">
                         <div className="space-y-4 text-center md:text-left">
-                            <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em]">Responsable Logística</h4>
+                            <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em]">Firma Responsable</h4>
                             {tempStageData?.signature ? (
-                                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 inline-block w-full">
+                                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 inline-block w-full text-center">
                                     <img src={tempStageData.signature.dataUrl} className="h-20 mix-blend-multiply mx-auto" alt="" />
                                     <p className="text-[10px] font-black text-slate-900 uppercase mt-3">{tempStageData.signature.name}</p>
-                                    <p className="text-[8px] font-bold text-slate-400 uppercase mt-1 flex items-center justify-center md:justify-start">
-                                      <MapPinIcon size={8} className="mr-1" /> {tempStageData.signature.location}
-                                    </p>
                                 </div>
                             ) : (
                                 !isCompleted && canEdit && (
                                     <button onClick={() => setActiveSigningField('signature')} className="w-full h-40 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-300 hover:text-brand-900 hover:border-brand-900 transition-all">
                                         <PenTool size={24} className="mb-2" />
-                                        <span className="text-[9px] font-black uppercase">Firmar Autorización</span>
+                                        <span className="text-[9px] font-black uppercase">Firmar</span>
                                     </button>
                                 )
                             )}
-                            {!tempStageData?.signature && !canEdit && (
-                              <div className="w-full h-40 border-2 border-dashed border-slate-100 rounded-[2rem] flex items-center justify-center text-slate-200 bg-slate-50/50">
-                                 <span className="text-[9px] font-black uppercase">Sin firma registrada</span>
-                              </div>
-                            )}
                         </div>
-
-                        {showReceivedBy && (
-                            <div className="space-y-4 text-center md:text-left">
-                                <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em]">Recibido de Conforme</h4>
-                                {tempStageData?.receivedBy ? (
-                                    <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 inline-block w-full">
-                                        <img src={tempStageData.receivedBy.dataUrl} className="h-20 mix-blend-multiply mx-auto" alt="" />
-                                        <p className="text-[10px] font-black text-slate-900 uppercase mt-3">{tempStageData.receivedBy.name}</p>
-                                        <p className="text-[8px] font-bold text-slate-400 uppercase mt-1 flex items-center justify-center md:justify-start">
-                                          <MapPinIcon size={8} className="mr-1" /> {tempStageData.receivedBy.location}
-                                        </p>
-                                    </div>
-                                ) : (
-                                    !isCompleted && canEdit && (
-                                        <button onClick={() => setActiveSigningField('receivedBy')} className="w-full h-40 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-300 hover:text-brand-900 hover:border-brand-900 transition-all">
-                                            <PenTool size={24} className="mb-2" />
-                                            <span className="text-[9px] font-black uppercase">Capturar Recibido</span>
-                                        </button>
-                                    )
-                                )}
-                                {!tempStageData?.receivedBy && !canEdit && (
-                                  <div className="w-full h-40 border-2 border-dashed border-slate-100 rounded-[2rem] flex items-center justify-center text-slate-200 bg-slate-50/50">
-                                     <span className="text-[9px] font-black uppercase">Sin firma registrada</span>
-                                  </div>
-                                )}
-                            </div>
-                        )}
                     </section>
                     
                     {!isCompleted && canEdit && (
@@ -702,57 +635,9 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                             onClick={handleCompleteStage}
                             className="w-full py-6 bg-brand-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.3em] shadow-xl hover:bg-black transition-all"
                         >
-                            <span>Finalizar Etapa y Notificar</span>
+                            <span>Finalizar Etapa</span>
                         </button>
                     )}
-                </div>
-            </div>
-
-            <div className="lg:col-span-4">
-                <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden sticky top-6">
-                    <div className="p-6 bg-brand-900 text-white">
-                      <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center">
-                        <History size={16} className="mr-2 text-brand-400" /> Resumen de Etapas
-                      </h3>
-                    </div>
-                    <div className="p-6 space-y-6">
-                      {visibleStages.map(s => {
-                        const data = order.workflow[s.key];
-                        const hasNotes = (data.notesHistory && data.notesHistory.length > 0);
-                        const isFieldStage = ['bodega_to_coord', 'coord_to_client', 'client_to_coord', 'coord_to_bodega'].includes(s.key);
-                        
-                        if (!hasNotes && data.status !== 'completed' && !isFieldStage) return null;
-                        
-                        return (
-                          <div key={s.key} className="relative pl-6 pb-4 border-l-2 border-slate-100 last:border-0">
-                            <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 ${data.status === 'completed' ? 'bg-green-500 border-green-200' : 'bg-white border-brand-900'}`} />
-                            <div className="flex justify-between items-start">
-                               <p className="text-[9px] font-black text-brand-900 uppercase leading-none">{s.label.split('.')[1]}</p>
-                               {isFieldStage && assignedCoord && (
-                                 <span className="text-[7px] font-black text-emerald-600 uppercase tracking-tighter">Coord: {assignedCoord.name}</span>
-                               )}
-                            </div>
-                            
-                            <div className="space-y-2 mt-3">
-                              {data.notesHistory && data.notesHistory.map((n, i) => (
-                                <div key={i} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                   <p className="text-[9px] font-bold text-slate-600 leading-snug">"{n.text}"</p>
-                                   <span className="text-[7px] font-black text-slate-400 uppercase block mt-1">{new Date(n.timestamp).toLocaleDateString()}</span>
-                                </div>
-                              ))}
-                              {(!data.notesHistory || data.notesHistory.length === 0) && data.status === 'completed' && (
-                                <p className="text-[9px] font-bold text-slate-400 italic">Completado sin observaciones.</p>
-                              )}
-                              {data.status !== 'completed' && !hasNotes && (
-                                <p className="text-[8px] font-black text-slate-300 uppercase italic">Pendiente de ejecución</p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      }).reverse().filter(x => x !== null).length === 0 && (
-                        <p className="text-center py-10 text-[9px] font-black uppercase text-slate-300">Sin actividad registrada</p>
-                      )}
-                    </div>
                 </div>
             </div>
           </div>
@@ -763,19 +648,14 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
           <div className="fixed inset-0 z-[110] bg-brand-900/90 backdrop-blur-md flex items-center justify-center p-4">
               <div className="bg-white rounded-[3rem] shadow-2xl max-w-lg w-full animate-in zoom-in duration-300 overflow-hidden">
                   <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
-                      <h3 className="text-xs font-black text-brand-900 uppercase">Validación de Firma</h3>
+                      <h3 className="text-xs font-black text-brand-900 uppercase">Firma Digital</h3>
                       <button onClick={() => { setActiveSigningField(null); setSignatureSuccess(null); }} className="p-2">
                         <X size={20} className="text-slate-400" />
                       </button>
                   </div>
                   <div className="p-10">
-                      {signatureSuccess && (
-                          <div className="mb-6 bg-emerald-50 text-emerald-700 p-4 rounded-2xl text-[10px] font-black uppercase text-center border border-emerald-100">
-                             {signatureSuccess}
-                          </div>
-                      )}
                       <SignaturePad 
-                          label={activeSigningField === 'signature' ? 'Entrega Autorizada' : 'Recibido de Conforme'} 
+                          label={activeSigningField === 'signature' ? 'Responsable' : 'Recibido'} 
                           onSave={(sig) => saveSignature(activeSigningField, sig)}
                           onCancel={() => setActiveSigningField(null)}
                       />

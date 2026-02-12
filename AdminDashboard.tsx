@@ -1,7 +1,6 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import { Product, Order, User, WorkflowStageKey, StageData, Category, CartItem } from './types';
-// Added Shield to the imports
 import { Package, Plus, Edit2, Trash2, CheckCircle, Lock, XCircle, DollarSign, UserCheck, Calendar, MapPin, ArrowRight, ClipboardList, FileText, X, Filter, RefreshCw, Bold, Italic, Sparkles, Loader2, List, Type, UserPlus, Clock, Tags, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserManagement } from './components/UserManagement';
@@ -88,7 +87,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const calculateDays = (start: string, end: string) => {
     const s = new Date(start);
     const e = new Date(end);
-    // Fixed typo: corrected iNaN to isNaN
     if (isNaN(s.getTime()) || isNaN(e.getTime())) return 1;
     const diffTime = Math.abs(e.getTime() - s.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
@@ -112,11 +110,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const professionalizeDescription = async () => {
     const currentText = editorRef.current?.innerHTML || editForm.description || '';
-    // Use process.env.API_KEY directly per guidelines
     if (!currentText || isAiOptimizing || !process.env.API_KEY) return;
     setIsAiOptimizing(true);
     try {
-      // Initialize GoogleGenAI with process.env.API_KEY directly
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `Actúa como un experto en marketing de eventos para ABSOLUTE COMPANY. 
       Optimiza la siguiente descripción de producto para que sea profesional, elegante y persuasiva. 
@@ -196,14 +192,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'inventory' && isAdmin && (
           <div>
              <div className="flex justify-between items-center mb-8">
-                <h3 className="text-sm font-black text-brand-900 uppercase flex items-center"><Package size={18} className="mr-2" /> Artículos de Alquiler</h3>
+                <div>
+                  <h3 className="text-sm font-black text-brand-900 uppercase flex items-center"><Package size={18} className="mr-2" /> Artículos de Alquiler</h3>
+                  <p className="text-[10px] font-black text-slate-400 uppercase mt-1">Todos los valores expresados fuera de IVA</p>
+                </div>
                 <button onClick={() => startEdit()} className="bg-brand-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center"><Plus size={16} className="mr-2" /> Nuevo</button>
              </div>
              <table className="w-full text-left">
                 <thead className="bg-slate-50">
                     <tr className="border-b">
                         <th className="p-5 text-[10px] font-black text-slate-400 uppercase">Ítem</th>
-                        <th className="p-5 text-[10px] font-black text-slate-400 uppercase text-center">Tarifa Alquiler / día</th>
+                        <th className="p-5 text-[10px] font-black text-slate-400 uppercase text-center">Tarifa Alquiler (Antes IVA)</th>
                         <th className="p-5 text-[10px] font-black text-slate-400 uppercase text-center">Stock</th>
                         <th className="p-5 text-[10px] font-black text-slate-400 uppercase text-right">Acción</th>
                     </tr>
@@ -234,7 +233,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="space-y-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest flex items-center">
-                <ClipboardList size={18} className="mr-2" /> Listado Maestro de Alquileres
+                <ClipboardList size={18} className="mr-2" /> Listado Maestro de Alquileres (Precios + IVA)
               </h3>
               <div className="flex items-center space-x-3">
                  <button 
@@ -325,7 +324,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                         <div className="flex items-center space-x-6 w-full md:w-auto justify-between md:justify-end">
                            <div className="text-center md:text-right">
-                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Inversión Alquiler</p>
+                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Inversión (Sin IVA)</p>
                              <p className="text-sm font-black text-brand-900">${order.totalAmount.toLocaleString()}</p>
                            </div>
                            <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border shadow-sm ${order.status === 'Finalizado' ? 'bg-green-50 text-green-700 border-green-100' : order.status === 'Cancelado' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-brand-50 text-brand-900 border-brand-100'}`}>
@@ -341,7 +340,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <div className="lg:col-span-8 space-y-6">
                             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                               <h5 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] flex items-center">
-                                <List size={14} className="mr-2" /> Detalle Técnico de Ítems
+                                <List size={14} className="mr-2" /> Detalle Técnico (Sin IVA)
                               </h5>
                               <div className="flex items-center text-[9px] font-black text-slate-400 uppercase bg-white px-3 py-1.5 rounded-xl border border-slate-100 shadow-sm">
                                 <Clock size={10} className="mr-1.5" /> Permanencia: {eventDays} {eventDays === 1 ? 'día' : 'días'}
@@ -393,11 +392,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <tfoot className="bg-slate-50/50">
                                   <tr>
                                     <td colSpan={3} className="p-4 text-right">
-                                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Inversión Servicios (Sin Dto.)</span>
+                                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Inversión Total (Sin IVA)</span>
                                     </td>
                                     <td className="p-4 text-right">
                                       <span className="text-sm font-black text-brand-900">
-                                        ${order.items.reduce((acc, item) => acc + (getTieredPrice(item, eventDays) * item.quantity * (item.category === 'Mobiliario' ? 1 : eventDays)), 0).toLocaleString()}
+                                        ${order.totalAmount.toLocaleString()}
                                       </span>
                                     </td>
                                   </tr>
@@ -551,7 +550,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400 flex items-center ml-1"><DollarSign size={10} className="mr-1" /> Tarifa Alquiler / día</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400 flex items-center ml-1"><DollarSign size={10} className="mr-1" /> Tarifa Alquiler (Antes IVA)</label>
                     <input type="number" value={editForm.priceRent} onChange={e => setEditForm({...editForm, priceRent: parseInt(e.target.value) || 0})} className="w-full bg-slate-50 p-4 rounded-2xl font-black text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none" />
                   </div>
                   <div className="space-y-2">

@@ -78,7 +78,6 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
         </div>
       </div>
 
-      {/* Menú de categorías convertido en Dropdown con fondo #d2eeff */}
       <div className="relative z-40">
         <div className="bg-[#d2eeff] p-2 rounded-[1.5rem] border border-blue-200/50 backdrop-blur-sm shadow-inner flex items-center justify-between">
           <div className="px-3 py-2 border-r border-blue-200/50 mr-2 shrink-0 hidden sm:flex items-center space-x-2">
@@ -186,6 +185,7 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                                 / {isM2 ? 'm²' : isMobiliario ? 'evento' : 'día'}
                             </span>
                             </p>
+                            <p className="text-[8px] font-black text-slate-400 uppercase mt-0.5">Precios fuera de IVA</p>
                         </div>
                         <div className="text-right">
                              <p className="text-[7px] font-black text-slate-400 uppercase mb-1">Subtotal {qty > 1 && `(${qty})`}</p>

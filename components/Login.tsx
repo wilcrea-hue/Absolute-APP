@@ -3,14 +3,16 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '../types';
 import { LOGO_URL } from '../constants';
-import { Mail, Lock, User as UserIcon, ArrowRight, CheckCircle2, Phone, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, ArrowRight, CheckCircle2, Phone, ShieldCheck, Download, Smartphone } from 'lucide-react';
+import { InstallModal } from './InstallModal';
 
 interface LoginProps {
   onLogin: (email: string, password?: string) => { success: boolean, message?: string };
   onRegister: (name: string, email: string, phone: string, password?: string) => boolean;
+  deferredPrompt: any;
 }
 
-export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
+export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, deferredPrompt }) => {
   const navigate = useNavigate();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
@@ -19,6 +21,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,6 +164,22 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
               </button>
             </form>
 
+            <div className="mt-8">
+               <button 
+                onClick={() => setIsInstallModalOpen(true)}
+                className="w-full flex items-center justify-center space-x-3 bg-brand-900/5 hover:bg-brand-900/10 text-brand-900 py-4 rounded-2xl border border-brand-900/10 transition-all group"
+               >
+                  <div className="w-8 h-8 bg-brand-900 text-white rounded-lg flex items-center justify-center shadow-md">
+                    <Smartphone size={16} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-[10px] font-black uppercase tracking-widest leading-none">Descargar App</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Instalar en este dispositivo</p>
+                  </div>
+                  <Download size={14} className="ml-auto mr-2 text-brand-400 group-hover:translate-y-0.5 transition-transform" />
+               </button>
+            </div>
+
             <div className="mt-14 pt-8 border-t border-slate-100 text-center">
               <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">
                 {isRegister ? '¿Ya tiene acceso?' : '¿No tiene una cuenta aún?'}
@@ -179,6 +198,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
           </div>
         </div>
       </div>
+      
+      <InstallModal 
+        isOpen={isInstallModalOpen} 
+        onClose={() => setIsInstallModalOpen(false)} 
+        deferredPrompt={deferredPrompt} 
+      />
     </div>
   );
 };

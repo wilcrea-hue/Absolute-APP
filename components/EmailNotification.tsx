@@ -73,6 +73,7 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
             .summary { background: #000033; color: #fff; padding: 30px; border-radius: 24px; text-align: right; margin-bottom: 40px; }
             .summary p { margin: 0; font-size: 12px; text-transform: uppercase; opacity: 0.7; }
             .summary h2 { margin: 5px 0 0; font-size: 32px; font-weight: 900; }
+            .vat-note { font-size: 10px; font-weight: 900; text-transform: uppercase; color: #4fb7f7; margin-top: 5px; display: block; }
             .policies { background: #fff7ed; border: 1px solid #ffedd5; padding: 25px; border-radius: 20px; font-size: 12px; color: #9a3412; }
             .policies h4 { margin: 0 0 10px; text-transform: uppercase; font-weight: 900; }
             .footer { padding: 40px; background: #f8fafc; text-align: center; font-size: 10px; color: #94a3b8; font-weight: 800; text-transform: uppercase; letter-spacing: 0.2em; }
@@ -98,8 +99,9 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
               </table>
 
               <div class="summary">
-                <p>Inversión Total Estimada</p>
+                <p>Inversión Total Estimada (Antes de IVA)</p>
                 <h2>$${email.order?.totalAmount.toLocaleString() || '0'}</h2>
+                <span class="vat-note">Valores fuera de IVA</span>
               </div>
 
               <div class="body-text">${editableBody}</div>
@@ -107,6 +109,7 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
               <div class="policies">
                 <h4>Políticas de Cotización</h4>
                 <p>• La validez de esta cotización es de 15 días hábiles a partir de la fecha de emisión.</p>
+                <p>• Los valores expresados no incluyen el impuesto al valor agregado (IVA).</p>
                 <p>• La disponibilidad de los ítems y servicios está sujeta a la existencia física en el inventario al momento de la confirmación formal del pedido.</p>
               </div>
             </div>
@@ -166,7 +169,7 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
               onChange={(e) => setEditableBody(e.target.value)}
               className={`w-full min-h-[200px] p-8 rounded-[2rem] text-[13px] font-medium leading-relaxed outline-none transition-all resize-none ${isEditing ? 'bg-white text-brand-900' : 'bg-black/20 text-white/60 border border-white/5'}`}
             />
-            <p className="text-[9px] text-amber-400 font-bold uppercase italic">* La tabla de ítems y las políticas se generarán automáticamente en el envío final.</p>
+            <p className="text-[10px] text-amber-400 font-bold uppercase italic tracking-widest">* La tabla de ítems, las políticas y los valores fuera de IVA se generarán automáticamente en el envío final.</p>
           </div>
         </div>
 

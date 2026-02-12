@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { User, Product, CartItem, Order, OrderStatus, WorkflowStageKey, StageData, OrderType } from './types';
@@ -35,6 +36,7 @@ const App: React.FC = () => {
   const [isOnline, setIsOnline] = useState<boolean>(false);
   const [lastSync, setLastSync] = useState<Date>(new Date());
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('absolute_users');
@@ -61,11 +63,19 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    
     if ('Notification' in window && Notification.permission === 'default') {
       setTimeout(() => {
         Notification.requestPermission();
       }, 3000);
     }
+
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
   }, []);
 
   const syncData = useCallback(async (dataToPush?: any) => {
@@ -322,8 +332,8 @@ const App: React.FC = () => {
 
   return (
     <HashRouter>
-      {!user ? <Login onLogin={handleLogin} onRegister={handleRegister} /> : (
-        <Layout user={user} cartCount={cart.length} onLogout={() => setUser(null)} syncStatus={{ isOnline, lastSync }} onChangePassword={() => setIsPasswordModalOpen(true)}>
+      {!user ? <Login onLogin={handleLogin} onRegister={handleRegister} deferredPrompt={deferredPrompt} /> : (
+        <Layout user={user} cartCount={cart.length} onLogout={() => setUser(null)} syncStatus={{ isOnline, lastSync }} onChangePassword={() => setIsPasswordModalOpen(true)} deferredPrompt={deferredPrompt}>
           <Routes>
             <Route path="/" element={(user.role === 'logistics' || user.role === 'coordinator') ? <Navigate to="/orders" replace /> : <Catalog products={products} onAddToCart={handleAddToCart} />} />
             <Route path="/cart" element={(user.role === 'logistics' || user.role === 'coordinator') ? <Navigate to="/orders" replace /> : <Cart items={cart} currentUser={user} orders={orders} onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} onUpdateQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, q)} : i))} onCheckout={createOrder} getAvailableStock={getAvailableStock} />} />

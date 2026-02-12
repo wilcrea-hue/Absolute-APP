@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { 
-  LayoutGrid, ShoppingCart, ClipboardList, LogOut, User as UserIcon, Menu, X, ShieldCheck, Map, Wifi, WifiOff, Key, DownloadCloud
+  LayoutGrid, ShoppingCart, ClipboardList, LogOut, User as UserIcon, Menu, X, ShieldCheck, Map, Wifi, WifiOff, Key, DownloadCloud, Smartphone, CheckCircle
 } from 'lucide-react';
 import { User } from '../types';
 import { Link, useLocation } from 'react-router-dom';
@@ -16,12 +16,13 @@ interface LayoutProps {
   onLogout: () => void;
   onChangePassword?: () => void;
   syncStatus?: { isOnline: boolean; lastSync: Date };
+  deferredPrompt: any;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLogout, onChangePassword, syncStatus }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLogout, onChangePassword, syncStatus, deferredPrompt }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
   const location = useLocation();
   const isStaff = user.role === 'admin' || user.role === 'logistics' || user.role === 'coordinator';
 
@@ -29,10 +30,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
   const isOperationalOnly = user.role === 'logistics' || user.role === 'coordinator';
 
   useEffect(() => {
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    });
+    // Detectar si ya está en modo PWA
+    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
+      setIsStandalone(true);
+    }
   }, []);
 
   const NavItem = ({ to, icon: Icon, label }: { to: string, icon: any, label: string }) => {
@@ -92,13 +93,20 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
                 )}
              </div>
              
-             <button 
-                onClick={() => setIsInstallModalOpen(true)}
-                className="w-full flex items-center justify-center space-x-2 bg-white/5 text-slate-300 py-2 rounded-lg border border-white/5 hover:bg-white/10 hover:text-white transition-all group"
-             >
-                <DownloadCloud size={12} className="group-hover:scale-110 transition-transform" />
-                <span className="text-[8px] font-black uppercase tracking-widest">Instalar App</span>
-             </button>
+             {isStandalone ? (
+               <div className="w-full flex items-center justify-center space-x-2 bg-emerald-500/5 text-emerald-400 py-2 rounded-lg border border-emerald-500/10">
+                  <CheckCircle size={10} />
+                  <span className="text-[8px] font-black uppercase tracking-widest">Versión Nativa</span>
+               </div>
+             ) : (
+               <button 
+                  onClick={() => setIsInstallModalOpen(true)}
+                  className="w-full flex items-center justify-center space-x-2 bg-brand-400 text-brand-900 py-2 rounded-lg border border-brand-400/20 hover:bg-white transition-all group shadow-lg shadow-brand-400/10"
+               >
+                  <DownloadCloud size={12} className="group-hover:translate-y-0.5 transition-transform" />
+                  <span className="text-[8px] font-black uppercase tracking-widest">Descargar App</span>
+               </button>
+             )}
           </div>
         </div>
 
