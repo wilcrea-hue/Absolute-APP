@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Category, Product } from './types';
-import { Search, Plus, Clock, PackageX, AlertCircle, Info, Minus, ChevronDown, ChevronUp, CalendarDays, Filter } from 'lucide-react';
+import { Search, Plus, Clock, PackageX, AlertCircle, Info, Minus, ChevronDown, ChevronUp, CalendarDays, Filter, ChevronRight, LayoutGrid } from 'lucide-react';
 
 interface CatalogProps {
   products: Product[];
@@ -15,6 +15,7 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [localQuantities, setLocalQuantities] = useState<Record<string, number>>({});
   const [expandedPrices, setExpandedPrices] = useState<Record<string, boolean>>({});
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
   const filteredProducts = (products || []).filter(product => {
     const matchesCategory = selectedCategory === 'Todos' || product.category === selectedCategory;
@@ -52,6 +53,11 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
     ];
   };
 
+  const handleSelectCategory = (cat: Category | 'Todos') => {
+    setSelectedCategory(cat);
+    setIsDropdownOpen(false);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -65,43 +71,58 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
           <input 
             type="text" 
             placeholder="Buscar artículo..." 
-            className="w-full pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-xl focus:ring-2 focus:ring-brand-900 shadow-sm text-[13px] font-bold"
+            className="w-full pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-xl focus:ring-2 focus:ring-brand-900 shadow-sm text-[13px] font-bold outline-none"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
-      {/* Menú de categorías mejorado para vista móvil con fondo #d2eeff */}
-      <div className="bg-[#d2eeff] p-2 rounded-[1.5rem] border border-slate-200/50 backdrop-blur-sm overflow-hidden shadow-inner">
-        <div className="flex items-center">
+      {/* Menú de categorías convertido en Dropdown con fondo #d2eeff */}
+      <div className="relative z-40">
+        <div className="bg-[#d2eeff] p-2 rounded-[1.5rem] border border-blue-200/50 backdrop-blur-sm shadow-inner flex items-center justify-between">
           <div className="px-3 py-2 border-r border-blue-200/50 mr-2 shrink-0 hidden sm:flex items-center space-x-2">
             <Filter size={12} className="text-blue-500/60" />
-            <span className="text-[8px] font-black text-blue-500/60 uppercase tracking-widest">Filtrar:</span>
+            <span className="text-[8px] font-black text-blue-500/60 uppercase tracking-widest">Filtrar por:</span>
           </div>
-          
-          <div className="flex overflow-x-auto no-scrollbar gap-2 pb-1 scroll-smooth snap-x">
-            <button
-              onClick={() => setSelectedCategory('Todos')}
-              className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap snap-start ${
-                selectedCategory === 'Todos' 
-                  ? 'bg-brand-900 text-white shadow-lg' 
-                  : 'bg-white text-gray-500 border border-slate-100 hover:bg-slate-50'
+
+          <button 
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="flex-1 flex items-center justify-between px-6 py-2.5 bg-white rounded-xl text-[10px] font-black uppercase tracking-widest text-brand-900 shadow-sm hover:bg-slate-50 transition-all border border-slate-100"
+          >
+            <div className="flex items-center">
+              <LayoutGrid size={14} className="mr-3 text-brand-500" />
+              <span>Categoría: {selectedCategory}</span>
+            </div>
+            {isDropdownOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+        </div>
+
+        {isDropdownOpen && (
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-[2rem] shadow-2xl border border-slate-100 p-2 grid grid-cols-1 sm:grid-cols-2 gap-1 animate-in slide-in-from-top-2 duration-300">
+            <button 
+              onClick={() => handleSelectCategory('Todos')}
+              className={`w-full text-left px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-between group transition-all ${
+                selectedCategory === 'Todos' ? 'bg-brand-900 text-white' : 'hover:bg-slate-50 text-slate-500'
               }`}
-            >Todos</button>
+            >
+              <span>Ver todos los artículos</span>
+              <ChevronRight size={14} className={selectedCategory === 'Todos' ? 'text-brand-400' : 'text-slate-200 group-hover:translate-x-1 transition-transform'} />
+            </button>
             {CATEGORIES.map(cat => (
-              <button
+              <button 
                 key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap snap-start ${
-                  selectedCategory === cat 
-                    ? 'bg-brand-900 text-white shadow-lg' 
-                    : 'bg-white text-gray-500 border border-slate-100 hover:bg-slate-50'
+                onClick={() => handleSelectCategory(cat)}
+                className={`w-full text-left px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-between group transition-all ${
+                  selectedCategory === cat ? 'bg-brand-900 text-white' : 'hover:bg-slate-50 text-slate-500'
                 }`}
-              >{cat}</button>
+              >
+                <span>{cat}</span>
+                <ChevronRight size={14} className={selectedCategory === cat ? 'text-brand-400' : 'text-slate-200 group-hover:translate-x-1 transition-transform'} />
+              </button>
             ))}
           </div>
-        </div>
+        )}
       </div>
 
       {filteredProducts.length > 0 ? (
@@ -178,7 +199,7 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                       <div className="mt-3 border-t border-slate-200 pt-3">
                         <button 
                           onClick={() => togglePriceTable(product.id)}
-                          className="w-full flex items-center justify-between text-[8px] font-black text-brand-900 uppercase tracking-widest hover:text-[#4fb7f7] transition-colors"
+                          className="w-full flex items-center justify-between text-[8px] font-black text-brand-900 uppercase tracking-widest hover:text-[#4fb7f7] transition-colors outline-none"
                         >
                           <span className="flex items-center"><CalendarDays size={10} className="mr-1.5" /> Ver tabla de tarifas</span>
                           {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
@@ -203,7 +224,7 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                         <button 
                             disabled={isOutOfStock}
                             onClick={() => updateLocalQuantity(product.id, -1, product.stock)}
-                            className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm text-brand-900 disabled:opacity-30 active:scale-90 transition-all"
+                            className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm text-brand-900 disabled:opacity-30 active:scale-90 transition-all outline-none"
                         >
                             <Minus size={14} />
                         </button>
@@ -214,7 +235,7 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                         <button 
                             disabled={isOutOfStock || (product.stock !== 999 && qty >= product.stock)}
                             onClick={() => updateLocalQuantity(product.id, 1, product.stock)}
-                            className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm text-brand-900 disabled:opacity-30 active:scale-90 transition-all"
+                            className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm text-brand-900 disabled:opacity-30 active:scale-90 transition-all outline-none"
                         >
                             <Plus size={14} />
                         </button>
@@ -226,7 +247,7 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                             setLocalQuantities(prev => ({ ...prev, [product.id]: 1 }));
                         }}
                         disabled={isOutOfStock}
-                        className="w-full py-4 bg-brand-900 text-white rounded-xl font-black text-[10px] uppercase shadow-md active:scale-95 transition-all flex items-center justify-center space-x-2 hover:bg-black disabled:opacity-30 disabled:grayscale"
+                        className="w-full py-4 bg-brand-900 text-white rounded-xl font-black text-[10px] uppercase shadow-md active:scale-95 transition-all flex items-center justify-center space-x-2 hover:bg-black disabled:opacity-30 disabled:grayscale outline-none"
                     >
                         <Plus size={14} />
                         <span>Añadir {qty > 1 ? `(${qty})` : ''} a la Reserva</span>
