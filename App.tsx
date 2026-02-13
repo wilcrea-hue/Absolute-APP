@@ -163,10 +163,11 @@ const App: React.FC = () => {
         const prompt = `Escribe un correo electrónico profesional y ejecutivo para ABSOLUTE COMPANY. 
         Contexto: ${context}. 
         Etapa: ${stage}. 
-        Si es una cotización o nueva asignación, asegúrate de mencionar que los detalles están disponibles en la plataforma.
+        Se trata de un correo para el cliente o personal interno. No menciones el nombre de la IA.
+        Si es una cotización o nueva asignación, menciona que los detalles técnicos están en la plataforma.
         Políticas obligatorias a incluir al final si aplica:
         - La duración de esta cotización es de 15 días hábiles.
-        - La oferta está sujeta a disponibilidad de insumos físicos.
+        - Oferta sujeta a disponibilidad de stock físico.
         Suena muy corporativo, servicial y directo.`;
         
         const response = await ai.models.generateContent({ 
@@ -177,9 +178,11 @@ const App: React.FC = () => {
       }
 
       if (!emailBody) {
-        emailBody = `Estimado usuario, se ha registrado una actividad importante en su cuenta relacionada con ${context}.\n\nPor favor revise su panel en la aplicación para más detalles.`;
+        emailBody = `Estimado usuario, se ha registrado una actividad logística importante: ${context}.\n\nPor favor revise su panel en la aplicación para más detalles.`;
       }
 
+      // IMPORTANTE: Solo el admin ve el modal para moderar y enviar el correo real
+      // Esto previene spam automático desde cualquier cuenta.
       if (user?.role === 'admin') {
         setSentEmail({
           to: recipientEmail,
@@ -189,9 +192,11 @@ const App: React.FC = () => {
           stage: stage,
           order: order
         });
+      } else {
+        console.log("Notificación silenciosa generada para el Admin. El Admin debe autorizar el envío real.");
       }
     } catch (err) {
-      console.error("Error generating email:", err);
+      console.error("Error generating email content:", err);
     }
   };
 
@@ -243,7 +248,14 @@ const App: React.FC = () => {
         if (stageKey === 'bodega_check') newStatus = 'En Proceso';
         else if (stageKey === 'coord_to_client') newStatus = 'Entregado';
         else if (stageKey === 'coord_to_bodega') newStatus = 'Finalizado';
-        triggerEmailNotification(order.userEmail, `Avance Logístico: ${order.id}`, stageLabels[stageKey], `Su pedido ha completado con éxito la etapa de ${stageLabels[stageKey]}.`, order);
+        
+        triggerEmailNotification(
+            order.userEmail, 
+            `Estado Logístico Actualizado: ${order.id}`, 
+            stageLabels[stageKey], 
+            `Su pedido ha avanzado a la etapa de ${stageLabels[stageKey]}.`, 
+            order
+        );
       }
       return { ...order, status: newStatus, workflow: updatedWorkflow };
     });
@@ -259,10 +271,10 @@ const App: React.FC = () => {
           if (item.quantity > available) canConfirm = false;
         });
         if (!canConfirm) {
-          alert("No se puede confirmar la cotización: El inventario ya no está disponible.");
+          alert("No se puede confirmar la cotización: No hay stock disponible para las fechas seleccionadas.");
           return order;
         }
-        triggerEmailNotification(order.userEmail, `Confirmación de Cotización ${order.id}`, "Cotización Confirmada", "Su cotización ha sido confirmada y ahora es una reserva pendiente de despacho.", order);
+        triggerEmailNotification(order.userEmail, `Confirmación de Reserva ${order.id}`, "Cotización Aceptada", "Su cotización ha sido autorizada y ahora es una reserva oficial lista para despacho.", order);
         return { ...order, status: 'Pendiente' as OrderStatus };
       }
       return order;
@@ -291,7 +303,13 @@ const App: React.FC = () => {
     setOrderCounter(orderCounter + 1);
     saveAndSync('orders', [newOrder, ...orders]);
     setCart([]);
-    triggerEmailNotification(user.email, `${type === 'quote' ? 'Nueva Cotización' : 'Nueva Reserva'}: ${orderId}`, type === 'quote' ? 'Cotización Registrada' : 'Creación de Reserva', `Se ha generado un documento de ${type === 'quote' ? 'cotización' : 'reserva'} para el evento en ${destination}.`, newOrder);
+    triggerEmailNotification(
+        user.email, 
+        `${type === 'quote' ? 'Nueva Cotización' : 'Nueva Reserva'}: ${orderId}`, 
+        type === 'quote' ? 'Cotización Registrada' : 'Reserva Generada', 
+        `Se ha creado exitosamente un registro de ${type === 'quote' ? 'cotización' : 'reserva'} para el evento en ${destination}.`, 
+        newOrder
+    );
   };
 
   const handleAddToCart = (product: Product, quantity: number = 1) => {
@@ -319,12 +337,11 @@ const App: React.FC = () => {
     saveAndSync('orders', updatedOrders);
 
     if (orderToApprove) {
-      // Notificación automática al coordinador asignado
       triggerEmailNotification(
         coordinatorEmail, 
-        `Nueva Asignación de Evento: ${orderId}`, 
-        "Asignación Logística", 
-        `Se le ha asignado oficialmente como Coordinador Responsable para el evento en ${orderToApprove.destinationLocation}. Por favor ingrese al sistema para validar el stock asignado y proceder con la verificación de salida en bodega. Su rol es crítico para garantizar la calidad del servicio ABSOLUTE.`, 
+        `Nueva Asignación de Trabajo: ${orderId}`, 
+        "Asignación de Coordinador", 
+        `Se le ha designado como responsable operativo para el evento en ${orderToApprove.destinationLocation}. Ingrese para gestionar el checklist de salida.`, 
         { ...orderToApprove, status: 'En Proceso' as OrderStatus, assignedCoordinatorEmail: coordinatorEmail }
       );
     }
@@ -337,7 +354,7 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={(user.role === 'logistics' || user.role === 'coordinator') ? <Navigate to="/orders" replace /> : <Catalog products={products} onAddToCart={handleAddToCart} />} />
             <Route path="/cart" element={(user.role === 'logistics' || user.role === 'coordinator') ? <Navigate to="/orders" replace /> : <Cart items={cart} currentUser={user} orders={orders} onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} onUpdateQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, q)} : i))} onCheckout={createOrder} getAvailableStock={getAvailableStock} />} />
-            <Route path="/orders" element={<div className="space-y-6"><h2 className="text-2xl font-black text-brand-900 uppercase">Reservas</h2><div className="grid gap-4">{orders.filter(o => user.role === 'admin' || user.role === 'logistics' || o.userEmail === user.email || o.assignedCoordinatorEmail === user.email).map(o => {
+            <Route path="/orders" element={<div className="space-y-6"><h2 className="text-2xl font-black text-brand-900 uppercase">Gestión de Reservas</h2><div className="grid gap-4">{orders.filter(o => user.role === 'admin' || user.role === 'logistics' || o.userEmail === user.email || o.assignedCoordinatorEmail === user.email).map(o => {
               const assignedCoord = users.find(u => u.email === o.assignedCoordinatorEmail);
               return (
                 <div key={o.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

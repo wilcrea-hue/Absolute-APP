@@ -1,13 +1,12 @@
 
 {
-  "id": "absolute-logistics-app-v2",
-  "name": "ABSOLUTE App",
+  "id": "absolute-app-standalone-v1",
+  "name": "ABSOLUTE app",
   "short_name": "ABSOLUTE",
-  "description": "Sistema de gestión logística y eventos de ABSOLUTE COMPANY",
-  "start_url": "./",
+  "description": "Sistema de gestión de inventario para eventos.",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
   "background_color": "#000033",
   "theme_color": "#000033",
   "icons": [

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Mail, CheckCircle, X, ExternalLink, ShieldCheck, Edit3, Save, Send, ShieldAlert, Lock, FileText } from 'lucide-react';
+import { Mail, CheckCircle, X, ExternalLink, ShieldCheck, Edit3, Save, Send, ShieldAlert, Lock, FileText, Loader2, AlertCircle } from 'lucide-react';
 import { LOGO_URL } from '../constants';
 import { Order } from '../types';
 
@@ -20,20 +20,57 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
   const [editableBody, setEditableBody] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [isSent, setIsSent] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (email) {
       setEditableBody(email.body);
       setIsSent(false);
       setIsEditing(false);
+      setError(null);
     }
   }, [email]);
 
   if (!email) return null;
 
-  const handleSend = () => {
-    setIsSent(true);
-    setTimeout(() => onClose(), 2000);
+  const handleSend = async () => {
+    setIsSending(true);
+    setError(null);
+
+    try {
+      // INTENTO 1: Enviar vía API (Requiere backend configurado en su servidor)
+      const response = await fetch('./api/send_email.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: email.to,
+          cc: email.cc,
+          subject: email.subject,
+          body: editableBody,
+          orderId: email.order?.id
+        })
+      });
+
+      if (response.ok) {
+        setIsSent(true);
+        setTimeout(() => onClose(), 2000);
+      } else {
+        throw new Error("Backend no disponible");
+      }
+    } catch (err) {
+      // FALLBACK: Si no hay backend, usar mailto: para que el admin lo envíe desde su PC
+      console.warn("Backend de correo no detectado, usando fallback mailto.");
+      
+      const mailtoUrl = `mailto:${email.to}?cc=${email.cc}&subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(editableBody.replace(/<[^>]*>?/gm, ''))}`;
+      
+      window.location.href = mailtoUrl;
+      
+      setIsSent(true);
+      setTimeout(() => onClose(), 3000);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const openPreview = () => {
@@ -58,7 +95,7 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
     win.document.write(`
       <html>
         <head>
-          <title>ABSOLUTE - Documento Corporativo</title>
+          <title>ABSOLUTE - Previsualización de Correo</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
             body { font-family: 'Inter', sans-serif; line-height: 1.6; color: #000033; background: #f1f5f9; margin: 0; padding: 40px; }
@@ -84,7 +121,7 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
             <div class="header"><img src="${LOGO_URL}" class="logo" /></div>
             <div class="content">
               <h1>${email.subject}</h1>
-              
+              <div class="body-text">${editableBody}</div>
               <table class="item-table">
                 <thead>
                   <tr>
@@ -97,15 +134,11 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
                 </thead>
                 <tbody>${itemsHtml}</tbody>
               </table>
-
               <div class="summary">
                 <p>Inversión Total Estimada (Antes de IVA)</p>
                 <h2>$${email.order?.totalAmount.toLocaleString() || '0'}</h2>
                 <span class="vat-note">Valores fuera de IVA</span>
               </div>
-
-              <div class="body-text">${editableBody}</div>
-
               <div class="policies">
                 <h4>Políticas de Cotización</h4>
                 <p>• La validez de esta cotización es de 15 días hábiles a partir de la fecha de emisión.</p>
@@ -130,8 +163,8 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
               <FileText size={28} />
             </div>
             <div>
-              <span className="text-[9px] font-black uppercase tracking-[0.4em] text-brand-400">Editor Administrativo de Despacho</span>
-              <h3 className="text-base font-black uppercase tracking-widest">{email.stage}</h3>
+              <span className="text-[9px] font-black uppercase tracking-[0.4em] text-brand-400">Moderación de Notificaciones</span>
+              <h3 className="text-base font-black uppercase tracking-widest">Enviar: {email.stage}</h3>
             </div>
           </div>
           <button onClick={onClose} className="p-2 text-white/30 hover:text-white transition-colors bg-white/5 rounded-full">
@@ -140,6 +173,13 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
         </div>
 
         <div className="p-8 space-y-6 flex-1 overflow-y-auto no-scrollbar max-h-[60vh]">
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-center space-x-3 text-red-400 text-[11px] font-bold uppercase">
+               <AlertCircle size={18} />
+               <span>{error}</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
               <p className="text-[9px] text-white/40 font-black uppercase mb-1 tracking-widest">Enviar A:</p>
@@ -158,9 +198,9 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
 
           <div className="space-y-3">
             <div className="flex justify-between items-center px-1">
-              <p className="text-[9px] text-white/30 font-black uppercase tracking-widest">Cuerpo del Mensaje (Editable)</p>
+              <p className="text-[9px] text-white/30 font-black uppercase tracking-widest">Contenido redactado por IA (Editable)</p>
               <button onClick={() => setIsEditing(!isEditing)} className={`text-[9px] font-black uppercase flex items-center space-x-2 px-3 py-1.5 rounded-xl transition-all ${isEditing ? 'bg-[#4fb7f7] text-white' : 'bg-white/5 text-brand-400'}`}>
-                {isEditing ? <><Save size={12} /> <span>Guardar</span></> : <><Edit3 size={12} /> <span>Editar</span></>}
+                {isEditing ? <><Save size={12} /> <span>Guardar</span></> : <><Edit3 size={12} /> <span>Editar Texto</span></>}
               </button>
             </div>
             <textarea 
@@ -169,17 +209,27 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
               onChange={(e) => setEditableBody(e.target.value)}
               className={`w-full min-h-[200px] p-8 rounded-[2rem] text-[13px] font-medium leading-relaxed outline-none transition-all resize-none ${isEditing ? 'bg-white text-brand-900' : 'bg-black/20 text-white/60 border border-white/5'}`}
             />
-            <p className="text-[10px] text-amber-400 font-bold uppercase italic tracking-widest">* La tabla de ítems, las políticas y los valores fuera de IVA se generarán automáticamente en el envío final.</p>
+            <div className="bg-amber-500/10 p-4 rounded-2xl border border-amber-500/20">
+               <p className="text-[10px] text-amber-400 font-bold uppercase tracking-widest leading-relaxed">
+                 ℹ️ Si el servidor no responde, al hacer clic en enviar se abrirá su correo local con estos datos listos para copiar y pegar.
+               </p>
+            </div>
           </div>
         </div>
 
         <div className="p-8 bg-black/40 border-t border-white/5 flex flex-col md:flex-row gap-4">
           <button onClick={openPreview} className="flex-1 bg-white/5 text-white/70 py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center space-x-3 hover:bg-white/10 transition-all">
             <ExternalLink size={16} />
-            <span>Previsualizar</span>
+            <span>Ver Formato HTML</span>
           </button>
-          <button onClick={handleSend} disabled={isSent} className={`flex-[1.5] py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center space-x-3 shadow-2xl transition-all ${isSent ? 'bg-[#4fb7f7] text-white' : 'bg-[#4fb7f7] text-white hover:bg-white hover:text-[#4fb7f7]'}`}>
-            {isSent ? <><CheckCircle size={18} /> <span>Enviado</span></> : <><Send size={18} /> <span>Autorizar Despacho</span></>}
+          <button 
+            onClick={handleSend} 
+            disabled={isSent || isSending} 
+            className={`flex-[1.5] py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center space-x-3 shadow-2xl transition-all ${isSent ? 'bg-emerald-500 text-white' : 'bg-[#4fb7f7] text-white hover:bg-white hover:text-[#4fb7f7]'}`}
+          >
+            {isSending ? <><Loader2 size={18} className="animate-spin" /> <span>Procesando...</span></> : 
+             isSent ? <><CheckCircle size={18} /> <span>Enviado con Éxito</span></> : 
+             <><Send size={18} /> <span>Autorizar Envío</span></>}
           </button>
         </div>
       </div>

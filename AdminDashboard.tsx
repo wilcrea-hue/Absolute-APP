@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import { Product, Order, User, WorkflowStageKey, StageData, Category, CartItem } from './types';
-import { Package, Plus, Edit2, Trash2, CheckCircle, Lock, XCircle, DollarSign, UserCheck, Calendar, MapPin, ArrowRight, ClipboardList, FileText, X, Filter, RefreshCw, Bold, Italic, Sparkles, Loader2, List, Type, UserPlus, Clock, Tags, Shield } from 'lucide-react';
+import { Package, Plus, Edit2, Trash2, CheckCircle, Lock, XCircle, DollarSign, UserCheck, Calendar, MapPin, ArrowRight, ClipboardList, FileText, X, Filter, RefreshCw, Bold, Italic, Sparkles, Loader2, List, Type, UserPlus, Clock, Tags, Shield, TrendingUp, AlertTriangle, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserManagement } from './components/UserManagement';
 import { GoogleGenAI } from "@google/genai";
@@ -52,6 +52,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const isAdmin = currentUser.role === 'admin';
 
   const coordinators = useMemo(() => users.filter(u => u.role === 'coordinator' && u.status === 'active'), [users]);
+
+  // ANALYTICS CALCULATIONS
+  const stats = useMemo(() => {
+    const totalInventoryValue = products.reduce((acc, p) => acc + (p.priceRent * p.stock), 0);
+    const pendingOrders = orders.filter(o => o.status === 'Pendiente' || o.status === 'Cotización').length;
+    const criticalStock = products.filter(p => p.stock > 0 && p.stock <= 3).length;
+    const activeOrders = orders.filter(o => o.status === 'En Proceso' || o.status === 'Entregado').length;
+    
+    return { totalInventoryValue, pendingOrders, criticalStock, activeOrders };
+  }, [products, orders]);
 
   const startEdit = (product?: Product) => {
     if (product) {
@@ -182,6 +192,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* QUICK ANALYTICS STRIP */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in duration-500">
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+          <div className="flex items-center space-x-3 text-brand-900/40 mb-2">
+            <Layers size={14} />
+            <span className="text-[9px] font-black uppercase tracking-widest">Valor Inventario</span>
+          </div>
+          <p className="text-xl font-black text-brand-900">${stats.totalInventoryValue.toLocaleString()}</p>
+        </div>
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+          <div className="flex items-center space-x-3 text-brand-900/40 mb-2">
+            <ClipboardList size={14} />
+            <span className="text-[9px] font-black uppercase tracking-widest">Pendientes</span>
+          </div>
+          <p className="text-xl font-black text-brand-900">{stats.pendingOrders}</p>
+        </div>
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+          <div className="flex items-center space-x-3 text-amber-500 mb-2">
+            <AlertTriangle size={14} />
+            <span className="text-[9px] font-black uppercase tracking-widest">Stock Crítico</span>
+          </div>
+          <p className="text-xl font-black text-amber-600">{stats.criticalStock}</p>
+        </div>
+        <div className="bg-brand-900 p-6 rounded-[2rem] shadow-xl text-white">
+          <div className="flex items-center space-x-3 text-brand-400 mb-2">
+            <TrendingUp size={14} />
+            <span className="text-[9px] font-black uppercase tracking-widest text-brand-400">En Curso</span>
+          </div>
+          <p className="text-xl font-black">{stats.activeOrders}</p>
+        </div>
+      </div>
+
       <div className="flex space-x-2 bg-slate-200/50 p-1.5 rounded-[1.5rem] w-fit border border-slate-200">
           {isAdmin && <button onClick={() => setActiveTab('inventory')} className={`px-6 py-3 rounded-[1.25rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'inventory' ? 'bg-brand-900 text-white shadow-xl' : 'text-slate-500'}`}>Inventario</button>}
           <button onClick={() => setActiveTab('orders')} className={`px-6 py-3 rounded-[1.25rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'orders' ? 'bg-brand-900 text-white shadow-xl' : 'text-slate-500'}`}>Pedidos</button>
