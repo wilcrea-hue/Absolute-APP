@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Search, MapPin, Navigation, Info, ExternalLink, Loader2, Clock, Ruler, CreditCard, Map as MapIcon, ArrowRight, Zap, ShoppingCart, AlertTriangle } from 'lucide-react';
@@ -118,8 +117,8 @@ Recomendaciones:
     setRouteSummary(null);
 
     try {
-      if (!apiKey) throw new Error("API Key missing");
-      const ai = new GoogleGenAI({ apiKey });
+      // Use process.env.API_KEY directly when initializing the GoogleGenAI client instance
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `Eres un experto en logística para ABSOLUTE, una empresa de eventos en Colombia. 
       Analiza la siguiente solicitud de transporte:
       - ORIGEN: ${originInput}

@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { User, Product, Order, CartItem, WorkflowStageKey, StageData, OrderType } from './types';
+import { User, Product, Order, CartItem, WorkflowStageKey, StageData, OrderType, OrderStatus } from './types';
 import { PRODUCTS } from './constants';
 import { Layout } from './components/Layout';
 import { Login } from './components/Login';
@@ -207,6 +206,12 @@ const App: React.FC = () => {
     saveAndSync('orders', newOrders);
   };
 
+  const handleConfirmQuote = (orderId: string) => {
+    // Correctly cast status using imported OrderStatus type
+    const newOrders = orders.map(o => o.id === orderId ? { ...o, status: 'Pendiente' as OrderStatus, orderType: 'rental' as OrderType } : o);
+    saveAndSync('orders', newOrders);
+  };
+
   return (
     <BrowserRouter>
       {!user ? (
@@ -250,7 +255,7 @@ const App: React.FC = () => {
                   onToggleUserRole={() => {}} 
                 />
               } />
-              <Route path="/tracking/:id" element={<Tracking orders={orders} onUpdateStage={handleUpdateStage} currentUser={user} users={users} />} />
+              <Route path="/tracking/:id" element={<Tracking orders={orders} onUpdateStage={handleUpdateStage} onConfirmQuote={handleConfirmQuote} currentUser={user} users={users} />} />
               <Route path="/logistics-map" element={<ServiceMap />} />
               <Route path="/admin" element={
                 user.role === 'admin' ? 

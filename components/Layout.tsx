@@ -24,7 +24,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
   const [isStandalone, setIsStandalone] = useState(false);
   const location = useLocation();
   const isStaff = user.role === 'admin' || user.role === 'logistics' || user.role === 'coordinator';
-  const isOperationalOnly = user.role === 'logistics' || user.role === 'coordinator';
+  
+  // Ahora solo el personal de logística pura (Bodega) está restringido de ver el catálogo
+  const isOperationalOnly = user.role === 'logistics';
 
   useEffect(() => {
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
@@ -44,13 +46,15 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
         }`}
         title={label}
       >
-        <Icon size={20} className={isActive ? 'text-brand-400' : 'text-slate-500'} />
+        <div className="relative">
+          <Icon size={20} className={isActive ? 'text-brand-400' : 'text-slate-500'} />
+          {to === '/cart' && cartCount > 0 && (
+            <span className="absolute -top-2 -right-2 bg-brand-400 text-brand-900 text-[8px] font-black px-1.5 py-0.5 rounded-full shadow-sm">
+              {cartCount}
+            </span>
+          )}
+        </div>
         <span className="hidden md:block font-bold text-[12px] tracking-tight">{label}</span>
-        {to === '/cart' && cartCount > 0 && (
-          <span className="absolute md:static top-2 right-2 bg-brand-400 text-brand-900 text-[8px] md:text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-sm">
-            {cartCount}
-          </span>
-        )}
       </Link>
     );
   };
@@ -100,7 +104,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
           {isStaff && (
             <div className="pt-4 border-t border-white/5">
                <p className="hidden md:block px-4 text-[8px] font-black text-white/20 uppercase tracking-[0.2em] mb-2">Gestión</p>
-               <NavItem to="/admin" icon={ShieldCheck} label="Panel" />
+               {user.role === 'admin' && <NavItem to="/admin" icon={ShieldCheck} label="Panel" />}
                <NavItem to="/logistics-map" icon={Map} label="Mapa" />
             </div>
           )}

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Category, Product } from './types';
 import { Search, Plus, Clock, PackageX, AlertCircle, Info, Minus, ChevronDown, ChevronUp, CalendarDays, Filter, ChevronRight, LayoutGrid, Sparkles, Loader2, Mic } from 'lucide-react';
@@ -89,11 +88,14 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
         
         <div className="w-full lg:w-[450px] space-y-2">
           <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-brand-900 transition-colors" size={18} />
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center space-x-1.5 pointer-events-none">
+              <Search className="text-gray-400 group-focus-within:text-brand-900 transition-colors" size={18} />
+              <Sparkles className="text-brand-400 opacity-40 group-focus-within:opacity-100 transition-opacity" size={12} />
+            </div>
             <input 
               type="text" 
               placeholder="¿Qué evento está planeando? (Ej: Gala para 100p)" 
-              className="w-full pl-12 pr-24 py-4 bg-white border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-brand-900/5 focus:border-brand-900 shadow-sm text-sm font-bold outline-none transition-all"
+              className="w-full pl-16 pr-24 py-4 bg-white border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-brand-900/5 focus:border-brand-900 shadow-sm text-sm font-bold outline-none transition-all"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAiSearch()}

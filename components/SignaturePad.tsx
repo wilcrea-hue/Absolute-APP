@@ -64,26 +64,24 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ label, onSave, onCan
   };
 
   // Función para comprimir y redimensionar imágenes (Crucial para evitar errores de cuota)
-  const compressImage = (base64Str: string): Promise<string> => {
+  const compressImage = (base64Str: string, quality = 0.6, maxWidth = 800): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
       img.src = base64Str;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800;
-        const MAX_HEIGHT = 600;
         let width = img.width;
         let height = img.height;
 
         if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
           }
         } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
+          if (height > maxWidth) {
+            width *= maxWidth / height;
+            height = maxWidth;
           }
         }
 
@@ -91,8 +89,8 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ label, onSave, onCan
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        // Calidad 0.7 para reducir peso drásticamente sin perder legibilidad
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
+        // Usar JPEG para fotos de evidencia para ahorrar espacio masivamente
+        resolve(canvas.toDataURL('image/jpeg', quality));
       };
     });
   };
@@ -148,18 +146,20 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ label, onSave, onCan
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim() || !location.trim()) {
       alert('Nombre y ubicación son obligatorios.');
       return;
     }
     if (!canvasRef.current) return;
     
-    // Validar si el lienzo tiene dibujo (opcional pero recomendado)
+    // Comprimir también la firma (aunque sea PNG) para asegurar que no sea gigante
+    const signatureData = canvasRef.current.toDataURL('image/png');
+    
     onSave({
       name: name.trim(),
       location: location.trim(),
-      dataUrl: canvasRef.current.toDataURL('image/png'),
+      dataUrl: signatureData,
       timestamp: new Date().toISOString(),
       evidencePhoto: evidencePhoto || undefined
     });
