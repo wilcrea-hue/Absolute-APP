@@ -2,6 +2,7 @@
   "name": "ABSOLUTE app",
   "description": "Sistema de gestión de inventario, reservas y seguimiento para eventos y promociones.",
   "requestFramePermissions": [
-    "geolocation"
+    "geolocation",
+    "camera"
   ]
 }
