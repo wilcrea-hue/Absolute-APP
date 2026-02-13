@@ -23,6 +23,7 @@ export interface Signature {
   dataUrl: string; // Base64 image
   location: string; // Mandatory field
   timestamp: string;
+  evidencePhoto?: string; // Foto de la persona o evidencia al momento de firmar
 }
 
 export type WorkflowStageKey = 
