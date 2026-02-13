@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import { Signature } from '../types';
 import { MapPin, Loader2, Zap } from 'lucide-react';
@@ -78,8 +77,9 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ label, onSave, onCan
               const prompt = `Dada la latitud ${latitude} y longitud ${longitude} en Colombia, ¿cuál es la dirección o nombre del lugar más probable? 
               Responde de forma MUY concisa solo con el nombre del lugar, barrio o dirección aproximada (ej: 'Barrio El Chicó, Bogotá' o 'Zona Industrial, Medellín'). No incluyas preámbulos.`;
 
+              // Grounding with googleMaps is only supported in Gemini 2.5 series models
               const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.5-flash',
                 contents: prompt,
                 config: {
                   tools: [{ googleMaps: {} }]

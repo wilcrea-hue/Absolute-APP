@@ -164,11 +164,16 @@ const App: React.FC = () => {
         Contexto: ${context}. 
         Etapa: ${stage}. 
         Se trata de un correo para el cliente o personal interno. No menciones el nombre de la IA.
-        Si es una cotización o nueva asignación, menciona que los detalles técnicos están en la plataforma.
-        Políticas obligatorias a incluir al final si aplica:
+        
+        INSTRUCCIONES IMPORTANTES DE FORMATO:
+        - Incluye al principio esta etiqueta de imagen para el logo: <img src="${LOGO_URL}" alt="ABSOLUTE App" style="width:180px; margin-bottom:20px;" />
+        - El tono debe ser muy corporativo, servicial y directo.
+        - Menciona que los detalles técnicos están en la plataforma.
+        - Al final incluye una firma que diga: "Cordialmente, El equipo de ABSOLUTE app".
+        
+        Políticas obligatorias a incluir al final:
         - La duración de esta cotización es de 15 días hábiles.
-        - Oferta sujeta a disponibilidad de stock físico.
-        Suena muy corporativo, servicial y directo.`;
+        - Oferta sujeta a disponibilidad de stock físico.`;
         
         const response = await ai.models.generateContent({ 
           model: 'gemini-3-flash-preview', 
@@ -178,11 +183,9 @@ const App: React.FC = () => {
       }
 
       if (!emailBody) {
-        emailBody = `Estimado usuario, se ha registrado una actividad logística importante: ${context}.\n\nPor favor revise su panel en la aplicación para más detalles.`;
+        emailBody = `<img src="${LOGO_URL}" alt="ABSOLUTE" style="width:150px;" /><br/><br/>Estimado usuario, se ha registrado una actividad logística importante: ${context}.\n\nPor favor revise su panel en la aplicación para más detalles.\n\nCordialmente, Equipo Absolute App.`;
       }
 
-      // IMPORTANTE: Solo el admin ve el modal para moderar y enviar el correo real
-      // Esto previene spam automático desde cualquier cuenta.
       if (user?.role === 'admin') {
         setSentEmail({
           to: recipientEmail,
@@ -192,8 +195,6 @@ const App: React.FC = () => {
           stage: stage,
           order: order
         });
-      } else {
-        console.log("Notificación silenciosa generada para el Admin. El Admin debe autorizar el envío real.");
       }
     } catch (err) {
       console.error("Error generating email content:", err);

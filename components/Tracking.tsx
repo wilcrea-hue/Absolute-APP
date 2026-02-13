@@ -2,7 +2,7 @@
 // @ts-nocheck
 import React, { useState, useEffect, useMemo } from 'react';
 import { Order, WorkflowStageKey, StageData, Signature, User, NoteEntry, CartItem } from '../types';
-import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle, FileText, ExternalLink, MapPin as MapPinIcon, Send, Calendar, Save, Eye, List, Package, Printer, FileCheck, Edit3 } from 'lucide-react';
+import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle, FileText, ExternalLink, MapPin as MapPinIcon, Send, Calendar, Save, Eye, List, Package, Printer, FileCheck, Edit3, StickyNote, Phone, User as UserIcon } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SignaturePad } from './SignaturePad';
 import { GoogleGenAI } from "@google/genai";
@@ -65,6 +65,10 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
     return users.find(u => u.email === order?.assignedCoordinatorEmail);
   }, [users, order]);
 
+  const clientUser = useMemo(() => {
+    return users.find(u => u.email === order?.userEmail);
+  }, [users, order]);
+
   useEffect(() => {
     if (order && order.workflow) {
       const data = order.workflow[activeStageKey];
@@ -101,17 +105,6 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
     });
   };
 
-  const handleItemNote = (productId: string, note: string) => {
-    if (!tempStageData || !canEdit || isCompleted) return;
-    setTempStageData({
-      ...tempStageData,
-      itemChecks: {
-        ...tempStageData.itemChecks,
-        [productId]: { ...(tempStageData.itemChecks[productId] || { verified: false }), notes: note }
-      }
-    });
-  };
-
   const handleGeneralNotesChange = (notes: string) => {
     if (!tempStageData || !canEdit || isCompleted) return;
     setTempStageData({ ...tempStageData, generalNotes: notes });
@@ -141,7 +134,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
     const updatedData: StageData = { 
       ...tempStageData, 
       notesHistory: updatedHistory,
-      generalNotes: '' 
+      generalNotes: '' // Al archivar en historial, limpiamos el campo de notas activas
     };
 
     setTempStageData(updatedData);
@@ -154,7 +147,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
     setIsAiProcessing(true);
     try {
       const ai = new GoogleGenAI({ apiKey });
-      const prompt = `Actúa como un supervisor logístico senior de ABSOLUTE COMPANY. Transforma la siguiente nota técnica informal en un reporte profesional y elegante. Nota original: "${tempStageData.generalNotes}"`
+      const prompt = `Actúa como un supervisor logístico senior de ABSOLUTE COMPANY. Transforma la siguiente nota técnica informal en un reporte profesional y elegante para el cierre de etapa. Nota original: "${tempStageData.generalNotes}"`
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt
@@ -214,11 +207,11 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
   };
 
   const eventDays = order ? calculateDays(order.startDate, order.endDate) : 1;
-  const showReceivedBy = ['bodega_to_coord', 'coord_to_client', 'client_to_coord', 'coord_to_bodega'].includes(activeStageKey);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-20">
       {isQuote && (
+        /* ... existing quote previsualization code ... */
         <div className="animate-in fade-in duration-700">
            {showFormalDoc ? (
              <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden animate-in zoom-in duration-500">
@@ -263,7 +256,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                                <UserCheck size={14} className="text-[#4fb7f7]" />
                                <div>
                                   <p className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">Representante</p>
-                                  <p className="text-[12px] font-black text-brand-900 uppercase">{currentUser.name}</p>
+                                  <p className="text-[12px] font-black text-brand-900 uppercase">{clientUser?.name || currentUser.name}</p>
                                </div>
                             </div>
                          </div>
@@ -306,7 +299,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
              </div>
            ) : (
              <div className="bg-[#0c0c2a] text-white rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden flex flex-col animate-in zoom-in-95 duration-500">
-                
+                {/* ... existing edit quote UI ... */}
                 <div className="p-10 border-b border-white/5 flex items-center justify-between bg-black/40">
                   <div className="flex items-center space-x-6">
                     <div className="w-16 h-16 bg-brand-400/10 rounded-2xl flex items-center justify-center text-brand-400 border border-brand-400/20 shadow-lg">
@@ -355,7 +348,6 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                         Por favor revise su panel en la aplicación para conocer todos los detalles de inversión, ítems y políticas comerciales.
                       </p>
                     </div>
-                    <p className="text-[10px] text-amber-400 font-bold uppercase italic tracking-widest">* La tabla de ítems, las políticas y los valores fuera de IVA se generarán automáticamente en el envío final.</p>
                   </div>
                 </div>
 
@@ -400,7 +392,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                       <span className="bg-slate-100 px-3 py-1 rounded-full mr-4 tracking-widest border border-slate-200">Ref: {order.id}</span>
                       {assignedCoord && (
                         <div className="flex items-center bg-brand-50 text-brand-900 px-4 py-1 rounded-full border border-brand-100">
-                          <UserCheck size={12} className="mr-2" /> Responsable Campo: {assignedCoord.name}
+                          <UserCheck size={12} className="mr-2" /> {assignedCoord.name} | {assignedCoord.phone}
                         </div>
                       )}
                     </div>
@@ -416,12 +408,9 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                    ) : (
                      <div className="text-slate-300 flex flex-col items-center space-y-1">
                        <MapPinIcon size={24} />
-                       <span className="text-[8px] font-black uppercase">Mapa estático no disp.</span>
+                       <span className="text-[8px] font-black uppercase">Mapa no disponible</span>
                      </div>
                    )}
-                   <div className="absolute top-2 left-2 bg-brand-900/80 backdrop-blur-sm px-2 py-0.5 rounded-lg border border-white/10">
-                     <p className="text-[7px] font-black text-white uppercase tracking-widest">Previsualización</p>
-                   </div>
                  </div>
 
                  <div className="flex flex-col items-end space-y-3 min-w-[150px]">
@@ -432,66 +421,15 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                         className={`text-[9px] font-black uppercase tracking-widest transition-all px-4 py-2 rounded-xl flex items-center space-x-2 border shadow-sm ${showItems ? 'bg-brand-900 text-white border-brand-900' : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'}`}
                       >
                         <List size={14} />
-                        <span>{showItems ? 'Cerrar Detalle' : 'Ver Detalle Ítems'}</span>
-                      </button>
-                      <button onClick={() => setShowMap(!showMap)} className="text-[9px] font-black text-brand-500 uppercase tracking-widest hover:text-brand-900 transition-colors bg-brand-50 px-4 py-2 rounded-xl">
-                        {showMap ? 'Ocultar Mapa' : 'Ver Mapa Interactivo'}
+                        <span>{showItems ? 'Ocultar Detalle' : 'Ver Detalle Ítems'}</span>
                       </button>
                     </div>
                  </div>
             </div>
           </div>
 
-          {(showItems || isPending) && (
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl animate-in fade-in slide-in-from-top-4 duration-500">
-               <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-10 h-10 bg-brand-900 text-white rounded-xl flex items-center justify-center">
-                     <Package size={20} />
-                  </div>
-                  <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest">Resumen del Pedido</h3>
-               </div>
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {order.items.map(item => (
-                    <div key={item.id} className="flex items-center space-x-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                       <img src={item.image} className="w-14 h-14 rounded-xl object-cover shadow-sm" alt="" />
-                       <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-black text-brand-900 uppercase truncate">{item.name}</p>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{item.category}</p>
-                       </div>
-                       <div className="text-right">
-                          <p className="text-[14px] font-black text-brand-900">x{item.quantity}</p>
-                          <p className="text-[8px] font-black text-brand-400 uppercase">Cantidad</p>
-                       </div>
-                    </div>
-                  ))}
-               </div>
-            </div>
-          )}
-
-          {showMap && (
-            <div className="relative h-80 bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-xl animate-in zoom-in duration-500">
-               {apiKey ? (
-                 <>
-                   <iframe
-                        title="Logistics Route"
-                        width="100%"
-                        height="100%"
-                        style={{ border: 0 }}
-                        loading="lazy"
-                        src={`https://www.google.com/maps/embed/v1/directions?key=${apiKey}&origin=Bogota&destination=${encodeURIComponent(order.destinationLocation)}&mode=driving`}
-                   ></iframe>
-                 </>
-               ) : (
-                  <div className="h-full flex flex-col items-center justify-center bg-slate-50">
-                    <AlertTriangle size={32} className="text-amber-500" />
-                    <p className="text-[10px] font-black uppercase text-brand-900">Mapa interactivo no disponible</p>
-                  </div>
-               )}
-            </div>
-          )}
-
           <div className={`grid gap-3 ${currentUser.role === 'user' ? 'grid-cols-4' : 'grid-cols-2 md:grid-cols-5'}`}>
-            {visibleStages.map((stage, idx) => {
+            {visibleStages.map((stage) => {
                 const stageData = order.workflow[stage.key];
                 const isDone = stageData?.status === 'completed';
                 const isActive = activeStageKey === stage.key;
@@ -500,13 +438,13 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                         key={stage.key}
                         onClick={() => setActiveStageKey(stage.key)}
                         className={`p-4 rounded-3xl border-2 transition-all flex flex-col items-center justify-center space-y-2
-                            ${isActive ? 'bg-brand-900 text-white border-brand-900 shadow-xl' : 
-                              isDone ? 'bg-white text-green-600 border-green-100' : 
+                            ${isActive ? 'bg-brand-900 text-white border-brand-900 shadow-xl scale-105 z-10' : 
+                              isDone ? 'bg-white text-green-600 border-green-100 opacity-60' : 
                               'bg-white text-slate-500 border-slate-100 hover:border-brand-900'}
                         `}
                     >
-                        <span className="text-[10px] font-black uppercase tracking-tighter leading-tight">{stage.label.split('.')[1]}</span>
-                        {isDone ? <CheckCircle2 size={18} /> : <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-brand-400 animate-pulse' : 'bg-current'}`} />}
+                        <span className="text-[9px] font-black uppercase tracking-tighter leading-tight text-center">{stage.label.split('.')[1]}</span>
+                        {isDone ? <CheckCircle2 size={16} /> : <div className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-brand-400 animate-pulse' : 'bg-current opacity-20'}`} />}
                     </button>
                 );
             })}
@@ -515,11 +453,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className={`lg:col-span-8 bg-white rounded-[3rem] shadow-xl border border-slate-50 overflow-hidden flex flex-col relative ${!canEdit ? 'bg-slate-50/30' : ''}`}>
                 {!canEdit && (
-                  <div className="absolute top-0 right-0 p-8 z-20">
-                     <div className={`px-4 py-2 rounded-2xl border text-[9px] font-black uppercase tracking-widest flex items-center shadow-sm ${currentUser.role === 'admin' ? 'bg-purple-50 text-purple-700 border-purple-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
-                       <ShieldAlert size={14} className="mr-2" /> {currentUser.role === 'admin' ? 'Modo Auditoría: Solo Lectura' : 'Acceso Restringido'}
-                     </div>
-                  </div>
+                  <div className="absolute inset-0 bg-white/10 z-10 pointer-events-none"></div>
                 )}
 
                 <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
@@ -536,14 +470,16 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                         }`}
                       >
                         {saveStatus === 'saving' ? <Loader2 size={12} className="animate-spin" /> : saveStatus === 'saved' ? <CheckCircle2 size={12} /> : <Save size={12} />}
-                        <span>{saveStatus === 'saved' ? 'Guardado' : 'Guardar Progreso'}</span>
+                        <span>{saveStatus === 'saved' ? 'Notas Guardadas' : 'Guardar Progreso'}</span>
                       </button>
                     )}
                 </div>
 
-                <div className={`p-10 space-y-12 ${!canEdit ? 'pointer-events-none' : ''}`}>
+                <div className={`p-10 space-y-12 ${!canEdit ? 'pointer-events-none opacity-80' : ''}`}>
                     <section>
-                        <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] mb-6">Checklist de Salida/Entrada</h4>
+                        <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] mb-6 flex items-center">
+                          <FileCheck size={14} className="mr-2 text-brand-500" /> Checklist de Verificación
+                        </h4>
                         <div className="space-y-3">
                             {order.items.map(item => {
                                 const check = tempStageData?.itemChecks[item.id] || { verified: false, notes: '' };
@@ -558,7 +494,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                                         />
                                         <div className="ml-4 flex-1">
                                           <p className="text-[11px] font-black text-slate-900 uppercase">{item.name}</p>
-                                          <p className="text-[9px] font-bold text-slate-400">Cantidad: {item.quantity}</p>
+                                          <p className="text-[9px] font-bold text-slate-400">Cantidad confirmada: {item.quantity}</p>
                                         </div>
                                     </div>
                                 );
@@ -568,100 +504,227 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
 
                     <section className="space-y-6">
                         <div className="flex items-center justify-between">
-                          <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em]">Notas y Bitácora de la Etapa</h4>
+                          <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] flex items-center">
+                            <StickyNote size={14} className="mr-2 text-brand-500" /> Notas Generales de la Etapa
+                          </h4>
+                          {canEdit && !isCompleted && apiKey && (
+                             <button 
+                               onClick={professionalizeNote}
+                               disabled={isAiProcessing || !tempStageData?.generalNotes}
+                               className="text-[8px] font-black uppercase text-brand-500 flex items-center bg-brand-50 px-3 py-1.5 rounded-xl border border-brand-100 hover:bg-brand-900 hover:text-white transition-all shadow-sm"
+                             >
+                               {isAiProcessing ? <Loader2 size={10} className="animate-spin mr-1.5" /> : <Sparkles size={10} className="mr-1.5" />}
+                               Optimizar Reporte con IA
+                             </button>
+                          )}
                         </div>
 
-                        {tempStageData?.notesHistory && tempStageData.notesHistory.length > 0 && (
-                          <div className="space-y-4 max-h-[300px] overflow-y-auto no-scrollbar p-1">
-                            {tempStageData.notesHistory.map((note, idx) => (
-                              <div key={idx} className="bg-slate-50 border border-slate-100 p-5 rounded-[2rem] relative group animate-in fade-in slide-in-from-left-2 duration-300">
-                                <div className="flex justify-between items-start mb-2">
-                                   <div className="flex items-center space-x-2">
-                                      <div className="w-5 h-5 bg-brand-900 text-white rounded-lg flex items-center justify-center text-[8px] font-black uppercase">
-                                        {note.userName.charAt(0)}
-                                      </div>
-                                      <span className="text-[9px] font-black text-brand-900 uppercase">{note.userName}</span>
-                                   </div>
-                                </div>
-                                <p className="text-[11px] font-medium text-slate-600 leading-relaxed italic">"{note.text}"</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {!isCompleted && canEdit && (
-                          <div className="space-y-3">
-                            <textarea 
-                                value={tempStageData?.generalNotes || ''}
-                                onChange={(e) => handleGeneralNotesChange(e.target.value)}
-                                placeholder="Notas de la etapa..."
-                                className="w-full min-h-[140px] bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-8 text-sm font-bold text-slate-700 outline-none transition-all resize-none focus:border-brand-900"
-                            />
-                            <div className="flex justify-end">
+                        <div className="space-y-3">
+                          <textarea 
+                              value={tempStageData?.generalNotes || ''}
+                              readOnly={isCompleted || !canEdit}
+                              onChange={(e) => handleGeneralNotesChange(e.target.value)}
+                              placeholder="Escriba aquí observaciones, novedades o detalles de la entrega/recogida..."
+                              className={`w-full min-h-[160px] border-2 rounded-[2rem] p-8 text-sm font-medium leading-relaxed outline-none transition-all resize-none shadow-inner ${isCompleted || !canEdit ? 'bg-slate-50 border-slate-100 text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-700 focus:border-brand-900 focus:bg-white'}`}
+                          />
+                          
+                          {canEdit && !isCompleted && (
+                            <div className="flex justify-between items-center">
+                               <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest italic">Sus notas se guardan con el progreso de la etapa.</p>
                                <button 
                                 onClick={handleAddNoteToHistory}
                                 disabled={!tempStageData?.generalNotes?.trim()}
-                                className="bg-brand-50 text-brand-900 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest border border-brand-100 hover:bg-brand-900 hover:text-white transition-all disabled:opacity-30 flex items-center space-x-2"
+                                title="Mueve la nota actual al historial de auditoría permanente"
+                                className="bg-white text-slate-400 px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest border border-slate-100 hover:bg-brand-900 hover:text-white transition-all disabled:opacity-30 flex items-center space-x-2"
                                >
-                                 <Send size={12} />
-                                 <span>Adjuntar Nota</span>
+                                 <History size={12} />
+                                 <span>Archivar en Historial</span>
                                </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {tempStageData?.notesHistory && tempStageData.notesHistory.length > 0 && (
+                          <div className="mt-8 space-y-4">
+                            <h5 className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] border-b border-slate-100 pb-2">Historial de Bitácora</h5>
+                            <div className="space-y-4 max-h-[300px] overflow-y-auto no-scrollbar p-1">
+                              {tempStageData.notesHistory.map((note, idx) => (
+                                <div key={idx} className="bg-slate-50 border border-slate-100 p-5 rounded-[2rem] relative group animate-in fade-in slide-in-from-left-2 duration-300">
+                                  <div className="flex justify-between items-start mb-2">
+                                     <div className="flex items-center space-x-2">
+                                        <div className="w-5 h-5 bg-brand-900 text-white rounded-lg flex items-center justify-center text-[8px] font-black uppercase">
+                                          {note.userName.charAt(0)}
+                                        </div>
+                                        <span className="text-[9px] font-black text-brand-900 uppercase">{note.userName}</span>
+                                        <span className="text-[8px] font-bold text-slate-400">{new Date(note.timestamp).toLocaleTimeString()}</span>
+                                     </div>
+                                  </div>
+                                  <p className="text-[11px] font-medium text-slate-600 leading-relaxed italic">"{note.text}"</p>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         )}
                     </section>
 
                     <section className="grid md:grid-cols-2 gap-10">
-                        <div className="space-y-4 text-center md:text-left">
-                            <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em]">Firma Responsable</h4>
+                        <div className="space-y-4">
+                            <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] flex items-center">
+                              <PenTool size={14} className="mr-2 text-brand-500" /> Firma Responsable
+                            </h4>
                             {tempStageData?.signature ? (
-                                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 inline-block w-full text-center">
+                                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 inline-block w-full text-center relative group">
                                     <img src={tempStageData.signature.dataUrl} className="h-20 mix-blend-multiply mx-auto" alt="" />
                                     <p className="text-[10px] font-black text-slate-900 uppercase mt-3">{tempStageData.signature.name}</p>
+                                    <p className="text-[8px] font-bold text-slate-400">{tempStageData.signature.location}</p>
+                                    {!isCompleted && canEdit && (
+                                      <button onClick={() => setTempStageData({...tempStageData, signature: undefined})} className="absolute top-2 right-2 p-1.5 bg-red-50 text-red-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <X size={12} />
+                                      </button>
+                                    )}
                                 </div>
                             ) : (
                                 !isCompleted && canEdit && (
-                                    <button onClick={() => setActiveSigningField('signature')} className="w-full h-40 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-300 hover:text-brand-900 hover:border-brand-900 transition-all">
+                                    <button onClick={() => setActiveSigningField('signature')} className="w-full h-40 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-300 hover:text-brand-900 hover:border-brand-900 transition-all bg-slate-50/30">
                                         <PenTool size={24} className="mb-2" />
-                                        <span className="text-[9px] font-black uppercase">Firmar</span>
+                                        <span className="text-[9px] font-black uppercase">Firmar Despacho</span>
                                     </button>
                                 )
                             )}
                         </div>
+
+                        {['bodega_to_coord', 'coord_to_client', 'client_to_coord', 'coord_to_bodega'].includes(activeStageKey) && (
+                          <div className="space-y-4">
+                            <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] flex items-center">
+                              <PenTool size={14} className="mr-2 text-emerald-500" /> Firma de Recibido
+                            </h4>
+                            {tempStageData?.receivedBy ? (
+                                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 inline-block w-full text-center relative group">
+                                    <img src={tempStageData.receivedBy.dataUrl} className="h-20 mix-blend-multiply mx-auto" alt="" />
+                                    <p className="text-[10px] font-black text-slate-900 uppercase mt-3">{tempStageData.receivedBy.name}</p>
+                                    <p className="text-[8px] font-bold text-slate-400">{tempStageData.receivedBy.location}</p>
+                                    {!isCompleted && canEdit && (
+                                      <button onClick={() => setTempStageData({...tempStageData, receivedBy: undefined})} className="absolute top-2 right-2 p-1.5 bg-red-50 text-red-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <X size={12} />
+                                      </button>
+                                    )}
+                                </div>
+                            ) : (
+                                !isCompleted && canEdit && (
+                                    <button onClick={() => setActiveSigningField('receivedBy')} className="w-full h-40 border-2 border-dashed border-emerald-100 rounded-[2rem] flex flex-col items-center justify-center text-emerald-200 hover:text-emerald-600 hover:border-emerald-600 transition-all bg-emerald-50/10">
+                                        <PenTool size={24} className="mb-2" />
+                                        <span className="text-[9px] font-black uppercase">Firmar Recibido</span>
+                                    </button>
+                                )
+                            )}
+                          </div>
+                        )}
                     </section>
                     
                     {!isCompleted && canEdit && (
                         <button 
                             onClick={handleCompleteStage}
-                            className="w-full py-6 bg-brand-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.3em] shadow-xl hover:bg-black transition-all"
+                            className="w-full py-6 bg-brand-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.3em] shadow-xl hover:bg-black transition-all flex items-center justify-center space-x-3 group"
                         >
-                            <span>Finalizar Etapa</span>
+                            <CheckCircle2 size={18} className="group-hover:scale-110 transition-transform" />
+                            <span>Cerrar y Finalizar Etapa Actual</span>
                         </button>
                     )}
                 </div>
+            </div>
+
+            <div className="lg:col-span-4 space-y-6">
+               <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+                  <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-widest mb-6 flex items-center">
+                    <Info size={14} className="mr-2" /> Resumen Logístico
+                  </h4>
+                  
+                  {/* FICHA DE CONTACTOS EN EL TRACKING */}
+                  <div className="space-y-4 mb-8">
+                     {assignedCoord && (
+                        <div className="p-4 bg-[#4fb7f7]/5 rounded-2xl border border-[#4fb7f7]/20">
+                           <p className="text-[8px] font-black text-[#4fb7f7] uppercase tracking-widest mb-2 flex items-center">
+                              <UserCheck size={10} className="mr-1.5" /> Coordinador Responsable
+                           </p>
+                           <p className="text-[11px] font-black text-brand-900 uppercase leading-tight">{assignedCoord.name}</p>
+                           <p className="text-[10px] font-bold text-slate-500 mt-1 flex items-center">
+                              <Phone size={10} className="mr-1.5 opacity-50" /> {assignedCoord.phone}
+                           </p>
+                        </div>
+                     )}
+                     {clientUser && (
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center">
+                              <UserIcon size={10} className="mr-1.5" /> Cliente / Evento
+                           </p>
+                           <p className="text-[11px] font-black text-brand-900 uppercase leading-tight">{clientUser.name}</p>
+                           <p className="text-[10px] font-bold text-slate-500 mt-1 flex items-center">
+                              <Phone size={10} className="mr-1.5 opacity-50" /> {clientUser.phone}
+                           </p>
+                        </div>
+                     )}
+                  </div>
+
+                  <div className="space-y-4">
+                     <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Punto de Origen</p>
+                        <p className="text-[11px] font-black text-brand-900 uppercase truncate">{order.originLocation || 'Bodega Central Absolute'}</p>
+                     </div>
+                     <div className="p-4 bg-brand-50 rounded-2xl border border-brand-100">
+                        <p className="text-[8px] font-black text-brand-500 uppercase mb-1">Destino del Evento</p>
+                        <p className="text-[11px] font-black text-brand-900 uppercase truncate">{order.destinationLocation}</p>
+                     </div>
+                     <div className="grid grid-cols-2 gap-3">
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                           <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Fecha Inicio</p>
+                           <p className="text-[11px] font-black text-brand-900">{new Date(order.startDate).toLocaleDateString()}</p>
+                        </div>
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                           <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Fecha Retorno</p>
+                           <p className="text-[11px] font-black text-brand-900">{new Date(order.endDate).toLocaleDateString()}</p>
+                        </div>
+                     </div>
+                  </div>
+                  
+                  <button 
+                    onClick={openExternalRoute}
+                    className="w-full mt-8 py-4 bg-brand-100 text-brand-900 rounded-2xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center space-x-2 border border-brand-200 hover:bg-brand-900 hover:text-white transition-all shadow-sm"
+                  >
+                    <ExternalLink size={14} />
+                    <span>Navegar en GPS</span>
+                  </button>
+               </div>
             </div>
           </div>
         </>
       )}
 
+      {/* ... rest of existing modal/signature code ... */}
       {activeSigningField && canEdit && (
-          <div className="fixed inset-0 z-[110] bg-brand-900/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[400] bg-brand-900/90 backdrop-blur-md flex items-center justify-center p-4">
               <div className="bg-white rounded-[3rem] shadow-2xl max-w-lg w-full animate-in zoom-in duration-300 overflow-hidden">
                   <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
-                      <h3 className="text-xs font-black text-brand-900 uppercase">Firma Digital</h3>
-                      <button onClick={() => { setActiveSigningField(null); setSignatureSuccess(null); }} className="p-2">
+                      <h3 className="text-xs font-black text-brand-900 uppercase">Firma Digital Validada</h3>
+                      <button onClick={() => { setActiveSigningField(null); setSignatureSuccess(null); }} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
                         <X size={20} className="text-slate-400" />
                       </button>
                   </div>
                   <div className="p-10">
                       <SignaturePad 
-                          label={activeSigningField === 'signature' ? 'Responsable' : 'Recibido'} 
+                          label={activeSigningField === 'signature' ? 'Responsable Absolute / Autorizado' : 'Cliente / Recibido de Conforme'} 
                           onSave={(sig) => saveSignature(activeSigningField, sig)}
                           onCancel={() => setActiveSigningField(null)}
                       />
                   </div>
               </div>
           </div>
+      )}
+
+      {signatureSuccess && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[500] bg-emerald-500 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center space-x-3 animate-in slide-in-from-bottom-10 duration-500">
+           <CheckCircle2 size={20} />
+           <span className="text-[10px] font-black uppercase tracking-widest">{signatureSuccess}</span>
+        </div>
       )}
     </div>
   );

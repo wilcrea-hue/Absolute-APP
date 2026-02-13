@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import { Product, Order, User, WorkflowStageKey, StageData, Category, CartItem } from './types';
-import { Package, Plus, Edit2, Trash2, CheckCircle, Lock, XCircle, DollarSign, UserCheck, Calendar, MapPin, ArrowRight, ClipboardList, FileText, X, Filter, RefreshCw, Bold, Italic, Sparkles, Loader2, List, Type, UserPlus, Clock, Tags, Shield, TrendingUp, AlertTriangle, Layers } from 'lucide-react';
+import { Package, Plus, Edit2, Trash2, CheckCircle, Lock, XCircle, DollarSign, UserCheck, Calendar, MapPin, ArrowRight, ClipboardList, FileText, X, Filter, RefreshCw, Bold, Italic, Sparkles, Loader2, List, Type, UserPlus, Clock, Tags, Shield, TrendingUp, AlertTriangle, Layers, Phone, User as UserIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserManagement } from './components/UserManagement';
 import { GoogleGenAI } from "@google/genai";
@@ -52,6 +52,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const isAdmin = currentUser.role === 'admin';
 
   const coordinators = useMemo(() => users.filter(u => u.role === 'coordinator' && u.status === 'active'), [users]);
+  const logisticsStaff = useMemo(() => users.filter(u => u.role === 'logistics' && u.status === 'active'), [users]);
 
   // ANALYTICS CALCULATIONS
   const stats = useMemo(() => {
@@ -338,7 +339,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 const isExpanded = expandedOrders.has(order.id);
                 const isApprovable = isAdmin && (order.status === 'Pendiente' || order.status === 'Cotización');
                 const canCancel = isAdmin && order.status !== 'Cancelado' && order.status !== 'Finalizado';
+                const clientUser = users.find(u => u.email === order.userEmail);
                 const assignedCoord = users.find(u => u.email === order.assignedCoordinatorEmail);
+                const warehouseLead = logisticsStaff[0]; // Assuming first logistics is lead
                 const eventDays = calculateDays(order.startDate, order.endDate);
 
                 return (
@@ -349,12 +352,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${order.orderType === 'quote' ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-900'}`}>
                             {order.orderType === 'quote' ? <FileText size={20} /> : <Package size={20} />}
                           </div>
-                          <div>
+                          <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-1">
                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">ID: {order.id} • {new Date(order.createdAt).toLocaleDateString()}</span>
-                               {assignedCoord && (
-                                 <span className="text-[7px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-lg uppercase tracking-widest flex items-center">
-                                   <UserCheck size={8} className="mr-1" /> Resp: {assignedCoord.name}
+                               {clientUser && (
+                                 <span className="text-[8px] font-black text-brand-900 bg-brand-50 px-2 py-0.5 rounded-lg uppercase tracking-tighter flex items-center border border-brand-100">
+                                   <UserIcon size={10} className="mr-1" /> {clientUser.name} | {clientUser.phone}
                                  </span>
                                )}
                             </div>
@@ -431,35 +434,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     );
                                   })}
                                 </tbody>
-                                <tfoot className="bg-slate-50/50">
-                                  <tr>
-                                    <td colSpan={3} className="p-4 text-right">
-                                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Inversión Total (Sin IVA)</span>
-                                    </td>
-                                    <td className="p-4 text-right">
-                                      <span className="text-sm font-black text-brand-900">
-                                        ${order.totalAmount.toLocaleString()}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                </tfoot>
                               </table>
                             </div>
                             
-                            {assignedCoord && (
-                              <div className="p-5 bg-[#4fb7f7]/10 rounded-[2rem] border border-[#4fb7f7]/20 flex items-center space-x-4 shadow-sm">
-                                <div className="w-12 h-12 bg-[#4fb7f7] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-[#4fb7f7]/20">
-                                  <UserCheck size={24} />
-                                </div>
-                                <div className="flex-1">
-                                  <p className="text-[8px] font-black text-[#4fb7f7] uppercase tracking-[0.2em] leading-none mb-1">Coordinador Principal Responsable</p>
-                                  <p className="text-sm font-black text-slate-700 uppercase tracking-tight">{assignedCoord.name}</p>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-[8px] bg-[#4fb7f7]/20 text-[#4fb7f7] px-3 py-1 rounded-full font-black uppercase tracking-widest border border-[#4fb7f7]/30">Asignación Validada</span>
-                                </div>
-                              </div>
-                            )}
+                            {/* SECCIÓN DE CONTACTOS DE OPERACIÓN */}
+                            <div className="space-y-4">
+                               <h5 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] flex items-center">
+                                 <Phone size={14} className="mr-2" /> Directorio de la Operación
+                               </h5>
+                               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  {clientUser && (
+                                    <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm group">
+                                      <p className="text-[8px] font-black text-brand-500 uppercase tracking-widest mb-2">Cliente / Solicitante</p>
+                                      <div className="flex items-center space-x-3">
+                                        <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center text-brand-900"><UserIcon size={18} /></div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-[11px] font-black text-slate-800 uppercase truncate">{clientUser.name}</p>
+                                          <p className="text-[10px] font-bold text-slate-400">{clientUser.phone}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                  {warehouseLead && (
+                                    <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm group">
+                                      <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-2">Jefe de Bodega</p>
+                                      <div className="flex items-center space-x-3">
+                                        <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600"><Package size={18} /></div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-[11px] font-black text-slate-800 uppercase truncate">{warehouseLead.name}</p>
+                                          <p className="text-[10px] font-bold text-slate-400">{warehouseLead.phone}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                  {assignedCoord && (
+                                    <div className="p-4 bg-white rounded-2xl border border-[#4fb7f7]/20 shadow-sm group">
+                                      <p className="text-[8px] font-black text-[#4fb7f7] uppercase tracking-widest mb-2">Coordinador Asignado</p>
+                                      <div className="flex items-center space-x-3">
+                                        <div className="w-10 h-10 bg-[#4fb7f7]/10 rounded-xl flex items-center justify-center text-[#4fb7f7]"><UserCheck size={18} /></div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-[11px] font-black text-slate-800 uppercase truncate">{assignedCoord.name}</p>
+                                          <p className="text-[10px] font-bold text-slate-400">{assignedCoord.phone}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                               </div>
+                            </div>
                           </div>
                           
                           <div className="lg:col-span-4 space-y-6">
@@ -482,7 +503,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                         className="w-full bg-brand-800 border-0 text-white p-4 rounded-2xl font-black text-[10px] uppercase tracking-widest focus:ring-2 focus:ring-brand-400 outline-none shadow-inner"
                                       >
                                         <option value="">Seleccione Responsable...</option>
-                                        {coordinators.map(c => <option key={c.email} value={c.email}>{c.name}</option>)}
+                                        {coordinators.map(c => <option key={c.email} value={c.email}>{c.name} | {c.phone}</option>)}
                                       </select>
                                     </div>
                                     <button 
