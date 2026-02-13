@@ -18,6 +18,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ label, onSave, onCan
   const [location, setLocation] = useState('');
   const [isDetecting, setIsDetecting] = useState(false);
   const [evidencePhoto, setEvidencePhoto] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
@@ -62,12 +63,50 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ label, onSave, onCan
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Función para comprimir y redimensionar imágenes (Crucial para evitar errores de cuota)
+  const compressImage = (base64Str: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 600;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        // Calidad 0.7 para reducir peso drásticamente sin perder legibilidad
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+    });
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setIsCompressing(true);
       const reader = new FileReader();
-      reader.onload = (event) => {
-        setEvidencePhoto(event.target?.result as string);
+      reader.onload = async (event) => {
+        const base64 = event.target?.result as string;
+        const compressed = await compressImage(base64);
+        setEvidencePhoto(compressed);
+        setIsCompressing(false);
       };
       reader.readAsDataURL(file);
     }
@@ -116,10 +155,11 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ label, onSave, onCan
     }
     if (!canvasRef.current) return;
     
+    // Validar si el lienzo tiene dibujo (opcional pero recomendado)
     onSave({
       name: name.trim(),
       location: location.trim(),
-      dataUrl: canvasRef.current.toDataURL(),
+      dataUrl: canvasRef.current.toDataURL('image/png'),
       timestamp: new Date().toISOString(),
       evidencePhoto: evidencePhoto || undefined
     });
@@ -172,9 +212,14 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ label, onSave, onCan
         </div>
 
         <div className="space-y-1">
-          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">Evidencia Fotográfica (Opcional)</label>
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">Evidencia Fotográfica</label>
           <div className="relative group aspect-video rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 overflow-hidden flex flex-col items-center justify-center text-slate-300 hover:border-brand-900 hover:text-brand-900 transition-all cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-            {evidencePhoto ? (
+            {isCompressing ? (
+              <div className="flex flex-col items-center">
+                <Loader2 size={24} className="animate-spin text-brand-900 mb-2" />
+                <span className="text-[8px] font-black uppercase">Optimizando Imagen...</span>
+              </div>
+            ) : evidencePhoto ? (
               <>
                 <img src={evidencePhoto} className="w-full h-full object-cover" alt="Evidencia" />
                 <button onClick={(e) => { e.stopPropagation(); setEvidencePhoto(null); }} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg"><X size={12} /></button>
@@ -197,7 +242,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ label, onSave, onCan
             ref={canvasRef}
             width={600}
             height={200}
-            className="w-full h-44 cursor-crosshair"
+            className="w-full h-44 cursor-crosshair bg-white"
             onMouseDown={startDrawing}
             onMouseMove={draw}
             onMouseUp={stopDrawing}

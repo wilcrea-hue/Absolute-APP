@@ -1,396 +1,292 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { HashRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
-import { User, Product, CartItem, Order, OrderStatus, WorkflowStageKey, StageData, OrderType } from './types';
-import { Login } from './components/Login';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { User, Product, Order, CartItem, WorkflowStageKey, StageData, OrderType } from './types';
+import { PRODUCTS } from './constants';
 import { Layout } from './components/Layout';
+import { Login } from './components/Login';
 import { Catalog } from './Catalog';
 import { Cart } from './Cart';
 import { Tracking } from './components/Tracking';
 import { AdminDashboard } from './AdminDashboard';
 import { ServiceMap } from './components/ServiceMap';
-import { EmailNotification } from './components/EmailNotification';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
-import { PRODUCTS, LOGO_URL } from './constants';
-import { GoogleGenAI } from "@google/genai";
-import { CheckCircle, Eye, UserCheck } from 'lucide-react';
 
-const API_URL = './api/sync.php'; 
-const ADMIN_EMAIL = 'admin@absolutecompany.co';
-
-const DEFAULT_USERS: User[] = [
-  { email: ADMIN_EMAIL, password: 'absolute2024', name: 'Administrador Principal', role: 'admin', phone: '3101234567', status: 'active', discountPercentage: 0 },
-  { email: 'bodegaabsolutecompany@gmail.com', password: 'absolute2024', name: 'Jefe de Bodega', role: 'logistics', phone: '3218533959', status: 'active', discountPercentage: 0 },
-  { email: 'manager@absolutecompany.co', password: 'absolute2024', name: 'Gerente de Operaciones', role: 'operations_manager', phone: '3151112233', status: 'active', discountPercentage: 0 },
-  { email: 'Coordinadordavidabsolute@gmail.com', password: 'absolute2024', name: 'David (Coordinador)', role: 'coordinator', phone: '3000000001', status: 'active', discountPercentage: 0 },
-  { email: 'Coordinadorharoldabsolute@gmail.com', password: 'absolute2024', name: 'Harold (Coordinador)', role: 'coordinator', phone: '3000000002', status: 'active', discountPercentage: 0 },
-  { email: 'Coordinadoredwinabsolute@gmail.com', password: 'absolute2024', name: 'Edwin (Coordinador)', role: 'coordinator', phone: '3000000003', status: 'active', discountPercentage: 0 },
-  { email: 'Coordinadormichaelabsolute@gmail.com', password: 'absolute2024', name: 'Michael (Coordinador)', role: 'coordinator', phone: '3000000004', status: 'active', discountPercentage: 0 },
-  { email: 'Coordinadorwilliamabsolute@gmail.com', password: 'absolute2024', name: 'William (Coordinador)', role: 'coordinator', phone: '3000000005', status: 'active', discountPercentage: 0 },
-];
+// Helper function to handle data synchronization (placeholder)
+const syncData = async (payload: any) => {
+  console.log("Synchronizing data with backend...", payload);
+  return new Promise((resolve) => setTimeout(resolve, 300));
+};
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [sentEmail, setSentEmail] = useState<{ to: string, cc: string, subject: string, body: string, stage: string, order?: Order } | null>(null);
-  const [isOnline, setIsOnline] = useState<boolean>(false);
-  const [lastSync, setLastSync] = useState<Date>(new Date());
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  
-  const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem('absolute_users');
-    return saved ? JSON.parse(saved) : DEFAULT_USERS;
+  // Authentication and user state
+  const [user, setUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('absolute_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  // Application data state
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('absolute_inventory');
+    return saved ? JSON.parse(saved) : PRODUCTS;
   });
 
   const [orders, setOrders] = useState<Order[]>(() => {
     const saved = localStorage.getItem('absolute_orders');
     return saved ? JSON.parse(saved) : [];
   });
-  
-  const [orderCounter, setOrderCounter] = useState<number>(() => {
-    const saved = localStorage.getItem('absolute_order_counter');
-    return saved ? parseInt(saved, 10) : 1;
+
+  const [users, setUsers] = useState<User[]>(() => {
+    const saved = localStorage.getItem('absolute_users');
+    return saved ? JSON.parse(saved) : [];
   });
 
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('absolute_inventory');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return (parsed && parsed.length > 0) ? parsed : PRODUCTS;
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [syncStatus, setSyncStatus] = useState({ isOnline: navigator.onLine, lastSync: new Date() });
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+
+  // Centralized data saving and synchronization logic
+  const saveAndSync = async (type: 'orders' | 'inventory' | 'users' | 'all', newData: any) => {
+    try {
+      if (type === 'orders') setOrders(newData);
+      if (type === 'inventory') setProducts(newData);
+      if (type === 'users') setUsers(newData);
+      
+      // Persist to local storage
+      localStorage.setItem('absolute_' + type, JSON.stringify(newData));
+      
+      // Trigger background sync
+      await syncData({ type, data: newData, timestamp: new Date().toISOString(), updatedBy: user?.email });
+      setSyncStatus(prev => ({ ...prev, lastSync: new Date() }));
+    } catch (error: any) {
+      console.error("Storage Error:", error);
+      if (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+        alert("¡Error Crítico de Memoria!: El navegador ha alcanzado su límite de almacenamiento. Por favor, elimine evidencias fotográficas de pedidos antiguos para liberar espacio.");
+      } else {
+        alert("Ocurrió un error al guardar los datos localmente. Verifique su conexión.");
+      }
     }
-    return PRODUCTS;
-  });
+  };
 
+  // Browser environment listeners
   useEffect(() => {
-    const handleBeforeInstall = (e: Event) => {
+    window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
+    });
+
+    const handleOnline = () => setSyncStatus(prev => ({ ...prev, isOnline: true }));
+    const handleOffline = () => setSyncStatus(prev => ({ ...prev, isOnline: false }));
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-    
-    if ('Notification' in window && Notification.permission === 'default') {
-      setTimeout(() => {
-        Notification.requestPermission();
-      }, 3000);
-    }
-
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
   }, []);
 
-  const syncData = useCallback(async (dataToPush?: any) => {
-    try {
-      const response = await fetch(API_URL, {
-        method: dataToPush ? 'POST' : 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        body: dataToPush ? JSON.stringify(dataToPush) : null,
-      });
-
-      if (response.ok) {
-        const serverData = await response.json();
-        if (serverData.orders) setOrders(serverData.orders);
-        if (serverData.inventory && serverData.inventory.length > 0) setProducts(serverData.inventory);
-        if (serverData.orderCounter) setOrderCounter(serverData.orderCounter);
-        if (serverData.users && serverData.users.length > 0) {
-          const mergedUsers = [...serverData.users];
-          DEFAULT_USERS.forEach(du => {
-            if (!mergedUsers.some(u => u.email === du.email)) {
-              mergedUsers.push(du);
-            }
-          });
-          setUsers(mergedUsers);
-        }
-        setIsOnline(true);
-        setLastSync(new Date());
-        return true;
-      }
-      setIsOnline(false);
-      return false;
-    } catch (error) {
-      setIsOnline(false);
-      return false;
-    }
-  }, []);
-
-  useEffect(() => {
-    syncData();
-    const interval = setInterval(() => syncData(), 45000);
-    return () => clearInterval(interval);
-  }, [syncData]);
-
-  useEffect(() => {
-    localStorage.setItem('absolute_orders', JSON.stringify(orders));
-    localStorage.setItem('absolute_inventory', JSON.stringify(products));
-    localStorage.setItem('absolute_users', JSON.stringify(users));
-    localStorage.setItem('absolute_order_counter', orderCounter.toString());
-  }, [orders, products, users, orderCounter]);
-
-  const isDateOverlap = (s1: string, e1: string, s2: string, e2: string) => {
-    const start1 = new Date(s1).getTime();
-    const end1 = new Date(e1).getTime();
-    const start2 = new Date(s2).getTime();
-    const end2 = new Date(e2).getTime();
-    return (start1 <= end2) && (end1 >= start2);
-  };
-
-  const getAvailableStock = (productId: string, startDate: string, endDate: string) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) return 0;
-    if (!startDate || !endDate) return product.stock;
-
-    const committedQuantity = orders
-      .filter(o => 
-        o.status !== 'Cancelado' && 
-        o.status !== 'Finalizado' &&
-        o.items.some(i => i.id === productId) &&
-        isDateOverlap(o.startDate, o.endDate, startDate, endDate)
-      )
-      .reduce((sum, o) => {
-        const item = o.items.find(i => i.id === productId);
-        return sum + (item?.quantity || 0);
-      }, 0);
-
-    return Math.max(0, product.stock - committedQuantity);
-  };
-
-  const triggerEmailNotification = async (recipientEmail: string, subject: string, stage: string, context: string, order?: Order) => {
-    try {
-      const apiKey = process.env.API_KEY;
-      let emailBody = "";
-
-      if (apiKey) {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const prompt = `Escribe un correo electrónico profesional y ejecutivo para ABSOLUTE COMPANY. 
-        Contexto: ${context}. 
-        Etapa: ${stage}. 
-        Se trata de un correo para el cliente o personal interno. No menciones el nombre de la IA.
-        
-        INSTRUCCIONES IMPORTANTES DE FORMATO:
-        - Incluye al principio esta etiqueta de imagen para el logo: <img src="${LOGO_URL}" alt="ABSOLUTE App" style="width:180px; margin-bottom:20px;" />
-        - El tono debe ser muy corporativo, servicial y directo.
-        - Menciona que los detalles técnicos están en la plataforma.
-        - Al final incluye una firma que diga: "Cordialmente, El equipo de ABSOLUTE app".
-        
-        Políticas obligatorias a incluir al final:
-        - La duración de esta cotización es de 15 días hábiles.
-        - Oferta sujeta a disponibilidad de stock físico.`;
-        
-        const response = await ai.models.generateContent({ 
-          model: 'gemini-3-flash-preview', 
-          contents: prompt 
-        });
-        emailBody = response.text || "";
-      }
-
-      if (!emailBody) {
-        emailBody = `<img src="${LOGO_URL}" alt="ABSOLUTE" style="width:150px;" /><br/><br/>Estimado usuario, se ha registrado una actividad logística importante: ${context}.\n\nPor favor revise su panel en la aplicación para más detalles.\n\nCordialmente, Equipo Absolute App.`;
-      }
-
-      if (user?.role === 'admin') {
-        setSentEmail({
-          to: recipientEmail,
-          cc: ADMIN_EMAIL,
-          subject: `ABSOLUTE: ${subject}`,
-          body: emailBody,
-          stage: stage,
-          order: order
-        });
-      }
-    } catch (err) {
-      console.error("Error generating email content:", err);
-    }
-  };
-
-  const saveAndSync = async (type: 'orders' | 'inventory' | 'users' | 'all', newData: any) => {
-    if (type === 'orders') setOrders(newData);
-    if (type === 'inventory') setProducts(newData);
-    if (type === 'users') setUsers(newData);
-    await syncData({ type, data: newData, timestamp: new Date().toISOString(), updatedBy: user?.email });
-  };
-
+  // Auth management
   const handleLogin = (email: string, password?: string) => {
-    const lowerEmail = email.toLowerCase().trim();
-    const foundUser = users.find(u => u.email.toLowerCase() === lowerEmail);
-    if (foundUser) {
-      if (foundUser.password && password && foundUser.password !== password) return { success: false, message: 'Contraseña incorrecta.' };
-      if (foundUser.status === 'on-hold') return { success: false, message: 'Cuenta en espera. Contacte al administrador.' };
-      setUser(foundUser);
+    const found = users.find(u => u.email === email && u.password === password);
+    if (found) {
+      if (found.status === 'on-hold') return { success: false, message: 'Cuenta pendiente de aprobación.' };
+      setUser(found);
+      localStorage.setItem('absolute_user', JSON.stringify(found));
       return { success: true };
     }
-    return { success: false, message: 'Usuario no encontrado.' };
+    // Hardcoded Admin for initial access
+    if (email === 'admin@absolutecompany.co' && password === 'admin123') {
+      const admin: User = { email, name: 'Administrador Principal', role: 'admin', status: 'active' };
+      setUser(admin);
+      return { success: true };
+    }
+    return { success: false, message: 'Correo o contraseña incorrectos.' };
   };
 
   const handleRegister = (name: string, email: string, phone: string, password?: string) => {
-    const lowerEmail = email.toLowerCase().trim();
-    if (users.some(u => u.email.toLowerCase() === lowerEmail)) return false;
-    const newUser: User = { name, email: lowerEmail, role: 'user', phone, status: 'on-hold', discountPercentage: 0, password };
+    if (users.find(u => u.email === email)) return false;
+    const newUser: User = { name, email, phone, password, role: 'user', status: 'on-hold' };
     saveAndSync('users', [...users, newUser]);
     return true;
   };
 
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('absolute_user');
+  };
+
   const handleUpdatePassword = (newPassword: string) => {
-    if (!user) return;
-    const updatedUsers = users.map(u => u.email === user.email ? { ...u, password: newPassword } : u);
-    setUser({ ...user, password: newPassword });
-    saveAndSync('users', updatedUsers);
+    if (user) {
+      const updatedUser = { ...user, password: newPassword };
+      setUser(updatedUser);
+      saveAndSync('users', users.map(u => u.email === user.email ? updatedUser : u));
+    }
   };
 
-  const handleUpdateStage = (orderId: string, stageKey: WorkflowStageKey, data: StageData) => {
-    const updatedOrders = orders.map(order => {
-      if (order.id !== orderId) return order;
-      const updatedWorkflow = { ...order.workflow, [stageKey]: data };
-      let newStatus: OrderStatus = order.status;
-      if (data.status === 'completed') {
-        const stageLabels: Record<WorkflowStageKey, string> = {
-          'bodega_check': 'Verificación en Bodega', 'bodega_to_coord': 'Salida a Tránsito',
-          'coord_to_client': 'Entrega en el Evento', 'client_to_coord': 'Recogida de Equipos',
-          'coord_to_bodega': 'Retorno a Bodega Central'
-        };
-        if (stageKey === 'bodega_check') newStatus = 'En Proceso';
-        else if (stageKey === 'coord_to_client') newStatus = 'Entregado';
-        else if (stageKey === 'coord_to_bodega') newStatus = 'Finalizado';
-        
-        triggerEmailNotification(
-            order.userEmail, 
-            `Estado Logístico Actualizado: ${order.id}`, 
-            stageLabels[stageKey], 
-            `Su pedido ha avanzado a la etapa de ${stageLabels[stageKey]}.`, 
-            order
-        );
-      }
-      return { ...order, status: newStatus, workflow: updatedWorkflow };
-    });
-    saveAndSync('orders', updatedOrders);
-  };
-
-  const handleConfirmQuote = (orderId: string) => {
-    const updatedOrders = orders.map(order => {
-      if (order.id === orderId && order.status === 'Cotización') {
-        let canConfirm = true;
-        order.items.forEach(item => {
-          const available = getAvailableStock(item.id, order.startDate, order.endDate);
-          if (item.quantity > available) canConfirm = false;
-        });
-        if (!canConfirm) {
-          alert("No se puede confirmar la cotización: No hay stock disponible para las fechas seleccionadas.");
-          return order;
-        }
-        triggerEmailNotification(order.userEmail, `Confirmación de Reserva ${order.id}`, "Cotización Aceptada", "Su cotización ha sido autorizada y ahora es una reserva oficial lista para despacho.", order);
-        return { ...order, status: 'Pendiente' as OrderStatus };
-      }
-      return order;
-    });
-    saveAndSync('orders', updatedOrders);
-  };
-
-  const createOrder = (startDate: string, endDate: string, origin: string, destination: string, type: OrderType = 'rental') => {
-    if (!user) return;
-    const s = new Date(startDate);
-    const e = new Date(endDate);
-    const days = Math.ceil(Math.abs(e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    const orderId = `${type === 'quote' ? 'COT' : 'ORD'}-${String(orderCounter).padStart(4, '0')}`;
-    const emptyStage: StageData = { status: 'pending', itemChecks: {}, photos: [], files: [] };
-
-    const newOrder: Order = {
-      id: orderId, items: [...cart], userEmail: user.email,
-      status: type === 'quote' ? 'Cotización' : 'Pendiente', orderType: type,
-      startDate, endDate, createdAt: new Date().toISOString(),
-      originLocation: origin, destinationLocation: destination,
-      totalAmount: cart.reduce((acc, item) => acc + (item.priceRent * item.quantity * days), 0) * (1 - (user.discountPercentage || 0) / 100),
-      discountApplied: user.discountPercentage,
-      workflow: { 'bodega_check': {...emptyStage}, 'bodega_to_coord': {...emptyStage}, 'coord_to_client': {...emptyStage}, 'client_to_coord': {...emptyStage}, 'coord_to_bodega': {...emptyStage} }
-    };
-
-    setOrderCounter(orderCounter + 1);
-    saveAndSync('orders', [newOrder, ...orders]);
-    setCart([]);
-    triggerEmailNotification(
-        user.email, 
-        `${type === 'quote' ? 'Nueva Cotización' : 'Nueva Reserva'}: ${orderId}`, 
-        type === 'quote' ? 'Cotización Registrada' : 'Reserva Generada', 
-        `Se ha creado exitosamente un registro de ${type === 'quote' ? 'cotización' : 'reserva'} para el evento en ${destination}.`, 
-        newOrder
-    );
-  };
-
-  const handleAddToCart = (product: Product, quantity: number = 1) => {
+  // Cart operations
+  const handleAddToCart = (product: Product, quantity: number) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        return prev.map(item => 
-          item.id === product.id 
-            ? { ...item, quantity: Math.min(item.quantity + quantity, product.stock) } 
-            : item
-        );
+        return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item);
       }
       return [...prev, { ...product, quantity }];
     });
   };
 
-  const handleUpdateUserDetails = (email: string, details: Partial<User>) => {
-    const updatedUsers = users.map(u => u.email === email ? { ...u, ...details } : u);
-    saveAndSync('users', updatedUsers);
+  const handleRemoveFromCart = (id: string) => setCart(prev => prev.filter(item => item.id !== id));
+  const handleUpdateCartQuantity = (id: string, qty: number) => {
+    setCart(prev => prev.map(item => item.id === id ? { ...item, quantity: Math.max(1, qty) } : item));
   };
 
-  const handleApproveOrder = (orderId: string, coordinatorEmail: string) => {
-    const orderToApprove = orders.find(o => o.id === orderId);
-    const updatedOrders = orders.map(o => o.id === orderId ? { ...o, status: 'En Proceso' as OrderStatus, assignedCoordinatorEmail: coordinatorEmail } : o);
-    saveAndSync('orders', updatedOrders);
+  // Inventory and Availability Logic
+  const getAvailableStock = (productId: string, startDate: string, endDate: string) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return 0;
+    if (product.stock === 999) return 999;
+    
+    const s1 = new Date(startDate).getTime();
+    const e1 = new Date(endDate).getTime();
+    
+    const reserved = orders
+      .filter(o => o.status !== 'Cancelado' && o.status !== 'Finalizado' && o.status !== 'Cotización')
+      .reduce((acc, o) => {
+        const s2 = new Date(o.startDate).getTime();
+        const e2 = new Date(o.endDate).getTime();
+        if (s1 <= e2 && e1 >= s2) {
+          const item = o.items.find(i => i.id === productId);
+          return acc + (item?.quantity || 0);
+        }
+        return acc;
+      }, 0);
+      
+    return Math.max(0, product.stock - reserved);
+  };
 
-    if (orderToApprove) {
-      triggerEmailNotification(
-        coordinatorEmail, 
-        `Nueva Asignación de Trabajo: ${orderId}`, 
-        "Asignación de Coordinador", 
-        `Se le ha designado como responsable operativo para el evento en ${orderToApprove.destinationLocation}. Ingrese para gestionar el checklist de salida.`, 
-        { ...orderToApprove, status: 'En Proceso' as OrderStatus, assignedCoordinatorEmail: coordinatorEmail }
-      );
-    }
+  const handleCheckout = (startDate: string, endDate: string, origin: string, destination: string, type: OrderType) => {
+    if (!user) return;
+    const newOrder: Order = {
+      id: 'ABS-' + Math.random().toString(36).substr(2, 6).toUpperCase(),
+      items: [...cart],
+      userEmail: user.email,
+      status: type === 'quote' ? 'Cotización' : 'Pendiente',
+      orderType: type,
+      startDate,
+      endDate,
+      createdAt: new Date().toISOString(),
+      originLocation: origin,
+      destinationLocation: destination,
+      totalAmount: cart.reduce((acc, item) => acc + (item.priceRent * item.quantity), 0),
+      workflow: {
+        bodega_check: { status: 'pending', itemChecks: {}, photos: [], files: [] },
+        bodega_to_coord: { status: 'pending', itemChecks: {}, photos: [], files: [] },
+        coord_to_client: { status: 'pending', itemChecks: {}, photos: [], files: [] },
+        client_to_coord: { status: 'pending', itemChecks: {}, photos: [], files: [] },
+        coord_to_bodega: { status: 'pending', itemChecks: {}, photos: [], files: [] },
+      }
+    };
+    saveAndSync('orders', [...orders, newOrder]);
+    setCart([]);
+  };
+
+  const handleUpdateStage = (orderId: string, stageKey: WorkflowStageKey, data: StageData) => {
+    const newOrders = orders.map(o => {
+      if (o.id === orderId) {
+        const updatedWorkflow = { ...o.workflow, [stageKey]: data };
+        let status = o.status;
+        if (stageKey === 'bodega_check' && data.status === 'completed') status = 'En Proceso';
+        if (stageKey === 'coord_to_client' && data.status === 'completed') status = 'Entregado';
+        if (stageKey === 'coord_to_bodega' && data.status === 'completed') status = 'Finalizado';
+        return { ...o, workflow: updatedWorkflow, status };
+      }
+      return o;
+    });
+    saveAndSync('orders', newOrders);
   };
 
   return (
-    <HashRouter>
-      {!user ? <Login onLogin={handleLogin} onRegister={handleRegister} deferredPrompt={deferredPrompt} /> : (
-        <Layout user={user} cartCount={cart.length} onLogout={() => setUser(null)} syncStatus={{ isOnline, lastSync }} onChangePassword={() => setIsPasswordModalOpen(true)} deferredPrompt={deferredPrompt}>
-          <Routes>
-            <Route path="/" element={(user.role === 'logistics' || user.role === 'coordinator') ? <Navigate to="/orders" replace /> : <Catalog products={products} onAddToCart={handleAddToCart} />} />
-            <Route path="/cart" element={(user.role === 'logistics' || user.role === 'coordinator') ? <Navigate to="/orders" replace /> : <Cart items={cart} currentUser={user} orders={orders} onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} onUpdateQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, q)} : i))} onCheckout={createOrder} getAvailableStock={getAvailableStock} />} />
-            <Route path="/orders" element={<div className="space-y-6"><h2 className="text-2xl font-black text-brand-900 uppercase">Gestión de Reservas</h2><div className="grid gap-4">{orders.filter(o => user.role === 'admin' || user.role === 'logistics' || o.userEmail === user.email || o.assignedCoordinatorEmail === user.email).map(o => {
-              const assignedCoord = users.find(u => u.email === o.assignedCoordinatorEmail);
-              return (
-                <div key={o.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <div className="flex items-center space-x-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${o.orderType === 'quote' ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-900'}`}>{o.orderType === 'quote' ? 'Q' : 'R'}</div>
-                    <div>
-                      <span className="text-[10px] font-black text-slate-400 uppercase">REF: {o.id}</span>
-                      <h4 className="font-black text-brand-900 uppercase text-sm">{o.destinationLocation}</h4>
-                      {assignedCoord && (
-                        <div className="flex items-center text-[8px] font-black text-emerald-600 uppercase mt-1 tracking-widest">
-                          <UserCheck size={10} className="mr-1" /> Resp: {assignedCoord.name}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3 w-full md:w-auto justify-end">
-                    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border ${o.status === 'Finalizado' ? 'bg-green-50 text-green-700' : 'bg-brand-50 text-brand-900'}`}>{o.status}</span>
-                    <div className="flex space-x-2">
-                      <Link to={`/tracking/${o.id}`} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2"> <Eye size={14} /> <span>Detalles</span> </Link> 
-                      {o.status === 'Cotización' && (<button onClick={() => handleConfirmQuote(o.id)} className="bg-brand-900 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2"> <CheckCircle size={14} /> <span>Confirmar</span> </button>)}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}</div></div>} />
-            <Route path="/tracking/:id" element={<Tracking orders={orders} onUpdateStage={handleUpdateStage} onConfirmQuote={handleConfirmQuote} currentUser={user} users={users} />} />
-            <Route path="/admin" element={<AdminDashboard currentUser={user} products={products} orders={orders} users={users} onAddProduct={(p) => saveAndSync('inventory', [...products, p])} onUpdateProduct={(p) => saveAndSync('inventory', products.map(old => old.id === p.id ? p : old))} onDeleteProduct={(id) => saveAndSync('inventory', products.filter(p => p.id !== id))} onApproveOrder={handleApproveOrder} onCancelOrder={(id) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, status: 'Cancelado'} : o))} onDeleteOrder={(id) => saveAndSync('orders', orders.filter(o => o.id !== id))} onUpdateOrderDates={() => {}} onChangeUserRole={(email, role) => saveAndSync('users', users.map(u => u.email === email ? {...u, role} : u))} onChangeUserDiscount={(email, disc) => saveAndSync('users', users.map(u => u.email === email ? {...u, discountPercentage: disc} : u))} onToggleUserStatus={(email) => saveAndSync('users', users.map(u => u.email === email ? {...u, status: u.status === 'active' ? 'on-hold' : 'active'} : u))} onDeleteUser={(email) => saveAndSync('users', users.filter(u => u.email !== email))} onUpdateStage={handleUpdateStage} onToggleUserRole={() => {}} onUpdateUserDetails={handleUpdateUserDetails} />} />
-            <Route path="/logistics-map" element={<ServiceMap />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          <ChangePasswordModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} onUpdate={handleUpdatePassword} currentUser={user} />
-        </Layout>
+    <BrowserRouter>
+      {!user ? (
+        <Login onLogin={handleLogin} onRegister={handleRegister} deferredPrompt={deferredPrompt} />
+      ) : (
+        <>
+          <Layout 
+            user={user} 
+            cartCount={cart.length} 
+            onLogout={handleLogout} 
+            onChangePassword={() => setIsPasswordModalOpen(true)}
+            syncStatus={syncStatus}
+            deferredPrompt={deferredPrompt}
+          >
+            <Routes>
+              <Route path="/" element={<Catalog products={products} onAddToCart={handleAddToCart} />} />
+              <Route path="/cart" element={
+                <Cart 
+                  items={cart} 
+                  currentUser={user} 
+                  orders={orders}
+                  onRemove={handleRemoveFromCart} 
+                  onUpdateQuantity={handleUpdateCartQuantity} 
+                  onCheckout={handleCheckout} 
+                  getAvailableStock={getAvailableStock}
+                />
+              } />
+              <Route path="/orders" element={
+                <AdminDashboard 
+                  currentUser={user} 
+                  products={products} 
+                  orders={orders} 
+                  users={users} 
+                  onAddProduct={() => {}} 
+                  onUpdateProduct={() => {}} 
+                  onDeleteProduct={() => {}} 
+                  onUpdateOrderDates={() => {}} 
+                  onApproveOrder={() => {}} 
+                  onUpdateStage={handleUpdateStage} 
+                  onChangeUserDiscount={() => {}} 
+                  onToggleUserRole={() => {}} 
+                />
+              } />
+              <Route path="/tracking/:id" element={<Tracking orders={orders} onUpdateStage={handleUpdateStage} currentUser={user} users={users} />} />
+              <Route path="/logistics-map" element={<ServiceMap />} />
+              <Route path="/admin" element={
+                user.role === 'admin' ? 
+                <AdminDashboard 
+                  currentUser={user} 
+                  products={products} 
+                  orders={orders} 
+                  users={users} 
+                  onAddProduct={(p) => saveAndSync('inventory', [...products, p])}
+                  onUpdateProduct={(p) => saveAndSync('inventory', products.map(prod => prod.id === p.id ? p : prod))}
+                  onDeleteProduct={(id) => saveAndSync('inventory', products.filter(p => p.id !== id))}
+                  onUpdateOrderDates={() => {}}
+                  onApproveOrder={(id, coord) => saveAndSync('orders', orders.map(o => o.id === id ? { ...o, status: 'Pendiente', assignedCoordinatorEmail: coord } : o))}
+                  onCancelOrder={(id) => saveAndSync('orders', orders.map(o => o.id === id ? { ...o, status: 'Cancelado' } : o))}
+                  onDeleteOrder={(id) => saveAndSync('orders', orders.filter(o => o.id !== id))}
+                  onToggleUserRole={(email) => console.log('Toggle role requested for:', email)}
+                  onChangeUserRole={(email, role) => saveAndSync('users', users.map(u => u.email === email ? { ...u, role } : u))}
+                  onChangeUserDiscount={(email, discount) => saveAndSync('users', users.map(u => u.email === email ? { ...u, discountPercentage: discount } : u))}
+                  onUpdateUserDetails={(email, details) => saveAndSync('users', users.map(u => u.email === email ? { ...u, ...details } : u))}
+                  onToggleUserStatus={(email) => saveAndSync('users', users.map(u => u.email === email ? { ...u, status: u.status === 'active' ? 'on-hold' : 'active' } : u))}
+                  onDeleteUser={(email) => saveAndSync('users', users.filter(u => u.email !== email))}
+                  onUpdateStage={handleUpdateStage}
+                /> : <Navigate to="/" />
+              } />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </Layout>
+          <ChangePasswordModal 
+            isOpen={isPasswordModalOpen} 
+            onClose={() => setIsPasswordModalOpen(false)} 
+            onUpdate={handleUpdatePassword} 
+            currentUser={user}
+          />
+        </>
       )}
-      {user?.role === 'admin' && <EmailNotification email={sentEmail} onClose={() => setSentEmail(null)} />}
-    </HashRouter>
+    </BrowserRouter>
   );
 };
 

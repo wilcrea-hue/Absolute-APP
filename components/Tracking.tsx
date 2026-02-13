@@ -35,10 +35,9 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
   const [tempStageData, setTempStageData] = useState<StageData | null>(null);
   const [activeSigningField, setActiveSigningField] = useState<'signature' | 'receivedBy' | null>(null);
   const [showItems, setShowItems] = useState(false);
-  const [showFormalDoc, setShowFormalDoc] = useState(false);
   const [signatureSuccess, setSignatureSuccess] = useState<string | null>(null);
-  const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [isCompressing, setIsCompressing] = useState(false);
   
   const visibleStages = useMemo(() => {
     return currentUser.role === 'user' ? ALL_STAGES.slice(0, 4) : ALL_STAGES;
@@ -57,12 +56,10 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
     if (order?.status === 'Cotización') return false;
 
     if (currentUser.role === 'logistics') {
-      // Jefe de Bodega solo edita el Paso 1 y Paso 5. NO puede editar Paso 2 (Entrega a Coord).
       return activeStageKey === 'bodega_check' || activeStageKey === 'coord_to_bodega';
     }
     
     if (currentUser.role === 'coordinator') {
-      // Coordinadores editan desde el paso 2 (recibir de bodega) hasta el paso 4
       return activeStageKey === 'bodega_to_coord' || activeStageKey === 'coord_to_client' || activeStageKey === 'client_to_coord';
     }
 
@@ -72,7 +69,8 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
   useEffect(() => {
     if (order && order.workflow) {
       const data = order.workflow[activeStageKey];
-      setTempStageData(data ? JSON.parse(JSON.stringify(data)) : null);
+      // Hacemos una copia profunda pero aseguramos que photos sea un array
+      setTempStageData(data ? JSON.parse(JSON.stringify(data)) : { itemChecks: {}, photos: [], files: [] });
       setActiveSigningField(null);
       setSignatureSuccess(null);
       setSaveStatus('idle');
@@ -80,6 +78,29 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
   }, [order, activeStageKey]);
 
   const isCompleted = order?.workflow[activeStageKey]?.status === 'completed';
+
+  const compressImage = (base64Str: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 600;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+        } else {
+          if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+        }
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+    });
+  };
 
   const handleItemCheck = (productId: string, checked: boolean) => {
     if (!tempStageData || !canEdit || isCompleted) return;
@@ -97,24 +118,27 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
     setTempStageData({ ...tempStageData, generalNotes: notes });
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || !tempStageData || isCompleted || !canEdit) return;
 
-    Array.from(files).forEach(file => {
+    setIsCompressing(true);
+    for (const file of Array.from(files)) {
       const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        setTempStageData(prev => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            photos: [...(prev.photos || []), base64]
-          };
-        });
-      };
-      reader.readAsDataURL(file);
-    });
+      const base64 = await new Promise<string>((resolve) => {
+        reader.onload = (event) => resolve(event.target?.result as string);
+        reader.readAsDataURL(file);
+      });
+      const compressed = await compressImage(base64);
+      setTempStageData(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          photos: [...(prev.photos || []), compressed]
+        };
+      });
+    }
+    setIsCompressing(false);
   };
 
   const removePhoto = (index: number) => {
@@ -134,9 +158,23 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
     }, 500);
   };
 
+  const handleAddNoteToHistory = () => {
+    if (!tempStageData?.generalNotes?.trim() || isCompleted || !canEdit) return;
+    const newNote: NoteEntry = {
+      text: tempStageData.generalNotes.trim(),
+      timestamp: new Date().toISOString(),
+      userEmail: currentUser.email,
+      userName: currentUser.name
+    };
+    const updatedHistory = [...(tempStageData.notesHistory || []), newNote];
+    const updatedData: StageData = { ...tempStageData, notesHistory: updatedHistory, generalNotes: '' };
+    setTempStageData(updatedData);
+    onUpdateStage(order.id, activeStageKey, updatedData);
+  };
+
   const saveSignature = (field: 'signature' | 'receivedBy' | null, sig: Signature) => {
     if (!tempStageData || !canEdit || !field) return;
-    setSignatureSuccess(`Firma de ${sig.name} capturada.`);
+    setSignatureSuccess(`Firma capturada con éxito.`);
     const updatedData = { ...tempStageData, [field]: sig };
     setTempStageData(updatedData);
     setTimeout(() => {
@@ -147,18 +185,23 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
 
   const handleCompleteStage = () => {
     if (!tempStageData || !canEdit) return;
+    
+    // Validamos firmas obligatorias
     const hasDispatcherSignature = tempStageData.signature || inheritedSignature;
     if (!hasDispatcherSignature) {
-        alert("Falta firma de Despacho.");
+        alert("Falta firma de Despacho (Bodega).");
         return;
     }
+    
+    // En pasos de entrega/recibido se requiere firma de contraparte
     if (['bodega_to_coord', 'coord_to_client', 'client_to_coord', 'coord_to_bodega'].includes(activeStageKey) && !tempStageData.receivedBy) {
         alert("Falta firma de Recibido.");
         return;
     }
+
     const finalData: StageData = {
         ...tempStageData,
-        signature: tempStageData.signature || inheritedSignature || undefined,
+        signature: tempStageData.signature || (inheritedSignature ? { ...inheritedSignature } : undefined),
         status: 'completed',
         timestamp: new Date().toISOString()
     };
@@ -220,15 +263,15 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                     {!canEdit && !isCompleted && (
                       <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center space-x-3 text-red-600 mb-4">
                         <ShieldAlert size={20} />
-                        <p className="text-[10px] font-black uppercase tracking-tight">Acceso Lectura: Usted no es el responsable asignado para esta etapa.</p>
+                        <p className="text-[10px] font-black uppercase tracking-tight">Modo Lectura: Acceso restringido para su perfil en esta etapa.</p>
                       </div>
                     )}
 
                     <section>
-                        <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] mb-6 flex items-center"><FileCheck size={14} className="mr-2 text-brand-500" /> Checklist</h4>
+                        <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] mb-6 flex items-center"><FileCheck size={14} className="mr-2 text-brand-500" /> Checklist de Verificación</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {order.items.map(item => {
-                                const check = tempStageData?.itemChecks[item.id] || { verified: false, notes: '' };
+                                const check = tempStageData?.itemChecks?.[item.id] || { verified: false, notes: '' };
                                 return (
                                     <div key={item.id} className={`flex items-center p-4 rounded-2xl border transition-all ${check.verified ? 'bg-brand-50 border-brand-200' : 'bg-slate-50 border-slate-100'}`}>
                                         <input type="checkbox" disabled={isCompleted || !canEdit} checked={check.verified} onChange={(e) => handleItemCheck(item.id, e.target.checked)} className="w-6 h-6 rounded-lg text-brand-900 focus:ring-0" />
@@ -242,9 +285,39 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                         </div>
                     </section>
 
+                    {/* SECCIÓN DE EVIDENCIA FOTOGRÁFICA CON COMPRESIÓN */}
+                    <section className="space-y-6">
+                        <div className="flex items-center justify-between">
+                           <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] flex items-center"><ImageIcon size={14} className="mr-2 text-brand-500" /> Fotos de Evidencia</h4>
+                           {canEdit && !isCompleted && (
+                             <button onClick={() => fileInputRef.current?.click()} disabled={isCompressing} className="text-[9px] font-black uppercase text-brand-900 flex items-center bg-white px-4 py-2 rounded-xl border border-slate-100 hover:bg-slate-50 transition-all shadow-sm">
+                               {isCompressing ? <Loader2 size={14} className="animate-spin mr-2" /> : <Camera size={14} className="mr-2" />}
+                               Capturar Foto
+                             </button>
+                           )}
+                           <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} accept="image/*" capture="environment" className="hidden" multiple />
+                        </div>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
+                           {tempStageData?.photos?.map((photo, idx) => (
+                             <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200 shadow-sm group">
+                               <img src={photo} className="w-full h-full object-cover" alt="Evidencia" />
+                               {canEdit && !isCompleted && (
+                                 <button onClick={() => removePhoto(idx)} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-lg"><Trash2 size={10} /></button>
+                               )}
+                             </div>
+                           ))}
+                           {(!tempStageData?.photos || tempStageData.photos.length === 0) && (
+                             <div className="col-span-full py-10 border-2 border-dashed border-slate-100 rounded-[2rem] flex flex-col items-center justify-center text-slate-300">
+                                <ImageIcon size={24} className="mb-2" />
+                                <span className="text-[9px] font-black uppercase tracking-widest">Sin evidencias visuales</span>
+                             </div>
+                           )}
+                        </div>
+                    </section>
+
                     <section className="grid md:grid-cols-2 gap-10">
                         <div className="space-y-4">
-                            <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] flex items-center"><PenTool size={14} className="mr-2 text-brand-500" /> Firma Despacho</h4>
+                            <h4 className="text-[10px] font-black text-brand-900 uppercase tracking-[0.2em] flex items-center"><PenTool size={14} className="mr-2 text-brand-500" /> Firma Responsable</h4>
                             {(tempStageData?.signature || inheritedSignature) ? (
                                 <div className={`p-6 rounded-[2rem] border w-full text-center relative group transition-all ${inheritedSignature && !tempStageData?.signature ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-slate-50 border-slate-100'}`}>
                                     {inheritedSignature && !tempStageData?.signature && (
@@ -258,6 +331,9 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                                          <p className="text-[8px] font-black text-slate-400 uppercase mb-2">Evidencia de Entrega:</p>
                                          <img src={(tempStageData?.signature || inheritedSignature).evidencePhoto} className="w-full h-32 object-cover rounded-xl shadow-sm" alt="Evidencia" />
                                       </div>
+                                    )}
+                                    {!isCompleted && canEdit && tempStageData?.signature && (
+                                      <button onClick={() => setTempStageData({...tempStageData, signature: undefined})} className="absolute top-2 right-2 p-1.5 bg-red-50 text-red-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
                                     )}
                                 </div>
                             ) : (
@@ -282,6 +358,9 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                                          <p className="text-[8px] font-black text-slate-400 uppercase mb-2">Evidencia de Recepción:</p>
                                          <img src={tempStageData.receivedBy.evidencePhoto} className="w-full h-32 object-cover rounded-xl shadow-sm" alt="Evidencia" />
                                       </div>
+                                    )}
+                                    {!isCompleted && canEdit && (
+                                      <button onClick={() => setTempStageData({...tempStageData, receivedBy: undefined})} className="absolute top-2 right-2 p-1.5 bg-red-50 text-red-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
                                     )}
                                 </div>
                             ) : (
