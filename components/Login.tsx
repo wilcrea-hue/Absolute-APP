@@ -1,18 +1,18 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User } from '../types';
+import { Mail, Lock, User as UserIcon, ArrowRight, CheckCircle2, Phone, ShieldCheck, Download, Smartphone, RefreshCcw, AlertTriangle } from 'lucide-react';
 import { LOGO_URL } from '../constants';
-import { Mail, Lock, User as UserIcon, ArrowRight, CheckCircle2, Phone, ShieldCheck, Download, Smartphone, LayoutGrid } from 'lucide-react';
 import { InstallModal } from './InstallModal';
 
 interface LoginProps {
   onLogin: (email: string, password?: string) => { success: boolean, message?: string };
   onRegister: (name: string, email: string, phone: string, password?: string) => boolean;
+  onReset: () => void;
   deferredPrompt: any;
 }
 
-export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, deferredPrompt }) => {
+export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onReset, deferredPrompt }) => {
   const navigate = useNavigate();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
@@ -29,7 +29,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, deferredPromp
     setSuccess('');
 
     if (isRegister) {
-      if (name && email && password && phone) {
+      if (name.trim() && email.trim() && password.trim() && phone.trim()) {
         const registered = onRegister(name, email, phone, password);
         if (registered) {
           setSuccess('¡Cuenta creada con éxito! Espere aprobación del administrador.');
@@ -41,8 +41,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, deferredPromp
         setError('Por favor complete todos los campos.');
       }
     } else {
-      if (email && password) {
-        const result = onLogin(email, password);
+      if (email.trim() && password.trim()) {
+        const result = onLogin(email.trim(), password.trim());
         if (result.success) {
           navigate('/'); 
         } else {
@@ -81,7 +81,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, deferredPromp
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
                 <div className="bg-red-50 text-red-700 p-4 rounded-2xl text-[11px] font-black uppercase tracking-tight flex items-center border border-red-100 animate-in slide-in-from-top-2 duration-300">
-                  <span className="mr-3 text-lg">⚠️</span> {error}
+                  <AlertTriangle className="mr-3 text-lg" /> {error}
                 </div>
               )}
 
@@ -164,8 +164,17 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, deferredPromp
               </button>
             </form>
 
-            {/* BOTÓN DE INSTALACIÓN COMO PROGRAMA */}
-            <div className="mt-8 pt-8 border-t border-slate-100">
+            <div className="mt-8 pt-8 border-t border-slate-100 space-y-4">
+               {!isRegister && (
+                 <button 
+                  onClick={onReset}
+                  className="w-full flex items-center justify-center space-x-3 bg-red-50 text-red-600 py-3 rounded-xl border border-red-100 transition-all group active:scale-95"
+                 >
+                    <RefreshCcw size={14} className="group-hover:rotate-180 transition-transform duration-500" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Reestablecer Aplicación (Fix)</span>
+                 </button>
+               )}
+               
                <button 
                 onClick={() => setIsInstallModalOpen(true)}
                 className="w-full flex items-center justify-center space-x-3 bg-brand-900 text-white py-4 rounded-[1.5rem] border border-brand-900 transition-all group shadow-xl shadow-brand-900/20 active:scale-95"
