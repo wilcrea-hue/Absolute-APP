@@ -32,10 +32,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   const [editValues, setEditValues] = useState<{ name: string; phone: string }>({ name: '', phone: '' });
 
   const sortedAndFilteredUsers = useMemo(() => {
-    let result = users.filter(user => 
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.phone && user.phone.includes(searchTerm))
+    let result = (users || []).filter(user => 
+      user && (
+        (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (user.name && user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (user.phone && user.phone.includes(searchTerm))
+      )
     );
 
     result.sort((a, b) => {
@@ -44,16 +46,16 @@ export const UserManagement: React.FC<UserManagementProps> = ({
 
       switch (sortField) {
         case 'name':
-          valA = a.name.toLowerCase();
-          valB = b.name.toLowerCase();
+          valA = (a.name || '').toLowerCase();
+          valB = (b.name || '').toLowerCase();
           break;
         case 'email':
-          valA = a.email.toLowerCase();
-          valB = b.email.toLowerCase();
+          valA = (a.email || '').toLowerCase();
+          valB = (b.email || '').toLowerCase();
           break;
         case 'role':
-          valA = a.role.toLowerCase();
-          valB = b.role.toLowerCase();
+          valA = (a.role || '').toLowerCase();
+          valB = (b.role || '').toLowerCase();
           break;
         case 'status':
           valA = a.status || 'active';

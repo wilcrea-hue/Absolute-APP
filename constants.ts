@@ -1,7 +1,42 @@
-
-import { Product } from './types';
+import { Product, User } from './types';
 
 export const LOGO_URL = "https://absolutecompany.co/app/imagenes/logo4.png";
+
+export const INITIAL_USERS: User[] = [
+  {
+    email: 'admin@absolutecompany.co',
+    name: 'Administrador Principal',
+    password: 'admin123',
+    role: 'admin',
+    status: 'active',
+    phone: '+57 300 000 0001'
+  },
+  {
+    email: 'bodegaabsolutecompany@gmail.com',
+    name: 'Jefe de Bodega Absolute',
+    password: 'bodega123',
+    role: 'logistics',
+    status: 'active',
+    phone: '+57 300 000 0002'
+  },
+  {
+    email: 'coordinador@absolutecompany.co',
+    name: 'Coordinador de Eventos',
+    password: 'coord123',
+    role: 'coordinator',
+    status: 'active',
+    phone: '+57 300 000 0003'
+  },
+  {
+    email: 'cliente@ejemplo.com',
+    name: 'Cliente Corporativo VIP',
+    password: 'cliente123',
+    role: 'user',
+    status: 'active',
+    phone: '+57 300 000 0004',
+    discountPercentage: 10
+  }
+];
 
 export const PRODUCTS: Product[] = [
   {

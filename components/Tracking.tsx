@@ -2,7 +2,7 @@
 // @ts-nocheck
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Order, WorkflowStageKey, StageData, Signature, User, NoteEntry, CartItem } from '../types';
-import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle, FileText, ExternalLink, MapPin as MapPinIcon, Send, Calendar, Save, Eye, List, Package, Printer, FileCheck, Edit3, StickyNote, Phone, User as UserIcon, ShieldCheck, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { Check, PenTool, Camera, Upload, X, MessageSquare, Map as MapIcon, Navigation, Ruler, Clock, CreditCard, Info, ArrowRight, CheckCircle2, Zap, History, Loader2, Sparkles, ShieldAlert, UserCheck, AlertTriangle, FileText, ExternalLink, MapPin as MapPinIcon, Send, Calendar, Save, Eye, List, Package, Printer, FileCheck, Edit3, StickyNote, Phone, User as UserIcon, ShieldCheck, Image as ImageIcon, Trash2, BellRing } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SignaturePad } from './SignaturePad';
 import { GoogleGenAI } from "@google/genai";
@@ -39,6 +39,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
   const [signatureSuccess, setSignatureSuccess] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [isCompressing, setIsCompressing] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [newNote, setNewNote] = useState('');
   
   const visibleStages = useMemo(() => {
@@ -86,6 +87,17 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
   }, [tempStageData?.notesHistory]);
 
   const isCompleted = order?.workflow[activeStageKey]?.status === 'completed';
+
+  const handleConfirmOrder = () => {
+    if (!onConfirmQuote || !order) return;
+    setIsConfirming(true);
+    
+    // Simular el proceso de notificación al administrador
+    setTimeout(() => {
+      onConfirmQuote(order.id);
+      setIsConfirming(false);
+    }, 2000);
+  };
 
   // Compresión optimizada para ahorro masivo de espacio en localStorage
   const compressImage = (base64Str: string, quality = 0.5, maxWidth = 800): Promise<string> => {
@@ -251,15 +263,21 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
         <div className="bg-white rounded-[3rem] shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-500">
            <div className="p-12 flex flex-col items-center text-center space-y-8">
               <div className="w-24 h-24 bg-amber-50 rounded-[2.5rem] flex items-center justify-center text-amber-500 shadow-inner border border-amber-100">
-                <FileText size={48} />
+                {isConfirming ? <Loader2 size={48} className="animate-spin" /> : <FileText size={48} />}
               </div>
               <div className="max-w-xl space-y-4">
                 <h2 className="text-2xl font-black text-brand-900 uppercase tracking-tighter">Propuesta en Estado de Cotización</h2>
-                <p className="text-slate-500 text-sm font-medium">Esta reserva aún no ha sido confirmada. Revise los ítems y las fechas antes de pasar el pedido al departamento de producción y logística.</p>
+                <p className="text-slate-500 text-sm font-medium">Esta reserva aún no ha sido confirmada. Al confirmar, el pedido pasará a la cola de **producción y logística** de forma inmediata.</p>
               </div>
               
               <div className="w-full max-w-2xl bg-slate-50 rounded-[2rem] p-8 border border-slate-100">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Resumen de Inversión</h4>
+                <div className="flex justify-between items-center mb-6">
+                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Resumen de Inversión</h4>
+                   <div className="flex items-center space-x-2 text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
+                      <ShieldCheck size={12} />
+                      <span className="text-[8px] font-black uppercase">Tarifas Validadas</span>
+                   </div>
+                </div>
                 <div className="flex justify-between items-end border-b border-slate-200 pb-4 mb-4">
                    <div className="text-left">
                       <p className="text-[9px] font-black text-brand-900 uppercase">Total Estimado</p>
@@ -282,19 +300,38 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, onCon
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+              <div className="flex flex-col gap-4 w-full max-w-md">
                  <button 
-                  onClick={() => onConfirmQuote?.(order.id)}
-                  className="flex-1 py-5 bg-brand-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-2xl shadow-brand-900/40 hover:bg-black transition-all active:scale-95 flex items-center justify-center space-x-2"
+                  onClick={handleConfirmOrder}
+                  disabled={isConfirming}
+                  className="w-full py-5 bg-brand-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-2xl shadow-brand-900/40 hover:bg-black transition-all active:scale-95 flex items-center justify-center space-x-3 disabled:opacity-50"
                  >
-                   <CheckCircle2 size={18} />
-                   <span>Confirmar Pedido</span>
+                   {isConfirming ? (
+                     <>
+                        <Loader2 size={18} className="animate-spin" />
+                        <span>Notificando a administración...</span>
+                     </>
+                   ) : (
+                     <>
+                        <CheckCircle2 size={18} />
+                        <span>Confirmar Pedido y Notificar</span>
+                     </>
+                   )}
                  </button>
+                 
+                 {!isConfirming && (
+                   <div className="flex items-center justify-center space-x-2 text-[8px] font-black text-slate-400 uppercase tracking-widest mt-2">
+                     <BellRing size={10} className="text-brand-500" />
+                     <span>Se enviará una alerta automática a los directores de área</span>
+                   </div>
+                 )}
+                 
                  <button 
                   onClick={() => navigate('/')}
-                  className="flex-1 py-5 bg-slate-100 text-slate-500 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-slate-200 transition-all flex items-center justify-center space-x-2"
+                  disabled={isConfirming}
+                  className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-slate-200 transition-all flex items-center justify-center space-x-2 disabled:opacity-0"
                  >
-                   <span>Editar Items</span>
+                   <span>Modificar Ítems</span>
                  </button>
               </div>
            </div>

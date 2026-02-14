@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { 
   LayoutGrid, ShoppingCart, ClipboardList, LogOut, User as UserIcon, ShieldCheck, Map, WifiOff, Key, DownloadCloud, CheckCircle
@@ -25,8 +24,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
   const location = useLocation();
   const isStaff = user.role === 'admin' || user.role === 'logistics' || user.role === 'coordinator';
   
-  // Ahora solo el personal de logística pura (Bodega) está restringido de ver el catálogo
-  const isOperationalOnly = user.role === 'logistics';
+  // Restricted users: Logistics, Coordinator, and the specific bodega email
+  const isOperationalOnly = user.role === 'logistics' || user.role === 'coordinator' || user.email === 'bodegaabsolutecompany@gmail.com';
 
   useEffect(() => {
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
@@ -67,7 +66,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
         
         {/* Logo Section */}
         <div className="p-2 md:p-4 border-b border-white/5 flex flex-col items-center">
-          <Link to="/" className="w-full max-w-[40px] md:max-w-[100px] mb-4 transform hover:scale-110 transition-transform">
+          <Link to={isOperationalOnly ? "/orders" : "/"} className="w-full max-w-[40px] md:max-w-[100px] mb-4 transform hover:scale-110 transition-transform">
             <img src={LOGO_URL} alt="ABSOLUTE" className="w-full h-auto brightness-110 contrast-125" />
           </Link>
           
