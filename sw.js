@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'absolute-v3';
+const CACHE_NAME = 'absolute-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -10,7 +10,7 @@ const ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('Absolute PWA: Caching assets');
+      console.log('Cache opened');
       return cache.addAll(ASSETS);
     })
   );
@@ -23,7 +23,6 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cache) => {
           if (cache !== CACHE_NAME) {
-            console.log('Absolute PWA: Clearing old cache');
             return caches.delete(cache);
           }
         })
@@ -41,5 +40,31 @@ self.addEventListener('fetch', (event) => {
         }
       });
     })
+  );
+});
+
+// Manejo de notificaciones push
+self.addEventListener('push', (event) => {
+  const data = event.data ? event.data.json() : { title: 'ABSOLUTE Update', body: 'Nueva actualización de su pedido.' };
+  
+  const options = {
+    body: data.body,
+    icon: 'https://absolutecompany.co/app/imagenes/logo4.png',
+    badge: 'https://absolutecompany.co/app/imagenes/logo4.png',
+    vibrate: [100, 50, 100],
+    data: {
+      url: './#/orders'
+    }
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.openWindow(event.notification.data.url)
   );
 });

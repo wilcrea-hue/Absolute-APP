@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { CartItem, OrderType, User, Order } from './types';
 import { Trash2, Calendar, ShoppingBag, Clock, MapPin, FileText, CheckCircle, Percent, AlertTriangle, RefreshCw, XCircle, Navigation, Info } from 'lucide-react';
@@ -32,11 +31,14 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
     return Math.max(1, diffDays);
   }, [startDate, endDate]);
 
+  // Función para calcular el precio escalonado según la tabla del usuario
   const getTieredPrice = (item: CartItem, days: number) => {
     if (item.category !== 'Mobiliario') {
-      return item.priceRent * days;
+      return item.priceRent * days; // Otros siguen cobro por día
     }
 
+    // Lógica basada en la tabla del usuario para Mobiliario
+    // Precios específicos para costo unitario de 14.000
     if (item.priceRent === 14000) {
       if (days <= 3) return 14800;
       if (days <= 5) return 17800;
@@ -44,11 +46,12 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
       return 25700;
     }
 
-    const baseIPC = item.priceRent * 1.057;
+    // Si el mobiliario tiene otro precio base, aplicamos los mismos multiplicadores proporcionales
+    const baseIPC = item.priceRent * 1.057; // 14800 / 14000 approx
     if (days <= 3) return baseIPC;
-    if (days <= 5) return baseIPC * 1.20;
-    if (days <= 15) return baseIPC * 1.44;
-    return baseIPC * 1.73;
+    if (days <= 5) return baseIPC * 1.20; // 17800 / 14800 approx
+    if (days <= 15) return baseIPC * 1.44; // 21400 / 14800 approx
+    return baseIPC * 1.73; // 25700 / 14800 approx
   };
 
   const subtotalAmount = useMemo(() => {
@@ -84,6 +87,7 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
     navigate('/orders');
   };
 
+  // Fix: Added missing handleRequestReplenishment function
   const handleRequestReplenishment = (item: CartItem) => {
     setIsReplenishing(item.id);
     setTimeout(() => {
@@ -151,7 +155,6 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
                         <Clock size={10} className="mr-1.5" /> 
                         {isMobiliario ? `${getTierLabel(eventDays)}: $${itemFinalPrice.toLocaleString()}` : `Alquiler/día: $${item.priceRent.toLocaleString()}`}
                       </p>
-                      <p className="text-[8px] font-black text-slate-400 uppercase mt-0.5 tracking-tighter">Precios fuera de IVA</p>
                     </div>
                   </div>
 
@@ -251,7 +254,7 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
             <div className="border-t pt-8 space-y-4">
               <div className="flex flex-col space-y-1 bg-slate-50 p-5 rounded-2xl mb-4">
                 <div className="flex justify-between items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  <span>Inversión Alquiler</span>
+                  <span>Subtotal Servicios/Mobiliario</span>
                   <span>${subtotalAmount.toLocaleString()}</span>
                 </div>
                 {discountPercentage > 0 && (
@@ -260,10 +263,9 @@ export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove
                     <span>-${discountAmount.toLocaleString()}</span>
                   </div>
                 )}
-                <div className="border-t border-slate-200 mt-4 pt-4 flex flex-col items-center text-center">
+                <div className="border-t border-slate-200 mt-4 pt-4 flex flex-col items-center">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inversión Final</span>
                   <span className="text-3xl font-black text-brand-900">${totalAmount.toLocaleString()}</span>
-                  <span className="text-[10px] font-black text-brand-500 uppercase tracking-widest mt-1">Valores fuera de IVA</span>
                 </div>
               </div>
               

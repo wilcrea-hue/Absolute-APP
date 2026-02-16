@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+
+import React, { useState } from 'react';
 import { Category, Product } from './types';
-import { Search, Plus, Clock, PackageX, AlertCircle, Info, Minus, ChevronDown, ChevronUp, CalendarDays, Filter, ChevronRight, LayoutGrid, Sparkles, Loader2, Mic } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { Search, Plus, Clock, PackageX, AlertCircle, Info, Minus, ChevronDown, ChevronUp, CalendarDays, Filter } from 'lucide-react';
 
 interface CatalogProps {
   products: Product[];
@@ -15,41 +15,12 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [localQuantities, setLocalQuantities] = useState<Record<string, number>>({});
   const [expandedPrices, setExpandedPrices] = useState<Record<string, boolean>>({});
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isAiSearching, setIsAiSearching] = useState(false);
-  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
   
   const filteredProducts = (products || []).filter(product => {
     const matchesCategory = selectedCategory === 'Todos' || product.category === selectedCategory;
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
   });
-
-  const handleAiSearch = async () => {
-    if (!searchTerm || isAiSearching || !process.env.API_KEY) return;
-    setIsAiSearching(true);
-    setAiSuggestion(null);
-    
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Actúa como un experto en logística de eventos para ABSOLUTE. Basado en esta necesidad: "${searchTerm}", sugiere cuáles de estos productos serían los más adecuados. 
-      PRODUCTOS DISPONIBLES: ${products.map(p => p.name).join(', ')}.
-      Responde de forma muy breve (máximo 15 palabras) recomendando 2 o 3 nombres de productos exactos.`;
-      
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt
-      });
-      
-      if (response.text) {
-        setAiSuggestion(response.text.trim());
-      }
-    } catch (err) {
-      console.error("AI Search Error:", err);
-    } finally {
-      setIsAiSearching(false);
-    }
-  };
 
   const getQuantity = (id: string) => localQuantities[id] || 1;
 
@@ -63,8 +34,17 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
     setExpandedPrices(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // Función para obtener los precios de los tramos según el precio base
   const getTieredPrices = (basePrice: number) => {
     const p1 = basePrice === 14000 ? 14800 : basePrice;
+    if (basePrice === 14000) {
+      return [
+        { label: '1 - 3 días', value: 14800 },
+        { label: '3 - 5 días', value: 17800 },
+        { label: '5 - 15 días', value: 21400 },
+        { label: '15+ días', value: 25700 }
+      ];
+    }
     return [
       { label: '1 - 3 días', value: p1 },
       { label: '3 - 5 días', value: Math.round(p1 * 1.20) },
@@ -73,100 +53,51 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
     ];
   };
 
-  const handleSelectCategory = (cat: Category | 'Todos') => {
-    setSelectedCategory(cat);
-    setIsDropdownOpen(false);
-  };
-
   return (
     <div className="space-y-6">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-black text-brand-900 uppercase tracking-tighter">Catálogo Corporativo</h2>
-          <p className="text-gray-500 text-[11px] font-bold uppercase tracking-wider">Equipamiento técnico para eventos de alto impacto</p>
+          <h2 className="text-xl md:text-2xl font-black text-brand-900 uppercase">Catálogo de Alquiler</h2>
+          <p className="text-gray-500 text-[12px] font-medium">Equipos y servicios exclusivos para eventos de alto impacto.</p>
         </div>
         
-        <div className="w-full lg:w-[450px] space-y-2">
-          <div className="relative group">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center space-x-1.5 pointer-events-none">
-              <Search className="text-gray-400 group-focus-within:text-brand-900 transition-colors" size={18} />
-              <Sparkles className="text-brand-400 opacity-40 group-focus-within:opacity-100 transition-opacity" size={12} />
-            </div>
-            <input 
-              type="text" 
-              placeholder="¿Qué evento está planeando? (Ej: Gala para 100p)" 
-              className="w-full pl-16 pr-24 py-4 bg-white border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-brand-900/5 focus:border-brand-900 shadow-sm text-sm font-bold outline-none transition-all"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAiSearch()}
-            />
-            <button 
-              onClick={handleAiSearch}
-              disabled={isAiSearching || !searchTerm}
-              className="absolute right-3 top-1/2 -translate-y-1/2 bg-brand-900 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center space-x-2 hover:bg-black transition-all disabled:opacity-30"
-            >
-              {isAiSearching ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-              <span>Asistente AI</span>
-            </button>
-          </div>
-          {aiSuggestion && (
-            <div className="bg-brand-50 border border-brand-100 p-3 rounded-xl flex items-start space-x-3 animate-in slide-in-from-top-2 duration-300">
-              <Sparkles size={14} className="text-brand-500 mt-0.5 shrink-0" />
-              <p className="text-[10px] font-bold text-brand-900 leading-tight">
-                <span className="opacity-50 uppercase tracking-tighter mr-1">Sugerencia Absolute:</span>
-                {aiSuggestion}
-              </p>
-            </div>
-          )}
+        <div className="relative w-full md:w-72">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          <input 
+            type="text" 
+            placeholder="Buscar artículo..." 
+            className="w-full pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-xl focus:ring-2 focus:ring-brand-900 shadow-sm text-[13px] font-bold"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
       </div>
 
-      {/* CONTENEDOR DE CATEGORÍAS - AZUL CLARO Y DESPLEGABLE */}
-      <div className="relative z-40">
-        <div className="bg-[#d2eeff] p-3 rounded-2xl border border-blue-200/50 shadow-sm flex flex-col md:flex-row items-center gap-4">
-          <div className="flex items-center space-x-2 px-3 shrink-0">
-            <Filter size={16} className="text-blue-600" />
-            <span className="text-[10px] font-black text-blue-700 uppercase tracking-widest">Filtrar inventario:</span>
+      <div className="bg-white/40 p-2 rounded-[1.5rem] border border-slate-200/50 backdrop-blur-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="px-3 py-2 flex items-center space-x-2 border-r border-slate-200 mr-1 hidden sm:flex">
+            <Filter size={12} className="text-slate-400" />
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Filtrar:</span>
           </div>
-
-          <div className="relative flex-1 w-full">
-            <button 
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="w-full flex items-center justify-between px-6 py-3.5 bg-white rounded-xl text-[11px] font-black uppercase tracking-[0.2em] text-brand-900 shadow-md hover:shadow-lg transition-all border border-blue-100 active:scale-[0.98]"
-            >
-              <div className="flex items-center">
-                <LayoutGrid size={16} className="mr-3 text-brand-500" />
-                <span>Mostrando: {selectedCategory}</span>
-              </div>
-              {isDropdownOpen ? <ChevronUp size={20} className="text-blue-400" /> : <ChevronDown size={20} className="text-blue-400" />}
-            </button>
-
-            {isDropdownOpen && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-3xl shadow-2xl border border-slate-100 p-2 grid grid-cols-1 md:grid-cols-2 gap-1 animate-in slide-in-from-top-4 duration-300">
-                <button 
-                  onClick={() => handleSelectCategory('Todos')}
-                  className={`w-full text-left px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-between group transition-all ${
-                    selectedCategory === 'Todos' ? 'bg-brand-900 text-white' : 'hover:bg-blue-50 text-slate-500'
-                  }`}
-                >
-                  <span>Todo el Inventario</span>
-                  <ChevronRight size={14} className={selectedCategory === 'Todos' ? 'text-brand-400' : 'text-slate-200'} />
-                </button>
-                {CATEGORIES.map(cat => (
-                  <button 
-                    key={cat}
-                    onClick={() => handleSelectCategory(cat)}
-                    className={`w-full text-left px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-between group transition-all ${
-                      selectedCategory === cat ? 'bg-brand-900 text-white' : 'hover:bg-blue-50 text-slate-500'
-                    }`}
-                  >
-                    <span>{cat}</span>
-                    <ChevronRight size={14} className={selectedCategory === cat ? 'text-brand-400' : 'text-slate-200'} />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <button
+            onClick={() => setSelectedCategory('Todos')}
+            className={`px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+              selectedCategory === 'Todos' 
+                ? 'bg-brand-900 text-white shadow-lg' 
+                : 'bg-white text-gray-500 border border-slate-100 hover:bg-slate-50'
+            }`}
+          >Todos</button>
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+                selectedCategory === cat 
+                  ? 'bg-brand-900 text-white shadow-lg' 
+                  : 'bg-white text-gray-500 border border-slate-100 hover:bg-slate-50'
+              }`}
+            >{cat}</button>
+          ))}
         </div>
       </div>
 
@@ -184,73 +115,78 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
             const displayPrice = isMobiliario && product.priceRent === 14000 ? 14800 : product.priceRent;
 
             return (
-              <div key={product.id} className="bg-white rounded-[2.5rem] shadow-sm hover:shadow-2xl transition-all duration-500 border border-slate-100 overflow-hidden flex flex-col group">
+              <div key={product.id} className="bg-white rounded-[2rem] shadow-sm hover:shadow-xl transition-all duration-500 border border-slate-50 overflow-hidden flex flex-col group">
                 <div className="aspect-[842/950] overflow-hidden relative bg-slate-100">
                   <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                   
-                  <div className={`absolute top-4 right-4 px-3 py-1.5 backdrop-blur rounded-xl text-[9px] font-black uppercase shadow-lg border transition-all duration-300 flex items-center space-x-1.5 ${
+                  <div className={`absolute top-3 right-3 px-2 py-1 backdrop-blur rounded-lg text-[8px] font-black uppercase shadow-lg border transition-all duration-300 flex items-center space-x-1 ${
                     isOutOfStock 
                       ? 'bg-red-500/90 text-white border-red-400' 
                       : isLowStock 
                         ? 'bg-amber-400/90 text-amber-950 border-amber-300 animate-pulse' 
                         : 'bg-white/90 text-brand-900 border-white/20'
                   }`}>
-                    {isLowStock && <AlertCircle size={10} />}
-                    <span>{isOutOfStock ? 'Agotado' : `Existencias: ${product.stock}`}</span>
+                    {isLowStock && <AlertCircle size={8} />}
+                    <span>{isOutOfStock ? 'Agotado' : `Stock: ${product.stock}`}</span>
                   </div>
 
                   {isMobiliario && (
-                    <div className="absolute bottom-4 left-4">
-                       <span className="bg-brand-900/80 backdrop-blur-sm text-white text-[8px] font-black px-3 py-1.5 rounded-xl uppercase tracking-widest border border-white/10 shadow-lg">
-                         Tarifa Escalonada
+                    <div className="absolute bottom-3 left-3 flex space-x-2">
+                       <span className="bg-brand-900/80 backdrop-blur-sm text-white text-[7px] font-black px-2 py-1 rounded-lg uppercase tracking-widest border border-white/10">
+                         Plan Escalonado
                        </span>
                     </div>
                   )}
                 </div>
                 
-                <div className="p-6 flex-1 flex flex-col">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-[10px] text-brand-500 font-black uppercase tracking-widest">{product.category}</span>
+                <div className="p-5 flex-1 flex flex-col">
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="text-[9px] text-brand-500 font-black uppercase">{product.category}</span>
                     {isMobiliario && (
-                      <div className="flex items-center text-[8px] font-black text-brand-900 uppercase bg-[#d2eeff] px-2.5 py-1 rounded-full border border-blue-200">
-                         <Info size={10} className="mr-1.5" /> Ajuste IPC
+                      <div className="flex items-center text-[7px] font-black text-brand-900 uppercase bg-brand-400 px-2 py-0.5 rounded-full">
+                         <Info size={8} className="mr-1" /> IPC 2024
                       </div>
                     )}
                   </div>
-                  <h3 className="font-black text-slate-900 text-base mb-4 line-clamp-2 min-h-[48px] leading-tight">{product.name}</h3>
+                  <h3 className="font-black text-slate-900 text-sm mb-3 line-clamp-2 min-h-[40px]">{product.name}</h3>
                   
-                  <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100 mb-6 group-hover:bg-blue-50/50 transition-colors">
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4 transition-all duration-300">
                     <div className="flex justify-between items-end">
                         <div>
-                            <p className="text-[9px] font-black text-slate-400 uppercase flex items-center mb-1.5">
-                            <Clock size={12} className="mr-2" /> {isMobiliario ? 'Por Evento' : isM2 ? 'Por Metro²' : 'Por Jornada'}
+                            <p className="text-[8px] font-black text-slate-400 uppercase flex items-center mb-1">
+                            <Clock size={10} className="mr-1.5" /> {isMobiliario ? 'Tarifa por evento' : isM2 ? 'Tarifa por m²' : 'Tarifa por día'}
                             </p>
-                            <p className="text-2xl font-black text-brand-900">
+                            <p className="text-xl font-black text-brand-900">
                             ${displayPrice?.toLocaleString()} 
-                            <span className="text-[11px] text-slate-400 font-bold uppercase ml-1.5">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase ml-1">
                                 / {isM2 ? 'm²' : isMobiliario ? 'evento' : 'día'}
                             </span>
                             </p>
-                            <p className="text-[8px] font-black text-slate-400 uppercase mt-1">Precios antes de IVA</p>
+                        </div>
+                        <div className="text-right">
+                             <p className="text-[7px] font-black text-slate-400 uppercase mb-1">Subtotal {qty > 1 && `(${qty})`}</p>
+                             <p className="text-[10px] font-black text-brand-900">
+                                ${(displayPrice * qty).toLocaleString()}
+                             </p>
                         </div>
                     </div>
 
                     {isMobiliario && (
-                      <div className="mt-4 border-t border-slate-200 pt-4">
+                      <div className="mt-3 border-t border-slate-200 pt-3">
                         <button 
                           onClick={() => togglePriceTable(product.id)}
-                          className="w-full flex items-center justify-between text-[9px] font-black text-brand-900 uppercase tracking-widest hover:text-blue-600 transition-colors outline-none"
+                          className="w-full flex items-center justify-between text-[8px] font-black text-brand-900 uppercase tracking-widest hover:text-brand-500 transition-colors"
                         >
-                          <span className="flex items-center"><CalendarDays size={12} className="mr-2" /> Proyección de Costos</span>
-                          {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          <span className="flex items-center"><CalendarDays size={10} className="mr-1.5" /> Ver tabla de tarifas</span>
+                          {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                         </button>
 
                         {isExpanded && (
-                          <div className="mt-4 space-y-2 animate-in slide-in-from-top-2 duration-300 bg-white p-3 rounded-2xl border border-slate-100 shadow-inner">
+                          <div className="mt-3 space-y-1 animate-in slide-in-from-top-2 duration-300">
                             {getTieredPrices(product.priceRent).map((tier, idx) => (
-                              <div key={idx} className="flex justify-between items-center py-1.5 border-b border-slate-50 last:border-0">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{tier.label}</span>
-                                <span className="text-[10px] font-black text-brand-900">${tier.value.toLocaleString()}</span>
+                              <div key={idx} className="flex justify-between items-center py-1 border-b border-slate-100 last:border-0">
+                                <span className="text-[8px] font-bold text-slate-400 uppercase">{tier.label}</span>
+                                <span className="text-[9px] font-black text-brand-900">${tier.value.toLocaleString()}</span>
                               </div>
                             ))}
                           </div>
@@ -259,25 +195,25 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                     )}
                   </div>
 
-                  <div className="mt-auto space-y-4">
-                    <div className="flex items-center justify-between bg-slate-100/50 border border-slate-200/50 rounded-2xl p-1.5 shadow-inner">
+                  <div className="mt-auto space-y-3">
+                    <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-2xl p-1.5">
                         <button 
                             disabled={isOutOfStock}
                             onClick={() => updateLocalQuantity(product.id, -1, product.stock)}
-                            className="w-11 h-11 flex items-center justify-center bg-white rounded-xl shadow-sm text-brand-900 disabled:opacity-30 active:scale-90 transition-all border border-slate-100"
+                            className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm text-brand-900 disabled:opacity-30 active:scale-90 transition-all"
                         >
-                            <Minus size={16} />
+                            <Minus size={14} />
                         </button>
-                        <div className="flex flex-col items-center px-4">
-                            <span className="text-lg font-black text-brand-900">{qty}</span>
-                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">{isM2 ? 'm²' : 'Uds.'}</span>
+                        <div className="flex flex-col items-center">
+                            <span className="text-sm font-black text-brand-900">{qty}</span>
+                            <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{isM2 ? 'm²' : 'Cant.'}</span>
                         </div>
                         <button 
                             disabled={isOutOfStock || (product.stock !== 999 && qty >= product.stock)}
                             onClick={() => updateLocalQuantity(product.id, 1, product.stock)}
-                            className="w-11 h-11 flex items-center justify-center bg-white rounded-xl shadow-sm text-brand-900 disabled:opacity-30 active:scale-90 transition-all border border-slate-100"
+                            className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm text-brand-900 disabled:opacity-30 active:scale-90 transition-all"
                         >
-                            <Plus size={16} />
+                            <Plus size={14} />
                         </button>
                     </div>
 
@@ -287,10 +223,10 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                             setLocalQuantities(prev => ({ ...prev, [product.id]: 1 }));
                         }}
                         disabled={isOutOfStock}
-                        className="w-full py-5 bg-brand-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all flex items-center justify-center space-x-3 hover:bg-black hover:shadow-brand-900/20 disabled:opacity-30 disabled:grayscale"
+                        className="w-full py-4 bg-brand-900 text-white rounded-xl font-black text-[10px] uppercase shadow-md active:scale-95 transition-all flex items-center justify-center space-x-2 hover:bg-black disabled:opacity-30 disabled:grayscale"
                     >
-                        <Plus size={16} />
-                        <span>Añadir a Reserva</span>
+                        <Plus size={14} />
+                        <span>Añadir {qty > 1 ? `(${qty})` : ''} a la Reserva</span>
                     </button>
                   </div>
                 </div>
@@ -299,12 +235,12 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
           })}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-28 bg-white rounded-[3rem] border-2 border-dashed border-slate-200">
-          <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
-            <PackageX size={32} className="text-slate-300" />
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border border-dashed border-slate-200">
+          <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+            <PackageX size={24} className="text-slate-300" />
           </div>
-          <h3 className="text-lg font-black text-brand-900 uppercase tracking-tighter">Sin coincidencias en inventario</h3>
-          <p className="text-slate-400 text-[11px] font-bold uppercase tracking-widest mt-2 text-center px-8">No encontramos artículos que coincidan con los criterios de búsqueda actuales.</p>
+          <h3 className="text-md font-black text-brand-900 uppercase">Sin coincidencias</h3>
+          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1 text-center px-4">No encontramos artículos para esta categoría o búsqueda.</p>
         </div>
       )}
     </div>

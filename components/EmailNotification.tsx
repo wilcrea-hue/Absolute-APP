@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-// Correctly imported FileCheck to resolve the compilation error on line 112
-import { Mail, CheckCircle, X, ExternalLink, ShieldCheck, Edit3, Save, Send, ShieldAlert, Lock, FileText, Loader2, AlertCircle, Copy, ClipboardCheck, FileCheck, Users } from 'lucide-react';
+import { Mail, CheckCircle, X, ExternalLink, ShieldCheck, Edit3, Save, Send, ShieldAlert, Lock, FileText } from 'lucide-react';
 import { LOGO_URL } from '../constants';
 import { Order } from '../types';
 
@@ -21,192 +20,164 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
   const [editableBody, setEditableBody] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [isSent, setIsSent] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [copiedType, setCopiedType] = useState<'text' | 'html' | null>(null);
 
   useEffect(() => {
     if (email) {
       setEditableBody(email.body);
       setIsSent(false);
       setIsEditing(false);
-      setError(null);
-      setCopiedType(null);
     }
   }, [email]);
 
   if (!email) return null;
 
-  const copyToClipboard = async (type: 'text' | 'html') => {
-    try {
-      const content = type === 'text' ? editableBody.replace(/<[^>]*>?/gm, '') : editableBody;
-      await navigator.clipboard.writeText(content);
-      setCopiedType(type);
-      setTimeout(() => setCopiedType(null), 2000);
-    } catch (err) {
-      console.error("Error al copiar:", err);
-    }
+  const handleSend = () => {
+    setIsSent(true);
+    setTimeout(() => onClose(), 2000);
   };
 
-  const handleSend = async () => {
-    setIsSending(true);
-    setError(null);
+  const openPreview = () => {
+    const win = window.open('', '_blank');
+    if (!win) return;
 
-    try {
-      // Intentamos envío vía API
-      const response = await fetch('./api/send_email.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: email.to,
-          cc: email.cc,
-          subject: email.subject,
-          body: editableBody,
-          orderId: email.order?.id
-        })
-      });
+    const isQuote = email.order?.orderType === 'quote';
+    const s = new Date(email.order?.startDate || '');
+    const e = new Date(email.order?.endDate || '');
+    const days = Math.ceil(Math.abs(e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-      if (response.ok) {
-        setIsSent(true);
-        setTimeout(() => onClose(), 2000);
-      } else {
-        throw new Error("Servidor de correo no configurado");
-      }
-    } catch (err) {
-      // Fallback a Mailto: con CC incluido
-      const cleanBody = editableBody.replace(/<[^>]*>?/gm, '');
-      const mailtoUrl = `mailto:${email.to}?cc=${email.cc}&subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(cleanBody)}`;
-      
-      // Abrimos el cliente de correo
-      window.open(mailtoUrl, '_blank');
-      
-      setIsSent(true);
-      setError("Redirigiendo a su aplicación de correo local...");
-      setTimeout(() => onClose(), 3000);
-    } finally {
-      setIsSending(false);
-    }
+    const itemsHtml = email.order?.items.map(item => `
+      <tr>
+        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px;">${item.name}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; text-align: center;">$${item.priceRent.toLocaleString()}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; text-align: center;">${days}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; text-align: center;">${item.quantity}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; text-align: right;">$${(item.priceRent * item.quantity * days).toLocaleString()}</td>
+      </tr>
+    `).join('');
+
+    win.document.write(`
+      <html>
+        <head>
+          <title>ABSOLUTE - Documento Corporativo</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+            body { font-family: 'Inter', sans-serif; line-height: 1.6; color: #000033; background: #f1f5f9; margin: 0; padding: 40px; }
+            .card { max-width: 800px; margin: 0 auto; background: #fff; border-radius: 40px; overflow: hidden; box-shadow: 0 40px 100px -20px rgba(0,0,51,0.2); border: 1px solid #e2e8f0; }
+            .header { background: #000033; padding: 60px 40px; text-align: center; }
+            .logo { height: 70px; filter: brightness(1.2); }
+            .content { padding: 60px; }
+            h1 { font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em; color: #000033; border-bottom: 4px solid #f1f5f9; padding-bottom: 30px; margin-bottom: 40px; }
+            .item-table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+            .item-table th { background: #f8fafc; padding: 15px 12px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; border-bottom: 2px solid #e2e8f0; }
+            .body-text { font-size: 15px; color: #334155; white-space: pre-wrap; line-height: 1.8; margin-bottom: 40px; }
+            .summary { background: #000033; color: #fff; padding: 30px; border-radius: 24px; text-align: right; margin-bottom: 40px; }
+            .summary p { margin: 0; font-size: 12px; text-transform: uppercase; opacity: 0.7; }
+            .summary h2 { margin: 5px 0 0; font-size: 32px; font-weight: 900; }
+            .policies { background: #fff7ed; border: 1px solid #ffedd5; padding: 25px; border-radius: 20px; font-size: 12px; color: #9a3412; }
+            .policies h4 { margin: 0 0 10px; text-transform: uppercase; font-weight: 900; }
+            .footer { padding: 40px; background: #f8fafc; text-align: center; font-size: 10px; color: #94a3b8; font-weight: 800; text-transform: uppercase; letter-spacing: 0.2em; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="header"><img src="${LOGO_URL}" class="logo" /></div>
+            <div class="content">
+              <h1>${email.subject}</h1>
+              
+              <table class="item-table">
+                <thead>
+                  <tr>
+                    <th>Descripción Item</th>
+                    <th style="text-align: center;">V. Unitario</th>
+                    <th style="text-align: center;">Días</th>
+                    <th style="text-align: center;">Cant.</th>
+                    <th style="text-align: right;">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>${itemsHtml}</tbody>
+              </table>
+
+              <div class="summary">
+                <p>Inversión Total Estimada</p>
+                <h2>$${email.order?.totalAmount.toLocaleString() || '0'}</h2>
+              </div>
+
+              <div class="body-text">${editableBody}</div>
+
+              <div class="policies">
+                <h4>Políticas de Cotización</h4>
+                <p>• La validez de esta cotización es de 15 días hábiles a partir de la fecha de emisión.</p>
+                <p>• La disponibilidad de los ítems y servicios está sujeta a la existencia física en el inventario al momento de la confirmación formal del pedido.</p>
+              </div>
+            </div>
+            <div class="footer">&copy; ${new Date().getFullYear()} ABSOLUTE COMPANY - LOGÍSTICA Y EVENTOS DE ALTO IMPACTO</div>
+          </div>
+        </body>
+      </html>
+    `);
   };
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-brand-900/80 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-[#0a0a25] text-white w-full max-w-4xl rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.8)] border border-white/10 overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 duration-500">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-brand-900/70 backdrop-blur-md animate-in fade-in duration-300">
+      <div className="bg-[#0c0c2a] text-white w-full max-w-3xl rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden flex flex-col animate-in zoom-in-95 duration-500">
         
-        {/* Panel Izquierdo: Configuración */}
-        <div className="w-full md:w-80 bg-black/40 p-8 border-r border-white/5 flex flex-col">
-          <div className="mb-10">
-            <img src={LOGO_URL} alt="ABSOLUTE" className="h-10 mb-6 brightness-125" />
-            <div className="inline-flex items-center space-x-2 px-3 py-1 bg-brand-400/10 rounded-full border border-brand-400/20">
-              <div className="w-1.5 h-1.5 bg-brand-400 rounded-full animate-pulse"></div>
-              <span className="text-[8px] font-black uppercase tracking-widest text-brand-400">Canal de Notificación</span>
+        <div className="p-8 border-b border-white/5 flex items-center justify-between bg-black/40">
+          <div className="flex items-center space-x-5">
+            <div className="w-14 h-14 bg-brand-400/10 rounded-2xl flex items-center justify-center text-brand-400 border border-brand-400/20">
+              <FileText size={28} />
+            </div>
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-[0.4em] text-brand-400">Editor Administrativo de Despacho</span>
+              <h3 className="text-base font-black uppercase tracking-widest">{email.stage}</h3>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 text-white/30 hover:text-white transition-colors bg-white/5 rounded-full">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-8 space-y-6 flex-1 overflow-y-auto no-scrollbar max-h-[60vh]">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
+              <p className="text-[9px] text-white/40 font-black uppercase mb-1 tracking-widest">Enviar A:</p>
+              <p className="text-[11px] font-bold text-white/90 truncate">{email.to}</p>
+            </div>
+            <div className="bg-emerald-500/5 rounded-2xl p-5 border border-emerald-500/20">
+              <p className="text-[9px] text-emerald-400/60 font-black uppercase mb-1 tracking-widest">Copia de Respaldo:</p>
+              <p className="text-[11px] font-bold text-emerald-400">{email.cc}</p>
             </div>
           </div>
 
-          <div className="space-y-6 flex-1">
-            <div className="space-y-1">
-              <p className="text-[9px] font-black text-white/30 uppercase tracking-widest">Destinatario</p>
-              <p className="text-[11px] font-bold text-white truncate">{email.to}</p>
-            </div>
-            
-            <div className="space-y-1 p-3 bg-brand-400/5 rounded-xl border border-brand-400/10">
-              <p className="text-[9px] font-black text-brand-400 uppercase tracking-widest flex items-center">
-                <Users size={10} className="mr-1.5" /> Copia de Seguridad (CC)
-              </p>
-              <p className="text-[10px] font-bold text-white truncate mt-1 opacity-70">{email.cc}</p>
-            </div>
-
-            <div className="space-y-1">
-              <p className="text-[9px] font-black text-white/30 uppercase tracking-widest">Etapa Actual</p>
-              <div className="flex items-center text-[#4fb7f7] font-black text-[10px] uppercase">
-                <FileCheck size={12} className="mr-2" /> {email.stage}
-              </div>
-            </div>
+          <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
+            <p className="text-[9px] text-white/40 font-black uppercase mb-1 tracking-widest">Asunto:</p>
+            <p className="text-[12px] font-black text-white">{email.subject}</p>
           </div>
 
-          <div className="pt-6 border-t border-white/5 space-y-3">
-            <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-2 text-center">Herramientas Manuales</p>
-            <button 
-              onClick={() => copyToClipboard('text')}
-              className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-between group"
-            >
-              <span className="flex items-center"><Copy size={12} className="mr-2 opacity-50" /> Copiar Texto</span>
-              {copiedType === 'text' && <ClipboardCheck size={12} className="text-emerald-400" />}
-            </button>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center px-1">
+              <p className="text-[9px] text-white/30 font-black uppercase tracking-widest">Cuerpo del Mensaje (Editable)</p>
+              <button onClick={() => setIsEditing(!isEditing)} className={`text-[9px] font-black uppercase flex items-center space-x-2 px-3 py-1.5 rounded-xl transition-all ${isEditing ? 'bg-emerald-500 text-white' : 'bg-white/5 text-brand-400'}`}>
+                {isEditing ? <><Save size={12} /> <span>Guardar</span></> : <><Edit3 size={12} /> <span>Editar</span></>}
+              </button>
+            </div>
+            <textarea 
+              value={editableBody}
+              readOnly={!isEditing}
+              onChange={(e) => setEditableBody(e.target.value)}
+              className={`w-full min-h-[200px] p-8 rounded-[2rem] text-[13px] font-medium leading-relaxed outline-none transition-all resize-none ${isEditing ? 'bg-white text-brand-900' : 'bg-black/20 text-white/60 border border-white/5'}`}
+            />
+            <p className="text-[9px] text-amber-400 font-bold uppercase italic">* La tabla de ítems y las políticas se generarán automáticamente en el envío final.</p>
           </div>
         </div>
 
-        {/* Panel Derecho: Editor y Envío */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="p-8 border-b border-white/5 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Mail size={18} className="text-brand-400" />
-              <h3 className="text-xs font-black uppercase tracking-[0.2em]">Despacho de Mensajería Absolute</h3>
-            </div>
-            <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
-              <X size={20} className="text-white/20" />
-            </button>
-          </div>
-
-          <div className="p-8 flex-1 overflow-y-auto no-scrollbar space-y-6">
-            {error && (
-              <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl flex items-center space-x-3 text-amber-400 text-[10px] font-bold uppercase tracking-widest">
-                 <AlertCircle size={16} />
-                 <span>{error}</span>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div className="flex justify-between items-center px-1">
-                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Asunto del Correo</label>
-              </div>
-              <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-sm font-black text-white">
-                {email.subject}
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex justify-between items-center px-1">
-                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Vista Previa del Contenido</label>
-                <button 
-                  onClick={() => setIsEditing(!isEditing)}
-                  className={`text-[8px] font-black uppercase px-3 py-1.5 rounded-lg transition-all ${isEditing ? 'bg-brand-400 text-brand-900' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
-                >
-                  {isEditing ? 'Guardar Cambios' : 'Editar Mensaje'}
-                </button>
-              </div>
-              
-              <div className="relative">
-                {!isEditing && (
-                  <div className="absolute top-6 left-6 pointer-events-none opacity-20">
-                    <img src={LOGO_URL} alt="ABSOLUTE" className="h-6" />
-                  </div>
-                )}
-                <textarea 
-                  value={editableBody}
-                  readOnly={!isEditing}
-                  onChange={(e) => setEditableBody(e.target.value)}
-                  className={`w-full min-h-[250px] p-6 rounded-3xl text-[13px] font-medium leading-relaxed outline-none transition-all resize-none ${isEditing ? 'bg-white text-brand-900' : 'bg-black/40 text-white/80 border border-white/5 shadow-inner'}`}
-                  placeholder="Escriba el contenido del correo..."
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="p-8 bg-black/40 border-t border-white/5 flex items-center gap-4">
-            <div className="flex-1 flex items-center space-x-2 bg-emerald-500/10 px-4 py-2 rounded-xl border border-emerald-500/20">
-               <ShieldCheck size={14} className="text-emerald-400" />
-               <p className="text-[8px] font-black text-emerald-400 uppercase tracking-tighter">Branding y CC Administrativa Validados</p>
-            </div>
-            
-            <button 
-              onClick={handleSend}
-              disabled={isSending || isSent}
-              className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center space-x-3 transition-all ${isSent ? 'bg-emerald-500 text-white' : 'bg-[#4fb7f7] text-white hover:bg-white hover:text-[#4fb7f7] shadow-xl shadow-[#4fb7f7]/20 active:scale-95'}`}
-            >
-              {isSending ? <Loader2 size={16} className="animate-spin" /> : isSent ? <CheckCircle size={16} /> : <Send size={16} />}
-              <span>{isSent ? 'Procesado' : 'Autorizar Envío'}</span>
-            </button>
-          </div>
+        <div className="p-8 bg-black/40 border-t border-white/5 flex flex-col md:flex-row gap-4">
+          <button onClick={openPreview} className="flex-1 bg-white/5 text-white/70 py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center space-x-3 hover:bg-white/10 transition-all">
+            <ExternalLink size={16} />
+            <span>Previsualizar</span>
+          </button>
+          <button onClick={handleSend} disabled={isSent} className={`flex-[1.5] py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center space-x-3 shadow-2xl transition-all ${isSent ? 'bg-emerald-500 text-white' : 'bg-brand-400 text-brand-900 hover:bg-white'}`}>
+            {isSent ? <><CheckCircle size={18} /> <span>Enviado</span></> : <><Send size={18} /> <span>Autorizar Despacho</span></>}
+          </button>
         </div>
       </div>
     </div>

@@ -1,18 +1,16 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, User as UserIcon, ArrowRight, CheckCircle2, Phone, ShieldCheck, Download, Smartphone, RefreshCcw, AlertTriangle } from 'lucide-react';
+import { User } from '../types';
 import { LOGO_URL } from '../constants';
-import { InstallModal } from './InstallModal';
+import { Mail, Lock, User as UserIcon, ArrowRight, CheckCircle2, Phone, ShieldCheck } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (email: string, password?: string) => { success: boolean, message?: string };
   onRegister: (name: string, email: string, phone: string, password?: string) => boolean;
-  onReset: () => void;
-  deferredPrompt: any;
 }
 
-export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onReset, deferredPrompt }) => {
+export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
   const navigate = useNavigate();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
@@ -21,7 +19,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onReset, defe
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +26,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onReset, defe
     setSuccess('');
 
     if (isRegister) {
-      if (name.trim() && email.trim() && password.trim() && phone.trim()) {
+      if (name && email && password && phone) {
         const registered = onRegister(name, email, phone, password);
         if (registered) {
           setSuccess('¡Cuenta creada con éxito! Espere aprobación del administrador.');
@@ -41,10 +38,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onReset, defe
         setError('Por favor complete todos los campos.');
       }
     } else {
-      if (email.trim() && password.trim()) {
-        const result = onLogin(email.trim(), password.trim());
+      if (email && password) {
+        const result = onLogin(email, password);
         if (result.success) {
-          navigate('/'); 
+          navigate('/'); // Redirección automática al catálogo al ingresar
         } else {
           setError(result.message || 'Error al iniciar sesión.');
         }
@@ -81,7 +78,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onReset, defe
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
                 <div className="bg-red-50 text-red-700 p-4 rounded-2xl text-[11px] font-black uppercase tracking-tight flex items-center border border-red-100 animate-in slide-in-from-top-2 duration-300">
-                  <AlertTriangle className="mr-3 text-lg" /> {error}
+                  <span className="mr-3 text-lg">⚠️</span> {error}
                 </div>
               )}
 
@@ -164,33 +161,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onReset, defe
               </button>
             </form>
 
-            <div className="mt-8 pt-8 border-t border-slate-100 space-y-4">
-               {!isRegister && (
-                 <button 
-                  onClick={onReset}
-                  className="w-full flex items-center justify-center space-x-3 bg-red-50 text-red-600 py-3 rounded-xl border border-red-100 transition-all group active:scale-95"
-                 >
-                    <RefreshCcw size={14} className="group-hover:rotate-180 transition-transform duration-500" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Reestablecer Aplicación (Fix)</span>
-                 </button>
-               )}
-               
-               <button 
-                onClick={() => setIsInstallModalOpen(true)}
-                className="w-full flex items-center justify-center space-x-3 bg-brand-900 text-white py-4 rounded-[1.5rem] border border-brand-900 transition-all group shadow-xl shadow-brand-900/20 active:scale-95"
-               >
-                  <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center shadow-inner">
-                    <Download size={16} />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-[11px] font-black uppercase tracking-widest leading-none">Instalar Aplicación</p>
-                    <p className="text-[8px] font-bold text-brand-400 uppercase tracking-tighter">Usar como programa nativo</p>
-                  </div>
-                  <Smartphone size={16} className="ml-auto mr-2 text-white/50 group-hover:scale-110 transition-transform" />
-               </button>
-            </div>
-
-            <div className="mt-10 text-center">
+            <div className="mt-14 pt-8 border-t border-slate-100 text-center">
               <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">
                 {isRegister ? '¿Ya tiene acceso?' : '¿No tiene una cuenta aún?'}
               </p>
@@ -208,12 +179,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onReset, defe
           </div>
         </div>
       </div>
-      
-      <InstallModal 
-        isOpen={isInstallModalOpen} 
-        onClose={() => setIsInstallModalOpen(false)} 
-        deferredPrompt={deferredPrompt} 
-      />
     </div>
   );
 };
