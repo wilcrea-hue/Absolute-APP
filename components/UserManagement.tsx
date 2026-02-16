@@ -32,11 +32,22 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   const [editValues, setEditValues] = useState<{ name: string; phone: string }>({ name: '', phone: '' });
 
   const sortedAndFilteredUsers = useMemo(() => {
-    let result = users.filter(user => 
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.phone && user.phone.includes(searchTerm))
-    );
+    const term = searchTerm.toLowerCase().trim();
+    let result = users.filter(user => {
+      const name = user.name.toLowerCase();
+      const email = user.email.toLowerCase();
+      const phone = (user.phone || '').toLowerCase();
+      const status = (user.status || 'active').toLowerCase();
+      
+      // Mapeo semántico para búsqueda en español
+      const statusLabel = status === 'on-hold' ? 'espera pendiente' : 'activo';
+
+      return name.includes(term) || 
+             email.includes(term) || 
+             phone.includes(term) || 
+             status.includes(term) ||
+             statusLabel.includes(term);
+    });
 
     result.sort((a, b) => {
       let valA: any = '';
@@ -131,7 +142,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input 
             type="text" 
-            placeholder="Buscar por email, nombre..." 
+            placeholder="Buscar por nombre, email o estado..." 
             className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-brand-900 outline-none text-xs font-bold transition-all"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}

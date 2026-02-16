@@ -11,7 +11,6 @@ import { AdminDashboard } from './AdminDashboard';
 import { ServiceMap } from './components/ServiceMap';
 import { PRODUCTS, LOGO_URL } from './constants';
 import { GoogleGenAI } from "@google/genai";
-// Fixed: Added missing 'Package' import from lucide-react
 import { CheckCircle, Eye, UserCheck, AlertCircle, CloudSync, RefreshCw, Package } from 'lucide-react';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 
@@ -201,7 +200,7 @@ const App: React.FC = () => {
                           else price = baseIPC * 1.73;
                         }
                       }
-                      return acc + (price * item.quantity * (item.category === 'Mobiliario' ? 1 : days));
+                      return acc + (price * item.quantity);
                     }, 0),
                     workflow: {
                       bodega_check: { status: 'pending', itemChecks: {}, photos: [], files: [] },
@@ -240,9 +239,11 @@ const App: React.FC = () => {
                 onAddProduct={(p) => saveAndSync('inventory', [...products, p])} 
                 onUpdateProduct={(p) => saveAndSync('inventory', products.map(old => old.id === p.id ? p : old))} 
                 onDeleteProduct={(id) => saveAndSync('inventory', products.filter(p => p.id !== id))} 
+                onUpdateOrderDates={(id, s, e) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, startDate: s, endDate: e} : o))}
                 onApproveOrder={(id, em) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, status: 'En Proceso', assignedCoordinatorEmail: em} : o))} 
                 onCancelOrder={(id) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, status: 'Cancelado'} : o))}
                 onDeleteOrder={(id) => saveAndSync('orders', orders.filter(o => o.id !== id))}
+                onToggleUserRole={(em) => saveAndSync('users', users.map(u => u.email === em ? {...u, role: u.role === 'admin' ? 'user' : 'admin'} : u))}
                 onChangeUserRole={(em, r) => saveAndSync('users', users.map(u => u.email === em ? {...u, role: r} : u))} 
                 onChangeUserDiscount={(em, d) => saveAndSync('users', users.map(u => u.email === em ? {...u, discountPercentage: d} : u))} 
                 onUpdateUserDetails={(em, details) => saveAndSync('users', users.map(u => u.email === em ? {...u, ...details} : u))}
