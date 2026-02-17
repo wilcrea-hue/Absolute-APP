@@ -34,7 +34,6 @@ const App: React.FC = () => {
   const [notification, setNotification] = useState<{title: string, msg: string} | null>(null);
   const [activeEmail, setActiveEmail] = useState<any>(null);
   
-  // Parámetros globales del evento para persistencia al editar
   const [eventStartDate, setEventStartDate] = useState<string>('');
   const [eventEndDate, setEventEndDate] = useState<string>('');
   const [eventOrigin, setEventOrigin] = useState<string>('Bogotá, Colombia');
@@ -115,16 +114,32 @@ const App: React.FC = () => {
   const handleEditQuote = (orderId: string) => {
     const orderToEdit = orders.find(o => o.id === orderId);
     if (orderToEdit) {
-      // Cargamos ítems al carrito
       setCart([...orderToEdit.items]);
-      // PRE-LLENAMOS LOS PARÁMETROS DEL EVENTO CON LA INFO ORIGINAL
       setEventStartDate(orderToEdit.startDate);
       setEventEndDate(orderToEdit.endDate);
       setEventOrigin(orderToEdit.originLocation);
       setEventDestination(orderToEdit.destinationLocation);
-      
-      // Eliminamos la cotización vieja para ser reemplazada por la nueva
       saveAndSync('orders', orders.filter(o => o.id !== orderId));
+    }
+  };
+
+  const handleApproveOrder = (orderId: string, coordinatorEmail: string) => {
+    const updatedOrders = orders.map(o => 
+      o.id === orderId ? { ...o, status: 'En Proceso' as OrderStatus, assignedCoordinatorEmail: coordinatorEmail } : o
+    );
+    const approvedOrder = updatedOrders.find(o => o.id === orderId);
+    saveAndSync('orders', updatedOrders);
+
+    if (approvedOrder) {
+      // Notificar al Jefe de Bodega y al Coordinador vía EmailNotification
+      setActiveEmail({
+        to: 'bodegaabsolutecompany@gmail.com', // Jefe de Bodega
+        cc: coordinatorEmail, // Coordinador Asignado
+        subject: `PEDIDO APROBADO: #${approvedOrder.id} - ${approvedOrder.destinationLocation}`,
+        body: `Buen día,\n\nSe informa que el pedido #${approvedOrder.id} ha sido APROBADO formalmente por la administración para el evento en ${approvedOrder.destinationLocation}.\n\nCoordinador Asignado: ${coordinatorEmail}\n\nJefe de Bodega: Por favor iniciar alistamiento según las fechas programadas (${approvedOrder.startDate} al ${approvedOrder.endDate}).\n\nSaludos,\nEquipo ABSOLUTE.`,
+        stage: 'Aprobación y Asignación de Coordinador',
+        order: approvedOrder
+      });
     }
   };
 
@@ -280,7 +295,7 @@ const App: React.FC = () => {
                 onUpdateProduct={(p) => saveAndSync('inventory', products.map(old => old.id === p.id ? p : old))} 
                 onDeleteProduct={(id) => saveAndSync('inventory', products.filter(p => p.id !== id))} 
                 onUpdateOrderDates={(id, s, e) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, startDate: s, endDate: e} : o))}
-                onApproveOrder={(id, em) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, status: 'En Proceso', assignedCoordinatorEmail: em} : o))} 
+                onApproveOrder={handleApproveOrder} 
                 onCancelOrder={(id) => saveAndSync('orders', orders.map(o => o.id === id ? {...o, status: 'Cancelado'} : o))}
                 onDeleteOrder={(id) => saveAndSync('orders', orders.filter(o => o.id !== id))}
                 onToggleUserRole={(em) => saveAndSync('users', users.map(u => u.email === em ? {...u, role: u.role === 'admin' ? 'user' : 'admin'} : u))}

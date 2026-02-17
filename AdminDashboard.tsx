@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Product, Order, User, WorkflowStageKey, StageData, Category, CartItem } from './types';
 import { 
@@ -15,8 +16,8 @@ import {
   X, 
   Database,
   RefreshCw,
-  // Fix: Added missing Eye import from lucide-react
-  Eye
+  Eye,
+  UserCheck
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserManagement } from './components/UserManagement';
@@ -54,9 +55,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isEditingProduct, setIsEditingProduct] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [selectedCoordinator, setSelectedCoordinator] = useState<string>('');
   const editorRef = useRef<HTMLDivElement>(null);
 
   const isAdmin = currentUser.role === 'admin';
+  const coordinators = users.filter(u => u.role === 'coordinator' || u.role === 'admin');
 
   const startEdit = (product?: Product) => {
     if (product) {
@@ -83,8 +86,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const toggleExpandOrder = (id: string) => {
     setExpandedOrders(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+        setSelectedCoordinator(''); // Reset al cerrar
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -151,6 +158,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {orders.map(order => {
                 const isExpanded = expandedOrders.has(order.id);
                 const isQuote = order.status === 'Cotización';
+                const isApprovable = isQuote || order.status === 'Pendiente';
+                
                 return (
                   <div key={order.id} className={`bg-white border rounded-[2rem] overflow-hidden transition-all ${isExpanded ? 'border-brand-900 shadow-xl' : 'border-slate-100 shadow-sm'} ${isQuote ? 'border-l-4 border-amber-400' : ''}`}>
                     <div className="p-6 cursor-pointer" onClick={() => toggleExpandOrder(order.id)}>
@@ -177,30 +186,79 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                     {isExpanded && (
                       <div className="p-8 bg-slate-50/50 border-t border-slate-100 animate-in slide-in-from-top-2">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                           <div>
-                              <h5 className="text-[10px] font-black text-brand-900 uppercase mb-4">Artículos en Reserva</h5>
-                              <div className="space-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                           <div className="space-y-4">
+                              <h5 className="text-[10px] font-black text-brand-900 uppercase mb-4 border-b pb-2">Artículos Solicitados</h5>
+                              <div className="space-y-2 max-h-[250px] overflow-y-auto pr-2 no-scrollbar">
                                  {order.items.map(i => (
-                                   <div key={i.id} className="bg-white p-3 rounded-xl border border-slate-200 flex justify-between items-center">
-                                      <span className="text-[11px] font-bold text-slate-700">{i.name}</span>
-                                      <span className="text-[11px] font-black text-brand-900">x{i.quantity}</span>
+                                   <div key={i.id} className="bg-white p-3 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
+                                      <div className="flex items-center space-x-3">
+                                        <img src={i.image} className="w-8 h-8 rounded-lg object-cover" alt="" />
+                                        <span className="text-[11px] font-bold text-slate-700">{i.name}</span>
+                                      </div>
+                                      <span className="text-[11px] font-black text-brand-900 bg-brand-50 px-2 py-1 rounded-lg">x{i.quantity}</span>
                                    </div>
                                  ))}
                               </div>
                            </div>
-                           <div className="flex flex-col justify-center space-y-4">
-                              {isQuote && (
-                                <button onClick={() => onApproveOrder(order.id, 'Coordinadordavidabsolute@gmail.com')} className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center space-x-2 shadow-lg">
-                                  <CheckCircle size={16} /> <span>Aprobar y Convertir a Pedido</span>
-                                </button>
+                           
+                           <div className="space-y-6">
+                              <h5 className="text-[10px] font-black text-brand-900 uppercase mb-4 border-b pb-2">Acciones de Gestión</h5>
+                              
+                              {isApprovable ? (
+                                <div className="bg-white p-6 rounded-[2rem] border-2 border-emerald-100 shadow-xl shadow-emerald-500/5 space-y-4">
+                                   <div className="space-y-2">
+                                      <label className="text-[9px] font-black text-emerald-600 uppercase tracking-widest flex items-center">
+                                        <UserCheck size={12} className="mr-1" /> Coordinador Responsable
+                                      </label>
+                                      <select 
+                                        value={selectedCoordinator} 
+                                        onChange={(e) => setSelectedCoordinator(e.target.value)}
+                                        className="w-full p-4 bg-emerald-50/30 border border-emerald-100 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                                      >
+                                        <option value="">-- Seleccionar Coordinador --</option>
+                                        {coordinators.map(u => (
+                                          <option key={u.email} value={u.email}>{u.name} ({u.email})</option>
+                                        ))}
+                                      </select>
+                                   </div>
+
+                                   <button 
+                                      disabled={!selectedCoordinator}
+                                      onClick={() => {
+                                        onApproveOrder(order.id, selectedCoordinator);
+                                        setSelectedCoordinator('');
+                                      }} 
+                                      className="w-full py-5 bg-emerald-500 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest flex items-center justify-center space-x-2 shadow-lg disabled:opacity-30 disabled:grayscale transition-all hover:scale-[1.02] active:scale-95"
+                                    >
+                                      <CheckCircle size={18} /> <span>Aprobar y Notificar Equipo</span>
+                                   </button>
+                                </div>
+                              ) : (
+                                <div className="bg-brand-900 p-8 rounded-[2rem] text-white space-y-4">
+                                   <div className="flex items-center space-x-3 text-brand-400">
+                                      <UserCheck size={20} />
+                                      <div>
+                                         <p className="text-[8px] font-black uppercase tracking-widest opacity-50">Coordinador Asignado</p>
+                                         <p className="text-[11px] font-bold text-white">{order.assignedCoordinatorEmail || 'Pendiente'}</p>
+                                      </div>
+                                   </div>
+                                   <Link to={`/tracking/${order.id}`} className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center space-x-2 border border-white/10 transition-all">
+                                      <Eye size={16} /> <span>Ver Gestión Logística</span>
+                                   </Link>
+                                </div>
                               )}
-                              <button onClick={() => onCancelOrder?.(order.id)} className="w-full py-4 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center space-x-2 border border-red-100">
-                                <XCircle size={16} /> <span>Anular Registro</span>
-                              </button>
-                              <Link to={`/tracking/${order.id}`} className="w-full py-4 bg-brand-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center space-x-2">
-                                <Eye size={16} /> <span>Ver Detalles Logísticos</span>
-                              </Link>
+
+                              <div className="grid grid-cols-2 gap-3">
+                                <button onClick={() => onCancelOrder?.(order.id)} className="py-4 bg-red-50 text-red-600 rounded-2xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center space-x-2 border border-red-100 hover:bg-red-600 hover:text-white transition-all">
+                                  <XCircle size={14} /> <span>Anular Registro</span>
+                                </button>
+                                {order.status === 'Finalizado' && (
+                                  <button onClick={() => onDeleteOrder?.(order.id)} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center space-x-2 border border-slate-200 hover:bg-red-500 hover:text-white transition-all">
+                                    <Trash2 size={14} /> <span>Archivar</span>
+                                  </button>
+                                )}
+                              </div>
                            </div>
                         </div>
                       </div>
