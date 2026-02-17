@@ -1,10 +1,23 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Product, Order, User, WorkflowStageKey, StageData, Category, CartItem } from './types';
-import { Package, Plus, Edit2, Trash2, CheckCircle, Lock, XCircle, DollarSign, UserCheck, Calendar, MapPin, ArrowRight, ClipboardList, FileText, X, Filter, RefreshCw, Bold, Italic, Sparkles, Loader2, List, Type, UserPlus, Clock, Tags, Shield, Download, Upload, Database, CloudCheck } from 'lucide-react';
+import { 
+  Package, 
+  Plus, 
+  Edit2, 
+  Trash2, 
+  CheckCircle, 
+  XCircle, 
+  DollarSign, 
+  MapPin, 
+  ArrowRight, 
+  ClipboardList, 
+  FileText, 
+  X, 
+  Database 
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserManagement } from './components/UserManagement';
-import { GoogleGenAI } from "@google/genai";
 
 interface AdminDashboardProps {
   currentUser: User;
@@ -39,9 +52,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isEditingProduct, setIsEditingProduct] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
-  const [isAiOptimizing, setIsAiOptimizing] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = currentUser.role === 'admin';
 
@@ -102,7 +113,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <Database size={18} className="text-emerald-500" />
                   <div>
                     <p className="text-[10px] font-black text-emerald-900 uppercase tracking-widest">Sincronización Global Activa</p>
-                    <p className="text-[9px] text-emerald-700 font-medium">Todos los cambios se guardan automáticamente en el servidor absolutocompany.co y son visibles para todos los dispositivos.</p>
+                    <p className="text-[9px] text-emerald-700 font-medium">Todos los cambios se guardan automáticamente en el servidor y son visibles para todos los dispositivos.</p>
                   </div>
                 </div>
              </div>

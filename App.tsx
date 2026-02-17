@@ -9,9 +9,8 @@ import { Cart } from './Cart';
 import { Tracking } from './components/Tracking';
 import { AdminDashboard } from './AdminDashboard';
 import { ServiceMap } from './components/ServiceMap';
-import { PRODUCTS, LOGO_URL } from './constants';
-import { GoogleGenAI } from "@google/genai";
-import { CheckCircle, Eye, UserCheck, AlertCircle, Cloud, RefreshCw, Package } from 'lucide-react';
+import { PRODUCTS } from './constants';
+import { Cloud, RefreshCw, Package, Eye } from 'lucide-react';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 
 const API_URL = './api/sync.php'; 
@@ -32,12 +31,10 @@ const App: React.FC = () => {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [hasUnsyncedChanges, setHasUnsyncedChanges] = useState(false);
   
-  // Estados de datos
   const [users, setUsers] = useState<User[]>(DEFAULT_USERS);
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>(PRODUCTS);
 
-  // Sincronización proactiva con el servidor
   const syncWithServer = useCallback(async (dataToPush?: any) => {
     try {
       const response = await fetch(API_URL, {
@@ -49,9 +46,8 @@ const App: React.FC = () => {
       if (response.ok) {
         const serverData = await response.json();
         
-        // Si el servidor está vacío (primera vez), le enviamos nuestros datos locales por defecto
+        // Inicializar si el servidor no tiene datos
         if (serverData.users.length === 0 && !dataToPush) {
-           console.log("Servidor vacío, inicializando con datos predeterminados...");
            await syncWithServer({
              type: 'sync_all',
              users: DEFAULT_USERS,
@@ -61,16 +57,14 @@ const App: React.FC = () => {
            return;
         }
 
-        // Actualizar estados locales con la verdad del servidor
-        if (serverData.users && serverData.users.length > 0) setUsers(serverData.users);
-        if (serverData.inventory && serverData.inventory.length > 0) setProducts(serverData.inventory);
+        if (serverData.users?.length > 0) setUsers(serverData.users);
+        if (serverData.inventory?.length > 0) setProducts(serverData.inventory);
         if (serverData.orders) setOrders(serverData.orders);
         
         setIsOnline(true);
         setLastSync(new Date());
         setHasUnsyncedChanges(false);
         
-        // Backup en localStorage por si acaso
         localStorage.setItem('absolute_users', JSON.stringify(serverData.users));
         localStorage.setItem('absolute_inventory', JSON.stringify(serverData.inventory));
         localStorage.setItem('absolute_orders', JSON.stringify(serverData.orders));
@@ -79,14 +73,12 @@ const App: React.FC = () => {
       }
       return false;
     } catch (error) {
-      console.error("Error de Sincronización:", error);
       setIsOnline(false);
       return false;
     }
   }, []);
 
   useEffect(() => {
-    // Carga inicial rápida desde caché
     const localUsers = localStorage.getItem('absolute_users');
     const localProducts = localStorage.getItem('absolute_inventory');
     const localOrders = localStorage.getItem('absolute_orders');
@@ -94,32 +86,23 @@ const App: React.FC = () => {
     if (localProducts) setProducts(JSON.parse(localProducts));
     if (localOrders) setOrders(JSON.parse(localOrders));
 
-    // Sincronizar con el servidor inmediatamente al cargar
     syncWithServer();
-    
-    // Auto-refresco cada 30 segundos
     const interval = setInterval(() => syncWithServer(), 30000);
     return () => clearInterval(interval);
   }, [syncWithServer]);
 
   const saveAndSync = async (type: 'orders' | 'inventory' | 'users', newData: any) => {
     setHasUnsyncedChanges(true);
-
-    // Actualización local inmediata
     if (type === 'orders') setOrders(newData);
     if (type === 'inventory') setProducts(newData);
     if (type === 'users') setUsers(newData);
     
-    // Subir paquete completo al servidor
-    const fullPayload = {
+    await syncWithServer({
       type: 'sync_all',
       users: type === 'users' ? newData : users,
       inventory: type === 'inventory' ? newData : products,
-      orders: type === 'orders' ? newData : orders,
-      timestamp: new Date().toISOString()
-    };
-
-    await syncWithServer(fullPayload);
+      orders: type === 'orders' ? newData : orders
+    });
   };
 
   const handleLogin = (email: string, password?: string) => {
@@ -127,21 +110,19 @@ const App: React.FC = () => {
     const foundUser = users.find(u => u.email.toLowerCase() === lowerEmail);
     if (foundUser) {
       if (foundUser.password && password && foundUser.password !== password) return { success: false, message: 'Contraseña incorrecta.' };
-      if (foundUser.status === 'on-hold') return { success: false, message: 'Su cuenta está pendiente de aprobación por el administrador.' };
+      if (foundUser.status === 'on-hold') return { success: false, message: 'Cuenta pendiente de aprobación.' };
       setUser(foundUser);
       return { success: true };
     }
-    return { success: false, message: 'Usuario no encontrado en la base de datos global.' };
+    return { success: false, message: 'Usuario no encontrado.' };
   };
 
   const getAvailableStock = (productId: string, startStr: string, endStr: string) => {
     const product = products.find(p => p.id === productId);
     if (!product) return 0;
     if (product.stock === 999) return 999;
-    
     const start = new Date(startStr);
     const end = new Date(endStr);
-    
     let maxReserved = 0;
     const date = new Date(start);
     while (date <= end) {
@@ -175,8 +156,8 @@ const App: React.FC = () => {
             <div className="fixed top-20 right-8 z-[100] bg-brand-900 text-white p-4 rounded-2xl shadow-2xl border border-brand-400/20 animate-bounce flex items-center space-x-3">
                <Cloud size={20} className="text-brand-400" />
                <div className="text-left">
-                  <p className="text-[10px] font-black uppercase">Sincronización en curso</p>
-                  <p className="text-[8px] font-bold text-brand-400">Actualizando datos en absolutecompany.co</p>
+                  <p className="text-[10px] font-black uppercase">Sincronizando</p>
+                  <p className="text-[8px] font-bold text-brand-400">Actualizando servidor global</p>
                </div>
                <button onClick={() => syncWithServer({ type: 'sync_all', users, inventory: products, orders })} className="p-2 bg-white/10 rounded-lg hover:bg-white/20">
                   <RefreshCw size={14} />
@@ -211,21 +192,7 @@ const App: React.FC = () => {
                     totalAmount: cart.reduce((acc, item) => {
                       const days = Math.ceil(Math.abs(new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)) + 1;
                       let price = item.priceRent;
-                      if (item.category === 'Mobiliario') {
-                        if (price === 14000) {
-                          if (days <= 3) price = 14800;
-                          else if (days <= 5) price = 17800;
-                          else if (days <= 15) price = 21400;
-                          else price = 25700;
-                        } else {
-                          const baseIPC = price * 1.057;
-                          if (days <= 3) price = baseIPC;
-                          else if (days <= 5) price = baseIPC * 1.20;
-                          else if (days <= 15) price = baseIPC * 1.44;
-                          else price = baseIPC * 1.73;
-                        }
-                      }
-                      return acc + (price * item.quantity);
+                      return acc + (price * item.quantity * days);
                     }, 0),
                     workflow: {
                       bodega_check: { status: 'pending', itemChecks: {}, photos: [], files: [] },
@@ -251,12 +218,9 @@ const App: React.FC = () => {
                         <h4 className="font-black text-brand-900 uppercase text-sm">{o.destinationLocation}</h4>
                       </div>
                     </div>
-                    <Link to={`/tracking/${o.id}`} className="bg-slate-100 text-slate-600 px-6 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2"> <Eye size={14} /> <span>Detalle Logístico</span> </Link>
+                    <Link to={`/tracking/${o.id}`} className="bg-slate-100 text-slate-600 px-6 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2"> <Eye size={14} /> <span>Detalle</span> </Link>
                   </div>
                 ))}
-                {orders.length === 0 && (
-                   <div className="text-center py-20 bg-white rounded-[2rem] border border-dashed border-slate-200 text-slate-400 font-bold uppercase text-[10px]">No hay órdenes registradas en el servidor.</div>
-                )}
               </div>
             </div>} />
             <Route path="/admin" element={<AdminDashboard 
