@@ -12,14 +12,23 @@ interface CartProps {
   onUpdateQuantity: (id: string, qty: number) => void;
   onCheckout: (startDate: string, endDate: string, origin: string, destination: string, type: OrderType) => void;
   getAvailableStock: (productId: string, startDate: string, endDate: string) => number;
+  
+  // Props elevadas desde App.tsx para persistencia
+  startDate: string;
+  setStartDate: (val: string) => void;
+  endDate: string;
+  setEndDate: (val: string) => void;
+  origin: string;
+  setOrigin: (val: string) => void;
+  destination: string;
+  setDestination: (val: string) => void;
 }
 
-export const Cart: React.FC<CartProps> = ({ items, currentUser, orders, onRemove, onUpdateQuantity, onCheckout, getAvailableStock }) => {
+export const Cart: React.FC<CartProps> = ({ 
+  items, currentUser, orders, onRemove, onUpdateQuantity, onCheckout, getAvailableStock,
+  startDate, setStartDate, endDate, setEndDate, origin, setOrigin, destination, setDestination
+}) => {
   const navigate = useNavigate();
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [origin, setOrigin] = useState('Bogotá, Colombia');
-  const [destination, setDestination] = useState('');
   const [isReplenishing, setIsReplenishing] = useState<string | null>(null);
 
   const eventDays = useMemo(() => {

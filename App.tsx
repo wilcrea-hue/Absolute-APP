@@ -34,6 +34,12 @@ const App: React.FC = () => {
   const [notification, setNotification] = useState<{title: string, msg: string} | null>(null);
   const [activeEmail, setActiveEmail] = useState<any>(null);
   
+  // Parámetros globales del evento para persistencia al editar
+  const [eventStartDate, setEventStartDate] = useState<string>('');
+  const [eventEndDate, setEventEndDate] = useState<string>('');
+  const [eventOrigin, setEventOrigin] = useState<string>('Bogotá, Colombia');
+  const [eventDestination, setEventDestination] = useState<string>('');
+
   const [users, setUsers] = useState<User[]>(DEFAULT_USERS);
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>(PRODUCTS);
@@ -59,12 +65,10 @@ const App: React.FC = () => {
         if (serverData.users?.length > 0) setUsers(serverData.users);
         if (serverData.inventory?.length > 0) setProducts(serverData.inventory);
         
-        // Detectar nuevos pedidos para alerta estilo WhatsApp
         if (serverData.orders && serverData.orders.length > prevOrdersCount.current && prevOrdersCount.current !== 0) {
            const newOrder = serverData.orders[serverData.orders.length - 1];
            if (newOrder.userEmail !== user?.email) {
              setNotification({ title: 'Nueva Reserva Recibida', msg: `Se ha generado un nuevo pedido de: ${newOrder.destinationLocation}` });
-             // Sonido de notificación opcional
              try { new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3').play(); } catch(e){}
            }
         }
@@ -111,9 +115,16 @@ const App: React.FC = () => {
   const handleEditQuote = (orderId: string) => {
     const orderToEdit = orders.find(o => o.id === orderId);
     if (orderToEdit) {
+      // Cargamos ítems al carrito
       setCart([...orderToEdit.items]);
+      // PRE-LLENAMOS LOS PARÁMETROS DEL EVENTO CON LA INFO ORIGINAL
+      setEventStartDate(orderToEdit.startDate);
+      setEventEndDate(orderToEdit.endDate);
+      setEventOrigin(orderToEdit.originLocation);
+      setEventDestination(orderToEdit.destinationLocation);
+      
+      // Eliminamos la cotización vieja para ser reemplazada por la nueva
       saveAndSync('orders', orders.filter(o => o.id !== orderId));
-      // Redirigir al carrito para modificar
     }
   };
 
@@ -163,7 +174,6 @@ const App: React.FC = () => {
       }} /> : (
         <Layout user={user} cartCount={cart.length} onLogout={() => setUser(null)} syncStatus={{ isOnline, lastSync }} onChangePassword={() => setIsPasswordModalOpen(true)}>
           
-          {/* Alerta estilo WhatsApp */}
           {notification && (
             <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[500] w-[90%] max-w-sm animate-in slide-in-from-top-full duration-500">
               <div className="bg-white border-l-4 border-brand-400 shadow-[0_20px_50px_rgba(0,0,51,0.3)] rounded-2xl p-4 flex items-center space-x-4">
@@ -222,7 +232,6 @@ const App: React.FC = () => {
                   saveAndSync('orders', updatedOrders);
                   setCart([]);
 
-                  // Abrir modal de correo automáticamente para la nueva cotización/pedido
                   setActiveEmail({
                     to: user.email,
                     cc: 'gerencia@absolutecompany.co',
@@ -232,6 +241,14 @@ const App: React.FC = () => {
                     order: newOrder
                   });
                 }}
+                startDate={eventStartDate}
+                setStartDate={setEventStartDate}
+                endDate={eventEndDate}
+                setEndDate={setEventEndDate}
+                origin={eventOrigin}
+                setOrigin={setEventOrigin}
+                destination={eventDestination}
+                setDestination={setEventDestination}
               />} />
 
             <Route path="/orders" element={<div className="space-y-6">
