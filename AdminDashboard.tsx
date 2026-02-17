@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Product, Order, User, WorkflowStageKey, StageData, Category, CartItem } from './types';
 import { 
@@ -14,7 +13,10 @@ import {
   ClipboardList, 
   FileText, 
   X, 
-  Database 
+  Database,
+  RefreshCw,
+  // Fix: Added missing Eye import from lucide-react
+  Eye
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserManagement } from './components/UserManagement';
@@ -107,17 +109,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                    <button onClick={() => startEdit()} className="bg-brand-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center"><Plus size={16} className="mr-2" /> Nuevo Artículo</button>
                 </div>
              </div>
-
-             <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Database size={18} className="text-emerald-500" />
-                  <div>
-                    <p className="text-[10px] font-black text-emerald-900 uppercase tracking-widest">Sincronización Global Activa</p>
-                    <p className="text-[9px] text-emerald-700 font-medium">Todos los cambios se guardan automáticamente en el servidor y son visibles para todos los dispositivos.</p>
-                  </div>
-                </div>
-             </div>
-
              <div className="overflow-x-auto">
                <table className="w-full text-left">
                   <thead className="bg-slate-50">
@@ -153,21 +144,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {activeTab === 'orders' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest flex items-center">
-                <ClipboardList size={18} className="mr-2" /> Reservas y Cotizaciones
-              </h3>
-            </div>
+            <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest flex items-center">
+              <ClipboardList size={18} className="mr-2" /> Reservas y Cotizaciones
+            </h3>
             <div className="space-y-4">
               {orders.map(order => {
                 const isExpanded = expandedOrders.has(order.id);
+                const isQuote = order.status === 'Cotización';
                 return (
-                  <div key={order.id} className={`bg-white border rounded-[2rem] overflow-hidden transition-all ${isExpanded ? 'border-brand-900 shadow-xl' : 'border-slate-100 shadow-sm'}`}>
+                  <div key={order.id} className={`bg-white border rounded-[2rem] overflow-hidden transition-all ${isExpanded ? 'border-brand-900 shadow-xl' : 'border-slate-100 shadow-sm'} ${isQuote ? 'border-l-4 border-amber-400' : ''}`}>
                     <div className="p-6 cursor-pointer" onClick={() => toggleExpandOrder(order.id)}>
                       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div className="flex items-center space-x-4">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${order.orderType === 'quote' ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-900'}`}>
-                            {order.orderType === 'quote' ? <FileText size={20} /> : <Package size={20} />}
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isQuote ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-900'}`}>
+                            {isQuote ? <FileText size={20} /> : <Package size={20} />}
                           </div>
                           <div>
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">ID: {order.id} • {new Date(order.createdAt).toLocaleDateString()}</span>
@@ -176,21 +166,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </h4>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-6 w-full md:w-auto justify-between md:justify-end">
-                           <div className="text-center md:text-right">
+                        <div className="flex items-center space-x-4">
+                           <div className="text-right">
                              <p className="text-[9px] font-black text-slate-400 uppercase">Total</p>
                              <p className="text-sm font-black text-brand-900">${order.totalAmount.toLocaleString()}</p>
                            </div>
-                           <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border shadow-sm ${order.status === 'Finalizado' ? 'bg-green-50 text-green-700' : 'bg-brand-50 text-brand-900'}`}>{order.status}</span>
+                           <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border shadow-sm ${isQuote ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-brand-50 text-brand-900'}`}>{order.status}</span>
                         </div>
                       </div>
                     </div>
+                    {isExpanded && (
+                      <div className="p-8 bg-slate-50/50 border-t border-slate-100 animate-in slide-in-from-top-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                           <div>
+                              <h5 className="text-[10px] font-black text-brand-900 uppercase mb-4">Artículos en Reserva</h5>
+                              <div className="space-y-2">
+                                 {order.items.map(i => (
+                                   <div key={i.id} className="bg-white p-3 rounded-xl border border-slate-200 flex justify-between items-center">
+                                      <span className="text-[11px] font-bold text-slate-700">{i.name}</span>
+                                      <span className="text-[11px] font-black text-brand-900">x{i.quantity}</span>
+                                   </div>
+                                 ))}
+                              </div>
+                           </div>
+                           <div className="flex flex-col justify-center space-y-4">
+                              {isQuote && (
+                                <button onClick={() => onApproveOrder(order.id, 'Coordinadordavidabsolute@gmail.com')} className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center space-x-2 shadow-lg">
+                                  <CheckCircle size={16} /> <span>Aprobar y Convertir a Pedido</span>
+                                </button>
+                              )}
+                              <button onClick={() => onCancelOrder?.(order.id)} className="w-full py-4 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center space-x-2 border border-red-100">
+                                <XCircle size={16} /> <span>Anular Registro</span>
+                              </button>
+                              <Link to={`/tracking/${order.id}`} className="w-full py-4 bg-brand-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center space-x-2">
+                                <Eye size={16} /> <span>Ver Detalles Logísticos</span>
+                              </Link>
+                           </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
-              {orders.length === 0 && (
-                <div className="text-center py-20 text-slate-400 font-bold uppercase text-[10px]">No hay pedidos registrados en el servidor.</div>
-              )}
             </div>
           </div>
         )}
@@ -207,48 +224,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           />
         )}
       </div>
-
-      {isEditingProduct && (
-          <div className="fixed inset-0 bg-brand-900/90 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-            <div className="bg-white rounded-[3rem] shadow-2xl max-w-2xl w-full p-10 space-y-6 animate-in zoom-in duration-300">
-                <div className="flex justify-between items-center border-b pb-6">
-                  <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest flex items-center"><Edit2 size={18} className="mr-2" /> Editor de Artículo</h3>
-                  <button onClick={() => setIsEditingProduct(null)}><X size={24} className="text-slate-400" /></button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Nombre del Producto</label>
-                    <input type="text" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Categoría</label>
-                    <select value={editForm.category} onChange={e => setEditForm({...editForm, category: e.target.value as Category})} className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none">
-                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Tarifa Alquiler ($)</label>
-                    <input type="number" value={editForm.priceRent} onChange={e => setEditForm({...editForm, priceRent: parseInt(e.target.value) || 0})} className="w-full bg-slate-50 p-4 rounded-2xl font-black text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Cantidad en Stock</label>
-                    <input type="number" value={editForm.stock} onChange={e => setEditForm({...editForm, stock: parseInt(e.target.value) || 0})} className="w-full bg-slate-50 p-4 rounded-2xl font-black text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none" />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-400 uppercase ml-2">URL de la Imagen</label>
-                  <input type="text" value={editForm.image} onChange={e => setEditForm({...editForm, image: e.target.value})} className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Descripción (Opcional)</label>
-                  <div ref={editorRef} contentEditable className="w-full bg-slate-50 p-6 rounded-2xl font-medium text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none min-h-[100px]" dangerouslySetInnerHTML={{ __html: editForm.description || '' }}></div>
-                </div>
-                <button onClick={saveProduct} className="w-full py-5 bg-brand-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all">Guardar cambios en el Servidor</button>
-            </div>
-          </div>
-      )}
     </div>
   );
 };

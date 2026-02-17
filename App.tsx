@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { User, Product, CartItem, Order, OrderStatus, WorkflowStageKey, StageData, OrderType } from './types';
 import { Login } from './components/Login';
@@ -10,8 +10,9 @@ import { Tracking } from './components/Tracking';
 import { AdminDashboard } from './AdminDashboard';
 import { ServiceMap } from './components/ServiceMap';
 import { PRODUCTS } from './constants';
-import { Cloud, RefreshCw, Package, Eye } from 'lucide-react';
+import { Cloud, RefreshCw, Package, Eye, BellRing, X } from 'lucide-react';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
+import { EmailNotification } from './components/EmailNotification';
 
 const API_URL = './api/sync.php'; 
 const ADMIN_EMAIL = 'admin@absolutecompany.co';
@@ -30,10 +31,14 @@ const App: React.FC = () => {
   const [lastSync, setLastSync] = useState<Date>(new Date());
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [hasUnsyncedChanges, setHasUnsyncedChanges] = useState(false);
+  const [notification, setNotification] = useState<{title: string, msg: string} | null>(null);
+  const [activeEmail, setActiveEmail] = useState<any>(null);
   
   const [users, setUsers] = useState<User[]>(DEFAULT_USERS);
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>(PRODUCTS);
+  
+  const prevOrdersCount = useRef(0);
 
   const syncWithServer = useCallback(async (dataToPush?: any) => {
     try {
@@ -46,29 +51,30 @@ const App: React.FC = () => {
       if (response.ok) {
         const serverData = await response.json();
         
-        // Inicializar si el servidor no tiene datos
         if (serverData.users.length === 0 && !dataToPush) {
-           await syncWithServer({
-             type: 'sync_all',
-             users: DEFAULT_USERS,
-             inventory: PRODUCTS,
-             orders: []
-           });
+           await syncWithServer({ type: 'sync_all', users: DEFAULT_USERS, inventory: PRODUCTS, orders: [] });
            return;
         }
 
         if (serverData.users?.length > 0) setUsers(serverData.users);
         if (serverData.inventory?.length > 0) setProducts(serverData.inventory);
+        
+        // Detectar nuevos pedidos para alerta estilo WhatsApp
+        if (serverData.orders && serverData.orders.length > prevOrdersCount.current && prevOrdersCount.current !== 0) {
+           const newOrder = serverData.orders[serverData.orders.length - 1];
+           if (newOrder.userEmail !== user?.email) {
+             setNotification({ title: 'Nueva Reserva Recibida', msg: `Se ha generado un nuevo pedido de: ${newOrder.destinationLocation}` });
+             // Sonido de notificación opcional
+             try { new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3').play(); } catch(e){}
+           }
+        }
+        prevOrdersCount.current = serverData.orders?.length || 0;
+
         if (serverData.orders) setOrders(serverData.orders);
         
         setIsOnline(true);
         setLastSync(new Date());
         setHasUnsyncedChanges(false);
-        
-        localStorage.setItem('absolute_users', JSON.stringify(serverData.users));
-        localStorage.setItem('absolute_inventory', JSON.stringify(serverData.inventory));
-        localStorage.setItem('absolute_orders', JSON.stringify(serverData.orders));
-        
         return true;
       }
       return false;
@@ -76,45 +82,39 @@ const App: React.FC = () => {
       setIsOnline(false);
       return false;
     }
-  }, []);
+  }, [user?.email]);
 
   useEffect(() => {
-    const localUsers = localStorage.getItem('absolute_users');
-    const localProducts = localStorage.getItem('absolute_inventory');
-    const localOrders = localStorage.getItem('absolute_orders');
-    if (localUsers) setUsers(JSON.parse(localUsers));
-    if (localProducts) setProducts(JSON.parse(localProducts));
-    if (localOrders) setOrders(JSON.parse(localOrders));
-
     syncWithServer();
-    const interval = setInterval(() => syncWithServer(), 30000);
+    const interval = setInterval(() => syncWithServer(), 15000);
     return () => clearInterval(interval);
   }, [syncWithServer]);
 
   const saveAndSync = async (type: 'orders' | 'inventory' | 'users', newData: any) => {
     setHasUnsyncedChanges(true);
-    if (type === 'orders') setOrders(newData);
-    if (type === 'inventory') setProducts(newData);
-    if (type === 'users') setUsers(newData);
+    let finalUsers = users;
+    let finalInventory = products;
+    let finalOrders = orders;
+
+    if (type === 'orders') { setOrders(newData); finalOrders = newData; }
+    if (type === 'inventory') { setProducts(newData); finalInventory = newData; }
+    if (type === 'users') { setUsers(newData); finalUsers = newData; }
     
     await syncWithServer({
       type: 'sync_all',
-      users: type === 'users' ? newData : users,
-      inventory: type === 'inventory' ? newData : products,
-      orders: type === 'orders' ? newData : orders
+      users: finalUsers,
+      inventory: finalInventory,
+      orders: finalOrders
     });
   };
 
-  const handleLogin = (email: string, password?: string) => {
-    const lowerEmail = email.toLowerCase().trim();
-    const foundUser = users.find(u => u.email.toLowerCase() === lowerEmail);
-    if (foundUser) {
-      if (foundUser.password && password && foundUser.password !== password) return { success: false, message: 'Contraseña incorrecta.' };
-      if (foundUser.status === 'on-hold') return { success: false, message: 'Cuenta pendiente de aprobación.' };
-      setUser(foundUser);
-      return { success: true };
+  const handleEditQuote = (orderId: string) => {
+    const orderToEdit = orders.find(o => o.id === orderId);
+    if (orderToEdit) {
+      setCart([...orderToEdit.items]);
+      saveAndSync('orders', orders.filter(o => o.id !== orderId));
+      // Redirigir al carrito para modificar
     }
-    return { success: false, message: 'Usuario no encontrado.' };
   };
 
   const getAvailableStock = (productId: string, startStr: string, endStr: string) => {
@@ -145,31 +145,47 @@ const App: React.FC = () => {
 
   return (
     <HashRouter>
-      {!user ? <Login onLogin={handleLogin} onRegister={(n, e, ph, pass) => {
+      {!user ? <Login onLogin={(e, p) => {
+        const lowerEmail = e.toLowerCase().trim();
+        const foundUser = users.find(u => u.email.toLowerCase() === lowerEmail);
+        if (foundUser) {
+          if (foundUser.password && p && foundUser.password !== p) return { success: false, message: 'Contraseña incorrecta.' };
+          if (foundUser.status === 'on-hold') return { success: false, message: 'Cuenta pendiente de aprobación.' };
+          setUser(foundUser);
+          return { success: true };
+        }
+        return { success: false, message: 'Usuario no encontrado.' };
+      }} onRegister={(n, e, ph, pass) => {
         if (users.some(u => u.email.toLowerCase() === e.toLowerCase().trim())) return false;
         const newUsers = [...users, { name: n, email: e.trim(), role: 'user', phone: ph, status: 'on-hold', password: pass, discountPercentage: 0 }];
         saveAndSync('users', newUsers);
         return true;
       }} /> : (
         <Layout user={user} cartCount={cart.length} onLogout={() => setUser(null)} syncStatus={{ isOnline, lastSync }} onChangePassword={() => setIsPasswordModalOpen(true)}>
-          {hasUnsyncedChanges && (
-            <div className="fixed top-20 right-8 z-[100] bg-brand-900 text-white p-4 rounded-2xl shadow-2xl border border-brand-400/20 animate-bounce flex items-center space-x-3">
-               <Cloud size={20} className="text-brand-400" />
-               <div className="text-left">
-                  <p className="text-[10px] font-black uppercase">Sincronizando</p>
-                  <p className="text-[8px] font-bold text-brand-400">Actualizando servidor global</p>
-               </div>
-               <button onClick={() => syncWithServer({ type: 'sync_all', users, inventory: products, orders })} className="p-2 bg-white/10 rounded-lg hover:bg-white/20">
-                  <RefreshCw size={14} />
-               </button>
+          
+          {/* Alerta estilo WhatsApp */}
+          {notification && (
+            <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[500] w-[90%] max-w-sm animate-in slide-in-from-top-full duration-500">
+              <div className="bg-white border-l-4 border-brand-400 shadow-[0_20px_50px_rgba(0,0,51,0.3)] rounded-2xl p-4 flex items-center space-x-4">
+                 <div className="w-10 h-10 bg-brand-900 rounded-full flex items-center justify-center text-brand-400">
+                    <BellRing size={20} className="animate-wiggle" />
+                 </div>
+                 <div className="flex-1">
+                    <p className="text-[10px] font-black text-brand-900 uppercase tracking-widest">{notification.title}</p>
+                    <p className="text-[11px] text-slate-500 font-medium">{notification.msg}</p>
+                 </div>
+                 <button onClick={() => setNotification(null)} className="p-1 hover:bg-slate-100 rounded-lg"><X size={16}/></button>
+              </div>
             </div>
           )}
+
           <Routes>
-            <Route path="/" element={(user.role === 'logistics' || user.role === 'coordinator') ? <Navigate to="/orders" /> : <Catalog products={products} onAddToCart={(p, q) => setCart(prev => {
+            <Route path="/" element={<Catalog products={products} onAddToCart={(p, q) => setCart(prev => {
               const ex = prev.find(i => i.id === p.id);
               if (ex) return prev.map(i => i.id === p.id ? {...i, quantity: Math.min(i.quantity + q, p.stock)} : i);
               return [...prev, {...p, quantity: q}];
             })} />} />
+            
             <Route path="/cart" element={<Cart 
                 items={cart} 
                 currentUser={user} 
@@ -190,9 +206,8 @@ const App: React.FC = () => {
                     originLocation: origin,
                     destinationLocation: dest,
                     totalAmount: cart.reduce((acc, item) => {
-                      const days = Math.ceil(Math.abs(new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                      let price = item.priceRent;
-                      return acc + (price * item.quantity * days);
+                       const days = Math.ceil(Math.abs(new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                       return acc + (item.priceRent * item.quantity * days);
                     }, 0),
                     workflow: {
                       bodega_check: { status: 'pending', itemChecks: {}, photos: [], files: [] },
@@ -202,32 +217,48 @@ const App: React.FC = () => {
                       coord_to_bodega: { status: 'pending', itemChecks: {}, photos: [], files: [] },
                     }
                   };
-                  saveAndSync('orders', [...orders, newOrder]);
+                  
+                  const updatedOrders = [...orders, newOrder];
+                  saveAndSync('orders', updatedOrders);
                   setCart([]);
+
+                  // Abrir modal de correo automáticamente para la nueva cotización/pedido
+                  setActiveEmail({
+                    to: user.email,
+                    cc: 'gerencia@absolutecompany.co',
+                    subject: type === 'quote' ? `Nueva Cotización #${newOrder.id}` : `Confirmación de Reserva #${newOrder.id}`,
+                    body: `Gracias por confiar en ABSOLUTE. Adjuntamos el detalle de su ${type === 'quote' ? 'cotización' : 'reserva'} para el evento en ${dest}.\n\nSi desea realizar cambios, puede contactarnos citando el ID del pedido.`,
+                    stage: type === 'quote' ? 'Generación de Cotización' : 'Confirmación de Reserva',
+                    order: newOrder
+                  });
                 }}
               />} />
+
             <Route path="/orders" element={<div className="space-y-6">
-              <h2 className="text-2xl font-black text-brand-900 uppercase">Reservas Globales</h2>
+              <h2 className="text-2xl font-black text-brand-900 uppercase">Gestión de Reservas</h2>
               <div className="grid gap-4">
                 {orders.filter(o => user.role === 'admin' || user.role === 'logistics' || o.userEmail === user.email || o.assignedCoordinatorEmail === user.email).map(o => (
-                  <div key={o.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+                  <div key={o.id} className={`bg-white p-6 rounded-[2rem] border shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 ${o.status === 'Cotización' ? 'border-amber-200' : 'border-slate-100'}`}>
                     <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center text-brand-900"><Package size={20} /></div>
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${o.status === 'Cotización' ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-900'}`}><Package size={20} /></div>
                       <div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ID: {o.id}</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ID: {o.id} • {o.status}</span>
                         <h4 className="font-black text-brand-900 uppercase text-sm">{o.destinationLocation}</h4>
                       </div>
                     </div>
-                    <Link to={`/tracking/${o.id}`} className="bg-slate-100 text-slate-600 px-6 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2"> <Eye size={14} /> <span>Detalle</span> </Link>
+                    <div className="flex space-x-2">
+                       {o.status === 'Cotización' && (
+                         <button onClick={() => { handleEditQuote(o.id); window.location.hash = '#/cart'; }} className="bg-amber-500 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2"> <RefreshCw size={14} /> <span>Modificar</span> </button>
+                       )}
+                       <Link to={`/tracking/${o.id}`} className="bg-slate-100 text-slate-600 px-6 py-2 rounded-xl text-[9px] font-black uppercase flex items-center space-x-2"> <Eye size={14} /> <span>Detalle</span> </Link>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>} />
+
             <Route path="/admin" element={<AdminDashboard 
-                currentUser={user} 
-                products={products} 
-                orders={orders} 
-                users={users} 
+                currentUser={user} products={products} orders={orders} users={users} 
                 onAddProduct={(p) => saveAndSync('inventory', [...products, p])} 
                 onUpdateProduct={(p) => saveAndSync('inventory', products.map(old => old.id === p.id ? p : old))} 
                 onDeleteProduct={(id) => saveAndSync('inventory', products.filter(p => p.id !== id))} 
@@ -257,8 +288,9 @@ const App: React.FC = () => {
                   saveAndSync('orders', orders.map(o => o.id === orderId ? { ...o, workflow: updatedWorkflow } : o));
                 }
               }} />} />
-            <Route path="*" element={<Navigate to="/" />} />
           </Routes>
+
+          <EmailNotification email={activeEmail} onClose={() => setActiveEmail(null)} />
           <ChangePasswordModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} onUpdate={(p) => saveAndSync('users', users.map(u => u.email === user?.email ? {...u, password: p} : u))} currentUser={user!} />
         </Layout>
       )}
