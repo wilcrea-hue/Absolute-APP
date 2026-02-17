@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import { Product, Order, User, WorkflowStageKey, StageData, Category, CartItem } from './types';
-import { Package, Plus, Edit2, Trash2, CheckCircle, Lock, XCircle, DollarSign, UserCheck, Calendar, MapPin, ArrowRight, ClipboardList, FileText, X, Filter, RefreshCw, Bold, Italic, Sparkles, Loader2, List, Type, UserPlus, Clock, Tags, Shield, Download, Upload, Database } from 'lucide-react';
+import { Package, Plus, Edit2, Trash2, CheckCircle, Lock, XCircle, DollarSign, UserCheck, Calendar, MapPin, ArrowRight, ClipboardList, FileText, X, Filter, RefreshCw, Bold, Italic, Sparkles, Loader2, List, Type, UserPlus, Clock, Tags, Shield, Download, Upload, Database, CloudCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserManagement } from './components/UserManagement';
 import { GoogleGenAI } from "@google/genai";
@@ -40,54 +40,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [isAiOptimizing, setIsAiOptimizing] = useState(false);
-  const [approvalCoord, setApprovalCoord] = useState<Record<string, string>>({});
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [showFilters, setShowFilters] = useState(false);
-  const [creationStart, setCreationStart] = useState('');
-  const [creationEnd, setCreationEnd] = useState('');
-  const [serviceStart, setServiceStart] = useState('');
-  const [serviceEnd, setServiceEnd] = useState('');
-
   const isAdmin = currentUser.role === 'admin';
-  const coordinators = useMemo(() => users.filter(u => u.role === 'coordinator' && u.status === 'active'), [users]);
-
-  // Funciones de Exportación/Importación para resolver el problema del usuario
-  const exportData = () => {
-    const data = {
-      products,
-      orders,
-      exportDate: new Date().toISOString(),
-      source: 'ABSOLUTE Admin Panel'
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ABSOLUTE_BACKUP_${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-  };
-
-  const importData = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const json = JSON.parse(evt.target?.result as string);
-        if (json.products && Array.isArray(json.products)) {
-          if (window.confirm(`Se detectaron ${json.products.length} productos. ¿Desea importarlos y actualizar su inventario actual?`)) {
-            json.products.forEach((p: Product) => onUpdateProduct(p));
-            alert("Importación exitosa. Refresque la página si no ve los cambios.");
-          }
-        }
-      } catch (err) {
-        alert("Archivo inválido.");
-      }
-    };
-    reader.readAsText(file);
-  };
 
   const startEdit = (product?: Product) => {
     if (product) {
@@ -120,36 +76,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   };
 
-  const professionalizeDescription = async () => {
-    const currentText = editorRef.current?.innerHTML || editForm.description || '';
-    if (!currentText || isAiOptimizing || !process.env.API_KEY) return;
-    setIsAiOptimizing(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Actúa como un experto en marketing de eventos para ABSOLUTE COMPANY. Optimiza la siguiente descripción de producto para que sea profesional, elegante y persuasiva. MANTÉN EL FORMATO HTML (etiquetas b, i, ul, li). Producto: ${editForm.name}. Descripción original: "${currentText}"`;
-      const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-      if (response.text && editorRef.current) {
-        editorRef.current.innerHTML = response.text.trim();
-        setEditForm({ ...editForm, description: response.text.trim() });
-      }
-    } catch (err) { console.error(err); } finally { setIsAiOptimizing(false); }
-  };
-
-  const filteredOrders = useMemo(() => {
-    return orders.filter(order => {
-      if (creationStart || creationEnd) {
-        const orderDate = new Date(order.createdAt).getTime();
-        if (creationStart && orderDate < new Date(creationStart).getTime()) return false;
-        if (creationEnd) {
-          const endDate = new Date(creationEnd);
-          endDate.setDate(endDate.getDate() + 1);
-          if (orderDate >= endDate.getTime()) return false;
-        }
-      }
-      return true;
-    });
-  }, [orders, creationStart, creationEnd]);
-
   return (
     <div className="space-y-6">
       <div className="flex space-x-2 bg-slate-200/50 p-1.5 rounded-[1.5rem] w-fit border border-slate-200">
@@ -167,25 +93,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Control de stock y tarifas para {products.length} artículos</p>
                 </div>
                 <div className="flex space-x-3">
-                   {/* Botones de Transferencia Maestra */}
-                   <button onClick={exportData} className="bg-slate-100 text-slate-600 px-5 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest flex items-center hover:bg-slate-200 transition-all">
-                     <Download size={14} className="mr-2" /> Exportar Backup
-                   </button>
-                   <button onClick={() => fileInputRef.current?.click()} className="bg-slate-100 text-slate-600 px-5 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest flex items-center hover:bg-slate-200 transition-all">
-                     <Upload size={14} className="mr-2" /> Importar
-                   </button>
-                   <input type="file" ref={fileInputRef} onChange={importData} className="hidden" accept=".json" />
-                   <button onClick={() => startEdit()} className="bg-brand-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center"><Plus size={16} className="mr-2" /> Nuevo</button>
+                   <button onClick={() => startEdit()} className="bg-brand-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center"><Plus size={16} className="mr-2" /> Nuevo Artículo</button>
                 </div>
              </div>
 
-             {/* Aviso de Sincronización Local */}
-             <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-center justify-between">
+             <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <Database size={18} className="text-amber-500" />
+                  <Database size={18} className="text-emerald-500" />
                   <div>
-                    <p className="text-[10px] font-black text-amber-900 uppercase">Nota sobre persistencia global</p>
-                    <p className="text-[9px] text-amber-700 font-medium">Los cambios hechos aquí se guardan localmente. Para que otros los vean, use el botón "Exportar" y cargue el archivo en el otro dispositivo, o contacte soporte para actualizar el servidor.</p>
+                    <p className="text-[10px] font-black text-emerald-900 uppercase tracking-widest">Sincronización Global Activa</p>
+                    <p className="text-[9px] text-emerald-700 font-medium">Todos los cambios se guardan automáticamente en el servidor absolutocompany.co y son visibles para todos los dispositivos.</p>
                   </div>
                 </div>
              </div>
@@ -205,15 +122,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                               <td className="p-5">
                                   <div className="flex items-center space-x-4">
-                                      <img src={p.image} className="w-10 h-10 rounded-lg object-cover" alt="" />
+                                      <img src={p.image} className="w-10 h-10 rounded-lg object-cover shadow-sm" alt="" />
                                       <span className="font-bold text-sm text-slate-800">{p.name}</span>
                                   </div>
                               </td>
                               <td className="p-5 text-center text-sm font-black text-brand-900">${p.priceRent?.toLocaleString()}</td>
                               <td className="p-5 text-center font-black text-brand-900">{p.stock}</td>
                               <td className="p-5 text-right space-x-2">
-                                  <button onClick={() => startEdit(p)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg"><Edit2 size={16} /></button>
-                                  <button onClick={() => onDeleteProduct(p.id)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
+                                  <button onClick={() => startEdit(p)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={16} /></button>
+                                  <button onClick={() => { if(confirm('¿Eliminar producto?')) onDeleteProduct(p.id) }} className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
                               </td>
                           </tr>
                       ))}
@@ -227,13 +144,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="space-y-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest flex items-center">
-                <ClipboardList size={18} className="mr-2" /> Listado Maestro de Alquileres
+                <ClipboardList size={18} className="mr-2" /> Reservas y Cotizaciones
               </h3>
             </div>
             <div className="space-y-4">
-              {filteredOrders.map(order => {
+              {orders.map(order => {
                 const isExpanded = expandedOrders.has(order.id);
-                const assignedCoord = users.find(u => u.email === order.assignedCoordinatorEmail);
                 return (
                   <div key={order.id} className={`bg-white border rounded-[2rem] overflow-hidden transition-all ${isExpanded ? 'border-brand-900 shadow-xl' : 'border-slate-100 shadow-sm'}`}>
                     <div className="p-6 cursor-pointer" onClick={() => toggleExpandOrder(order.id)}>
@@ -261,12 +177,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 );
               })}
+              {orders.length === 0 && (
+                <div className="text-center py-20 text-slate-400 font-bold uppercase text-[10px]">No hay pedidos registrados en el servidor.</div>
+              )}
             </div>
           </div>
         )}
 
         {activeTab === 'users' && isAdmin && (
-          <UserManagement users={users} currentUser={currentUser} onChangeUserRole={onChangeUserRole!} onChangeUserDiscount={onChangeUserDiscount} onUpdateUserDetails={onUpdateUserDetails} onToggleStatus={onToggleUserStatus} onDeleteUser={onDeleteUser} />
+          <UserManagement 
+            users={users} 
+            currentUser={currentUser} 
+            onChangeUserRole={onChangeUserRole!} 
+            onChangeUserDiscount={onChangeUserDiscount} 
+            onUpdateUserDetails={onUpdateUserDetails} 
+            onToggleStatus={onToggleUserStatus} 
+            onDeleteUser={onDeleteUser} 
+          />
         )}
       </div>
 
@@ -278,17 +205,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <button onClick={() => setIsEditingProduct(null)}><X size={24} className="text-slate-400" /></button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <input type="text" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} placeholder="Nombre" className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none" />
-                  <select value={editForm.category} onChange={e => setEditForm({...editForm, category: e.target.value as Category})} className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none">
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Nombre del Producto</label>
+                    <input type="text" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Categoría</label>
+                    <select value={editForm.category} onChange={e => setEditForm({...editForm, category: e.target.value as Category})} className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none">
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <input type="number" value={editForm.priceRent} onChange={e => setEditForm({...editForm, priceRent: parseInt(e.target.value) || 0})} placeholder="Tarifa" className="w-full bg-slate-50 p-4 rounded-2xl font-black text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none" />
-                  <input type="number" value={editForm.stock} onChange={e => setEditForm({...editForm, stock: parseInt(e.target.value) || 0})} placeholder="Stock" className="w-full bg-slate-50 p-4 rounded-2xl font-black text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none" />
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Tarifa Alquiler ($)</label>
+                    <input type="number" value={editForm.priceRent} onChange={e => setEditForm({...editForm, priceRent: parseInt(e.target.value) || 0})} className="w-full bg-slate-50 p-4 rounded-2xl font-black text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Cantidad en Stock</label>
+                    <input type="number" value={editForm.stock} onChange={e => setEditForm({...editForm, stock: parseInt(e.target.value) || 0})} className="w-full bg-slate-50 p-4 rounded-2xl font-black text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none" />
+                  </div>
                 </div>
-                <input type="text" value={editForm.image} onChange={e => setEditForm({...editForm, image: e.target.value})} placeholder="URL Imagen" className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none" />
-                <button onClick={saveProduct} className="w-full py-5 bg-brand-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl">Guardar Cambios</button>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase ml-2">URL de la Imagen</label>
+                  <input type="text" value={editForm.image} onChange={e => setEditForm({...editForm, image: e.target.value})} className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Descripción (Opcional)</label>
+                  <div ref={editorRef} contentEditable className="w-full bg-slate-50 p-6 rounded-2xl font-medium text-sm border-0 focus:ring-2 focus:ring-brand-900 outline-none min-h-[100px]" dangerouslySetInnerHTML={{ __html: editForm.description || '' }}></div>
+                </div>
+                <button onClick={saveProduct} className="w-full py-5 bg-brand-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all">Guardar cambios en el Servidor</button>
             </div>
           </div>
       )}
