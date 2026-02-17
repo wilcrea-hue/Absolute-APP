@@ -40,7 +40,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
       const status = (user.status || 'active').toLowerCase();
       
       // Mapeo semántico para búsqueda en español
-      const statusLabel = status === 'on-hold' ? 'espera pendiente' : 'activo';
+      const statusLabel = status === 'on-hold' ? 'espera pendiente hold' : 'activo active';
 
       return name.includes(term) || 
              email.includes(term) || 
@@ -142,7 +142,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input 
             type="text" 
-            placeholder="Buscar por nombre, email o estado..." 
+            placeholder="Buscar por nombre, email, teléfono o estado (pendiente/activo)..." 
             className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-brand-900 outline-none text-xs font-bold transition-all"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}

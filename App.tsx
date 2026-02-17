@@ -11,7 +11,8 @@ import { AdminDashboard } from './AdminDashboard';
 import { ServiceMap } from './components/ServiceMap';
 import { PRODUCTS, LOGO_URL } from './constants';
 import { GoogleGenAI } from "@google/genai";
-import { CheckCircle, Eye, UserCheck, AlertCircle, CloudSync, RefreshCw, Package } from 'lucide-react';
+// Fixed: Replaced CloudSync with Cloud to resolve TS2724
+import { CheckCircle, Eye, UserCheck, AlertCircle, Cloud, RefreshCw, Package } from 'lucide-react';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 
 const API_URL = './api/sync.php'; 
@@ -148,7 +149,7 @@ const App: React.FC = () => {
         <Layout user={user} cartCount={cart.length} onLogout={() => setUser(null)} syncStatus={{ isOnline, lastSync }} onChangePassword={() => setIsPasswordModalOpen(true)}>
           {hasUnsyncedChanges && (
             <div className="fixed top-20 right-8 z-[100] bg-brand-900 text-white p-4 rounded-2xl shadow-2xl border border-brand-400/20 animate-bounce flex items-center space-x-3">
-               <CloudSync size={20} className="text-brand-400" />
+               <Cloud size={20} className="text-brand-400" />
                <div className="text-left">
                   <p className="text-[10px] font-black uppercase">Cambios Locales</p>
                   <p className="text-[8px] font-bold text-brand-400">Haga click para intentar sincronizar</p>
