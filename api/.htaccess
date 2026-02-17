@@ -1,0 +1,23 @@
+
+# Impedir que se listen los archivos de la carpeta
+Options -Indexes
+
+# Bloquear el acceso directo a cualquier archivo JSON
+<Files "*.json">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+# Bloquear acceso a archivos de configuración o logs si existieran
+<FilesMatch "^(config|logs|data_absolute)\.(json|log|ini|php)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+# Permitir el acceso solo a los scripts de procesamiento
+<Files "sync.php">
+    Allow from all
+</Files>
+<Files "send_email.php">
+    Allow from all
+</Files>

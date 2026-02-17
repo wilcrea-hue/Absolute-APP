@@ -1,7 +1,7 @@
+
 <?php
 /**
- * ABSOLUTE APP - API SYNC
- * Ubicación: absolutecompany.co/app/api/sync.php
+ * ABSOLUTE APP - API SYNC (SECURED)
  */
 
 header('Content-Type: application/json');
@@ -9,15 +9,13 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
-// Archivo donde se guardará toda la base de datos
 $dataFile = 'data_absolute.json';
 
-// Manejo de peticiones pre-flight de CORS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// 1. Cargar datos actuales del archivo JSON
+// 1. Cargar datos actuales
 $currentData = [
     "users" => [],
     "inventory" => [],
@@ -34,29 +32,47 @@ if (file_exists($dataFile)) {
     }
 }
 
-// 2. Procesar POST (Guardar datos enviados por la App)
+// 2. Procesar POST (Guardar datos)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $inputJSON = file_get_contents('php://input');
     $input = json_decode($inputJSON, true);
 
     if ($input) {
-        // Si el frontend envía un paquete de sincronización completa
         if (isset($input['type']) && $input['type'] === 'sync_all') {
-            if (isset($input['users'])) $currentData['users'] = $input['users'];
+            
+            // SEGURIDAD: Si el frontend envía usuarios, conservamos las contraseñas del servidor 
+            // si el frontend no las envía (para evitar borrarlas accidentalmente)
+            if (isset($input['users'])) {
+                foreach ($input['users'] as $index => $incomingUser) {
+                    // Si el usuario ya existe en el servidor y el incoming no trae password, mantenemos el del servidor
+                    if (!isset($incomingUser['password']) || empty($incomingUser['password'])) {
+                        foreach ($currentData['users'] as $serverUser) {
+                            if ($serverUser['email'] === $incomingUser['email']) {
+                                $input['users'][$index]['password'] = $serverUser['password'];
+                                break;
+                            }
+                        }
+                    }
+                }
+                $currentData['users'] = $input['users'];
+            }
+            
             if (isset($input['inventory'])) $currentData['inventory'] = $input['inventory'];
             if (isset($input['orders'])) $currentData['orders'] = $input['orders'];
-        } 
-        // Si envía un cambio de un tipo específico (backup)
-        else if (isset($input['type']) && isset($input['data'])) {
-            $key = $input['type']; // 'users', 'inventory' o 'orders'
-            $currentData[$key] = $input['data'];
         }
 
-        // Guardar el estado final en el archivo JSON del servidor
         file_put_contents($dataFile, json_encode($currentData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
     }
 }
 
-// 3. Responder siempre con el estado actual del servidor
-echo json_encode($currentData);
+// 3. SEGURIDAD EXTREMA: Eliminar contraseñas antes de enviar la respuesta al navegador
+// Las contraseñas solo se usan para el login inicial, no deben viajar en cada sync.
+$safeData = $currentData;
+if (isset($safeData['users'])) {
+    foreach ($safeData['users'] as &$user) {
+        unset($user['password']); // El cliente nunca vuelve a recibir la contraseña
+    }
+}
+
+echo json_encode($safeData);
 ?>

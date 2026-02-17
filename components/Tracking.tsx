@@ -89,7 +89,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
 
     setActiveEmail({
       to: order.userEmail,
-      cc: 'gerencia@absolutecompany.co',
+      cc: 'notificaciones@absolutecompany.co',
       subject: `Avance Logístico: Pedido #${order.id} - ${ALL_STAGES.find(s => s.key === activeStageKey)?.label}`,
       body: `Buen día,\n\nSe ha completado satisfactoriamente la etapa "${ALL_STAGES.find(s => s.key === activeStageKey)?.description}" para su pedido en ${order.destinationLocation}.\n\nPuede ver el acta digital con firmas y fotos adjuntas en el panel de seguimiento de la App.\n\nSaludos,\nEquipo ABSOLUTE.`,
       stage: ALL_STAGES.find(s => s.key === activeStageKey)?.label,

@@ -249,7 +249,7 @@ const App: React.FC = () => {
 
                   setActiveEmail({
                     to: user.email,
-                    cc: 'gerencia@absolutecompany.co',
+                    cc: 'notificaciones@absolutecompany.co',
                     subject: type === 'quote' ? `Nueva Cotización #${newOrder.id}` : `Confirmación de Reserva #${newOrder.id}`,
                     body: `Gracias por confiar en ABSOLUTE. Adjuntamos el detalle de su ${type === 'quote' ? 'cotización' : 'reserva'} para el evento en ${dest}.\n\nSi desea realizar cambios, puede contactarnos citando el ID del pedido.`,
                     stage: type === 'quote' ? 'Generación de Cotización' : 'Confirmación de Reserva',
