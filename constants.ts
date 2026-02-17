@@ -13,6 +13,16 @@ export const PRODUCTS: Product[] = [
     stock: 5,
     priceRent: 450000,
   },
+    
+  {
+    id: 'ae-1',
+    name: 'Stand básico',
+    category: 'Arquitectura Efímera',
+    description: 'Estructura modular estándar 3x3m para ferias.',
+    image: 'https://absolutecompany.co/app/imagenes/Arquitectura Efímera/Stand 3x3.png',
+    stock: 5,
+    priceRent: 450000,
+  },
   {
     id: 'ae-2',
     name: 'Stand estandar',
