@@ -282,6 +282,106 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           />
         )}
       </div>
+
+      {isEditingProduct && (
+        <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-brand-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div>
+                <h3 className="text-lg font-black text-brand-900 uppercase tracking-widest">
+                  {isEditingProduct === 'new' ? 'Nuevo Artículo' : 'Editar Artículo'}
+                </h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Complete los detalles del producto</p>
+              </div>
+              <button onClick={() => setIsEditingProduct(null)} className="p-3 hover:bg-white rounded-2xl transition-all text-slate-400 hover:text-brand-900 shadow-sm hover:shadow-md">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto no-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-brand-900 uppercase tracking-widest ml-1">Nombre del Producto *</label>
+                  <input 
+                    type="text" 
+                    value={editForm.name || ''} 
+                    onChange={e => setEditForm({...editForm, name: e.target.value})}
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-brand-400 outline-none transition-all"
+                    placeholder="Ej: Silla Tiffany Blanca"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-brand-900 uppercase tracking-widest ml-1">Categoría *</label>
+                  <select 
+                    value={editForm.category || ''} 
+                    onChange={e => setEditForm({...editForm, category: e.target.value as Category})}
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-brand-400 outline-none transition-all"
+                  >
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-brand-900 uppercase tracking-widest ml-1">Tarifa Alquiler ($) *</label>
+                  <input 
+                    type="number" 
+                    value={editForm.priceRent || 0} 
+                    onChange={e => setEditForm({...editForm, priceRent: Number(e.target.value)})}
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-brand-400 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-brand-900 uppercase tracking-widest ml-1">Stock Disponible *</label>
+                  <input 
+                    type="number" 
+                    value={editForm.stock || 0} 
+                    onChange={e => setEditForm({...editForm, stock: Number(e.target.value)})}
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-brand-400 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-brand-900 uppercase tracking-widest ml-1">URL de Imagen *</label>
+                <input 
+                  type="text" 
+                  value={editForm.image || ''} 
+                  onChange={e => setEditForm({...editForm, image: e.target.value})}
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-brand-400 outline-none transition-all"
+                  placeholder="https://..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-brand-900 uppercase tracking-widest ml-1">Descripción</label>
+                <div 
+                  ref={editorRef}
+                  contentEditable
+                  dangerouslySetInnerHTML={{ __html: editForm.description || '' }}
+                  className="w-full min-h-[150px] p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-brand-400 outline-none transition-all overflow-y-auto"
+                />
+              </div>
+            </div>
+
+            <div className="p-8 bg-slate-50/50 border-t border-slate-100 flex space-x-4">
+              <button 
+                onClick={() => setIsEditingProduct(null)}
+                className="flex-1 py-4 bg-white border border-slate-200 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={saveProduct}
+                className="flex-1 py-4 bg-brand-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-brand-900/20 hover:scale-[1.02] active:scale-95 transition-all"
+              >
+                Guardar Producto
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
