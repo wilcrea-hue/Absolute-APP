@@ -33,6 +33,7 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
 
   const [activeStageKey, setActiveStageKey] = useState<WorkflowStageKey>('bodega_check');
   const [tempStageData, setTempStageData] = useState<StageData | null>(null);
+  const [lastInitializedKey, setLastInitializedKey] = useState<string>('');
   const [activeSigningField, setActiveSigningField] = useState<'signature' | 'receivedBy' | null>(null);
   const [activeEmail, setActiveEmail] = useState<any>(null);
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
@@ -41,23 +42,27 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
 
   useEffect(() => {
     if (order) {
-      const data = order.workflow[activeStageKey];
-      if (data) {
-        setTempStageData(JSON.parse(JSON.stringify(data)));
-      } else {
-        // Inicializar datos de etapa si no existen
-        setTempStageData({
-          status: 'pending',
-          itemChecks: order.items.reduce((acc, item) => ({ 
-            ...acc, 
-            [item.id]: { verified: false, notes: '' } 
-          }), {}),
-          photos: [],
-          files: []
-        });
+      const currentKey = `${order.id}_${activeStageKey}`;
+      // Solo inicializar si cambiamos de pedido o de etapa
+      if (currentKey !== lastInitializedKey) {
+        const data = order.workflow[activeStageKey];
+        if (data) {
+          setTempStageData(JSON.parse(JSON.stringify(data)));
+        } else {
+          setTempStageData({
+            status: 'pending',
+            itemChecks: order.items.reduce((acc, item) => ({ 
+              ...acc, 
+              [item.id]: { verified: false, notes: '' } 
+            }), {}),
+            photos: [],
+            files: []
+          });
+        }
+        setLastInitializedKey(currentKey);
       }
     }
-  }, [order, activeStageKey]);
+  }, [order, activeStageKey, lastInitializedKey]);
 
   if (!order) return (
     <div className="flex flex-col items-center justify-center py-20">
@@ -69,6 +74,12 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
 
   const isCompleted = order.workflow[activeStageKey]?.status === 'completed';
   
+  const hasUnsavedChanges = useMemo(() => {
+    if (!tempStageData || isCompleted) return false;
+    const originalData = order.workflow[activeStageKey];
+    return JSON.stringify(tempStageData) !== JSON.stringify(originalData);
+  }, [tempStageData, order.workflow, activeStageKey, isCompleted]);
+  
   const canEdit = useMemo(() => {
     if (order.status === 'Cotización' || order.status === 'Cancelado') return false;
     if (currentUser.role === 'admin') return true;
@@ -78,15 +89,27 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
   }, [currentUser.role, order.status, activeStageKey]);
 
   const handleUpdateItemCheck = (productId: string, field: keyof ItemCheck, value: any) => {
-    if (!tempStageData) return;
-    const newChecks = { ...tempStageData.itemChecks };
-    newChecks[productId] = { ...newChecks[productId], [field]: value };
-    setTempStageData({ ...tempStageData, itemChecks: newChecks });
+    setTempStageData(prev => {
+      if (!prev) return null;
+      const newChecks = { ...prev.itemChecks };
+      const existing = newChecks[productId] || { verified: false, notes: '' };
+      newChecks[productId] = { 
+        ...existing, 
+        [field]: value 
+      };
+      return { ...prev, itemChecks: newChecks };
+    });
   };
 
   const handleSaveSignature = (sig: Signature) => {
-    if (!tempStageData || !activeSigningField) return;
-    setTempStageData({ ...tempStageData, [activeSigningField]: sig });
+    if (!activeSigningField) return;
+    setTempStageData(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, [activeSigningField]: sig };
+      // Auto-guardado al firmar para evitar pérdida de datos críticos
+      onUpdateStage(order!.id, activeStageKey, updated);
+      return updated;
+    });
     setActiveSigningField(null);
   };
 
@@ -119,7 +142,10 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
             setTempStageData(prev => {
               if (!prev) return null;
               const updatedPhotos = [...(prev.photos || []), data.url];
-              return { ...prev, photos: updatedPhotos };
+              const updated = { ...prev, photos: updatedPhotos };
+              // Auto-guardado al subir foto
+              onUpdateStage(order!.id, activeStageKey, updated);
+              return updated;
             });
           } else {
             alert("Error al subir foto: " + (data.error || 'Error desconocido'));
@@ -409,19 +435,29 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
             {/* Acciones Finales */}
             {!isCompleted && canEdit && (
               <div className="pt-6 border-t border-slate-100 space-y-3">
+                {hasUnsavedChanges && (
+                  <div className="flex items-center justify-center space-x-2 text-amber-600 bg-amber-50 py-2 rounded-xl border border-amber-100 animate-pulse mb-2">
+                    <AlertTriangle size={14} />
+                    <span className="text-[9px] font-black uppercase tracking-widest">Tienes cambios sin guardar</span>
+                  </div>
+                )}
                 <button 
                   onClick={handleSaveDraft}
-                  className="w-full py-4 bg-white border border-brand-900 text-brand-900 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-50 transition-all flex items-center justify-center space-x-2"
+                  className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center space-x-2 ${
+                    hasUnsavedChanges 
+                      ? 'bg-brand-900 text-white shadow-lg shadow-brand-900/20' 
+                      : 'bg-white border border-slate-200 text-slate-400'
+                  }`}
                 >
                   <Save size={16} />
-                  <span>Guardar Avance (Borrador)</span>
+                  <span>{hasUnsavedChanges ? 'Guardar Cambios Ahora' : 'Avance Guardado'}</span>
                 </button>
                 <button 
                   onClick={handleCompleteStage}
-                  className="w-full py-5 bg-brand-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.3em] shadow-xl shadow-brand-900/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center space-x-3"
+                  className="w-full py-5 bg-emerald-600 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.3em] shadow-xl shadow-emerald-600/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center space-x-3"
                 >
                   <CheckCircle2 size={18} />
-                  <span>Cerrar Etapa y Notificar</span>
+                  <span>Finalizar Etapa</span>
                 </button>
               </div>
             )}

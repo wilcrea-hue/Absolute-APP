@@ -75,6 +75,7 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
             <div style="background: #f8fafc; padding: 20px; border-radius: 15px; text-align: right; margin-bottom: 30px;">
               <p style="margin: 0; font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700;">Inversión Total</p>
               <h2 style="margin: 5px 0 0; font-size: 24px; font-weight: 900; color: #000033;">$${email.order?.totalAmount.toLocaleString()}</h2>
+              <p style="margin: 5px 0 0; font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700;">(precios sin IVA.)</p>
             </div>
 
             <div style="font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; pt: 20px; text-align: center;">

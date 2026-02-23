@@ -31,16 +31,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $headers = "MIME-Version: 1.0" . "\r\n";
     $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
     $headers .= "From: ABSOLUTE App <notificaciones@absolutecompany.co>" . "\r\n";
+    $headers .= "Reply-To: notificaciones@absolutecompany.co" . "\r\n";
+    $headers .= "Return-Path: notificaciones@absolutecompany.co" . "\r\n";
+    $headers .= "X-Mailer: PHP/" . phpversion();
     
     if (!empty($cc)) {
         $headers .= "Cc: " . $cc . "\r\n";
     }
-    
-    $headers .= "Reply-To: contacto@absolutecompany.co" . "\r\n";
-    $headers .= "X-Mailer: PHP/" . phpversion();
 
-    // Envío del correo
-    if (mail($to, $subject, $message, $headers)) {
+    // Envío del correo con el parámetro -f para evitar el "en nombre de"
+    if (mail($to, $subject, $message, $headers, "-fnotificaciones@absolutecompany.co")) {
         echo json_encode(["success" => true, "message" => "Correo enviado exitosamente."]);
     } else {
         echo json_encode(["success" => false, "message" => "El servidor no pudo enviar el correo."]);
