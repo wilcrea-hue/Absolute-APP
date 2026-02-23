@@ -124,13 +124,13 @@ export const Cart: React.FC<CartProps> = ({
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="flex justify-between items-end">
         <div>
-          <h2 className="text-2xl font-black text-brand-900 uppercase">Configuración de Reserva</h2>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Costos ajustados según tabla de permanencia IPC 2024.</p>
+          <h2 className="text-lg md:text-2xl font-black text-brand-900 uppercase">Configuración de Reserva</h2>
+          <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Costos ajustados según tabla de permanencia IPC 2024.</p>
         </div>
         {overbookedProducts.length > 0 && (
-          <div className="bg-red-50 text-red-600 px-4 py-2 rounded-xl border border-red-100 flex items-center space-x-2 animate-pulse">
-            <XCircle size={16} />
-            <span className="text-[9px] font-black uppercase tracking-tighter">Error: Conflicto de Disponibilidad</span>
+          <div className="bg-red-50 text-red-600 px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl border border-red-100 flex items-center space-x-2 animate-pulse">
+            <XCircle size={14} className="md:w-4 md:h-4" />
+            <span className="text-[8px] md:text-[9px] font-black uppercase tracking-tighter">Error: Stock</span>
           </div>
         )}
       </div>
@@ -145,48 +145,61 @@ export const Cart: React.FC<CartProps> = ({
             const isMobiliario = item.category === 'Mobiliario';
 
             return (
-              <div key={item.id} className={`bg-white p-6 rounded-[2rem] border transition-all flex flex-col space-y-4 group hover:shadow-md ${isOverbooked ? 'border-red-200 shadow-lg shadow-red-500/5' : 'border-slate-100 shadow-sm'}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-6">
-                    <img src={item.image} className="w-20 h-20 rounded-2xl object-cover shadow-sm" alt="" />
+              <div key={item.id} className={`bg-white p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border transition-all flex flex-col space-y-3 md:space-y-4 group hover:shadow-md ${isOverbooked ? 'border-red-200 shadow-lg shadow-red-500/5' : 'border-slate-100 shadow-sm'}`}>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center space-x-4 md:space-x-6">
+                    <img src={item.image} className="w-14 h-14 md:w-20 md:h-20 rounded-xl md:rounded-2xl object-cover shadow-sm" alt="" />
                     <div>
-                      <div className="flex items-center space-x-2">
-                        <h4 className={`font-black uppercase text-sm ${isOverbooked ? 'text-red-600' : 'text-slate-900'}`}>{item.name}</h4>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className={`font-black uppercase text-[11px] md:text-sm ${isOverbooked ? 'text-red-600' : 'text-slate-900'}`}>{item.name}</h4>
                         {isMobiliario && (
-                          <span className="bg-brand-900 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">Plan Escalonado</span>
+                          <span className="bg-brand-900 text-white text-[6px] md:text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-widest">Plan Escalonado</span>
                         )}
                       </div>
-                      <p className="text-[10px] font-bold text-brand-500 uppercase mt-1 tracking-widest flex items-center">
-                        <Clock size={10} className="mr-1.5" /> 
+                      <p className="text-[9px] md:text-[10px] font-bold text-brand-500 uppercase mt-0.5 md:mt-1 tracking-widest flex items-center">
+                        <Clock size={8} className="mr-1 md:mr-1.5" /> 
                         {isMobiliario ? `${getTierLabel(eventDays)}: $${itemFinalPrice.toLocaleString()}` : `Alquiler/día: $${item.priceRent.toLocaleString()}`}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-8">
+                  <div className="flex items-center justify-between w-full sm:w-auto space-x-4 md:space-x-8">
                      <div className="flex flex-col items-center">
-                        <div className={`flex items-center border rounded-2xl p-1.5 transition-colors ${isOverbooked ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-100'}`}>
+                        <div className={`flex items-center border rounded-xl md:rounded-2xl p-1 md:p-1.5 transition-all ${isOverbooked ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-100'}`}>
                             <button 
+                              disabled={item.quantity <= 1}
                               onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} 
-                              className="w-8 h-8 flex items-center justify-center font-black hover:text-brand-900 transition-colors"
+                              className="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center font-black hover:text-brand-900 transition-colors disabled:opacity-20 disabled:cursor-not-allowed text-xs md:text-base"
                             >-</button>
-                            <span className="w-12 text-center font-black text-sm">{item.quantity}</span>
+                            <span className="w-8 md:w-12 text-center font-black text-xs md:text-sm">{item.quantity}</span>
                             <button 
+                              disabled={item.quantity >= availableForDates}
                               onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} 
-                              className={`w-8 h-8 flex items-center justify-center font-black transition-colors hover:text-brand-900`}
+                              className="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center font-black transition-colors hover:text-brand-900 disabled:opacity-20 disabled:cursor-not-allowed text-xs md:text-base"
                             >+</button>
                         </div>
-                        <p className={`text-[7px] font-black uppercase mt-1 ${isOverbooked ? 'text-red-500' : 'text-slate-400'}`}>
-                          {isOverbooked ? `Sólo ${availableForDates} disponibles` : `Stock total: ${item.stock}`}
-                        </p>
+                        <div className="mt-1.5 md:mt-2 flex flex-col items-center">
+                          <div className={`px-1.5 py-0.5 rounded-full text-[6px] md:text-[7px] font-black uppercase tracking-widest border ${
+                            isOverbooked 
+                              ? 'bg-red-100 text-red-600 border-red-200' 
+                              : availableForDates <= 5 
+                                ? 'bg-amber-100 text-amber-600 border-amber-200' 
+                                : 'bg-emerald-100 text-emerald-600 border-emerald-200'
+                          }`}>
+                            {isOverbooked ? 'Sin Disponibilidad' : availableForDates <= 5 ? 'Stock Limitado' : 'Disponible'}
+                          </div>
+                          <p className={`text-[6px] md:text-[7px] font-black uppercase mt-0.5 md:mt-1 ${isOverbooked ? 'text-red-500' : 'text-slate-400'}`}>
+                            {availableForDates} disponibles
+                          </p>
+                        </div>
                      </div>
-                     <div className="text-right min-w-[120px]">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                          {eventDays} {eventDays === 1 ? 'día' : 'días'} {isMobiliario && 'evento'}
+                     <div className="text-right min-w-[80px] md:min-w-[120px]">
+                        <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                          {eventDays} {eventDays === 1 ? 'día' : 'días'}
                         </p>
-                        <p className="font-black text-brand-900 text-base">${subtotal.toLocaleString()}</p>
+                        <p className="font-black text-brand-900 text-sm md:text-base">${subtotal.toLocaleString()}</p>
                      </div>
-                     <button onClick={() => onRemove(item.id)} className="p-3 text-red-200 hover:text-red-500 transition-all"><Trash2 size={20} /></button>
+                     <button onClick={() => onRemove(item.id)} className="p-2 md:p-3 text-red-200 hover:text-red-500 transition-all"><Trash2 size={18} /></button>
                   </div>
                 </div>
 
@@ -271,6 +284,7 @@ export const Cart: React.FC<CartProps> = ({
                 <div className="border-t border-slate-200 mt-4 pt-4 flex flex-col items-center">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inversión Final</span>
                   <span className="text-3xl font-black text-brand-900">${totalAmount.toLocaleString()}</span>
+                  <span className="text-[9px] font-black text-brand-500 uppercase mt-1 tracking-widest">(precios sin IVA.)</span>
                 </div>
               </div>
               

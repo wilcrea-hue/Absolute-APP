@@ -17,7 +17,10 @@ import {
   Database,
   RefreshCw,
   Eye,
-  UserCheck
+  UserCheck,
+  Search,
+  Calendar,
+  Filter
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserManagement } from './components/UserManagement';
@@ -56,6 +59,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [selectedCoordinator, setSelectedCoordinator] = useState<string>('');
+  const [filterStartDate, setFilterStartDate] = useState<string>('');
+  const [filterEndDate, setFilterEndDate] = useState<string>('');
+  const [filterCustomerName, setFilterCustomerName] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<string>('');
   const editorRef = useRef<HTMLDivElement>(null);
 
   const isAdmin = currentUser.role === 'admin';
@@ -151,121 +158,257 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {activeTab === 'orders' && (
           <div className="space-y-6">
-            <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest flex items-center">
-              <ClipboardList size={18} className="mr-2" /> Reservas y Cotizaciones
-            </h3>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <h3 className="text-sm font-black text-brand-900 uppercase tracking-widest flex items-center">
+                <ClipboardList size={18} className="mr-2" /> Reservas y Cotizaciones
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                <button 
+                  onClick={() => {
+                    setFilterStartDate('');
+                    setFilterEndDate('');
+                    setFilterCustomerName('');
+                    setFilterStatus('');
+                  }}
+                  className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Limpiar Filtros
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase text-slate-400 ml-3 flex items-center">
+                  <Search size={10} className="mr-1" /> Cliente / ID
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="Buscar..." 
+                  value={filterCustomerName}
+                  onChange={(e) => setFilterCustomerName(e.target.value)}
+                  className="w-full p-3 bg-white border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-brand-400 outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase text-slate-400 ml-3 flex items-center">
+                  <Filter size={10} className="mr-1" /> Estado
+                </label>
+                <select 
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full p-3 bg-white border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-brand-400 outline-none transition-all"
+                >
+                  <option value="">Todos los Estados</option>
+                  <option value="Cotización">Cotización</option>
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="En Proceso">En Proceso</option>
+                  <option value="Entregado">Entregado</option>
+                  <option value="Finalizado">Finalizado</option>
+                  <option value="Cancelado">Cancelado</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase text-slate-400 ml-3 flex items-center">
+                  <Calendar size={10} className="mr-1" /> Desde
+                </label>
+                <input 
+                  type="date" 
+                  value={filterStartDate}
+                  onChange={(e) => setFilterStartDate(e.target.value)}
+                  className="w-full p-3 bg-white border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-brand-400 outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase text-slate-400 ml-3 flex items-center">
+                  <Calendar size={10} className="mr-1" /> Hasta
+                </label>
+                <input 
+                  type="date" 
+                  value={filterEndDate}
+                  onChange={(e) => setFilterEndDate(e.target.value)}
+                  className="w-full p-3 bg-white border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-brand-400 outline-none transition-all"
+                />
+              </div>
+            </div>
+
             <div className="space-y-4">
-              {orders.map(order => {
-                const isExpanded = expandedOrders.has(order.id);
-                const isQuote = order.status === 'Cotización';
-                const isApprovable = isQuote || order.status === 'Pendiente';
-                
-                return (
-                  <div key={order.id} className={`bg-white border rounded-[2rem] overflow-hidden transition-all ${isExpanded ? 'border-brand-900 shadow-xl' : 'border-slate-100 shadow-sm'} ${isQuote ? 'border-l-4 border-amber-400' : ''}`}>
-                    <div className="p-6 cursor-pointer" onClick={() => toggleExpandOrder(order.id)}>
-                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div className="flex items-center space-x-4">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isQuote ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-900'}`}>
-                            {isQuote ? <FileText size={20} /> : <Package size={20} />}
+              {orders
+                .filter(order => {
+                  const user = users.find(u => u.email === order.userEmail);
+                  const userName = user ? user.name.toLowerCase() : '';
+                  const userEmail = order.userEmail.toLowerCase();
+                  const orderId = order.id.toLowerCase();
+                  const searchMatch = !filterCustomerName || 
+                    userName.includes(filterCustomerName.toLowerCase()) || 
+                    userEmail.includes(filterCustomerName.toLowerCase()) ||
+                    orderId.includes(filterCustomerName.toLowerCase());
+                  
+                  const statusMatch = !filterStatus || order.status === filterStatus;
+                  
+                  const orderStart = new Date(order.startDate).getTime();
+                  const orderEnd = new Date(order.endDate).getTime();
+                  const filterStart = filterStartDate ? new Date(filterStartDate).getTime() : null;
+                  const filterEnd = filterEndDate ? new Date(filterEndDate).getTime() : null;
+                  
+                  const dateMatch = (!filterStart || orderStart >= filterStart) && 
+                                   (!filterEnd || orderEnd <= filterEnd);
+                  
+                  return searchMatch && statusMatch && dateMatch;
+                })
+                .map(order => {
+                  const isExpanded = expandedOrders.has(order.id);
+                  const isQuote = order.status === 'Cotización';
+                  const isApprovable = isQuote || order.status === 'Pendiente';
+                  
+                  return (
+                    <div key={order.id} className={`bg-white border rounded-[2rem] overflow-hidden transition-all ${isExpanded ? 'border-brand-900 shadow-xl' : 'border-slate-100 shadow-sm'} ${isQuote ? 'border-l-4 border-amber-400' : ''}`}>
+                      <div className="p-6 cursor-pointer" onClick={() => toggleExpandOrder(order.id)}>
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                          <div className="flex items-center space-x-4">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isQuote ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-900'}`}>
+                              {isQuote ? <FileText size={20} /> : <Package size={20} />}
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">ID: {order.id} • {new Date(order.createdAt).toLocaleDateString()}</span>
+                              <h4 className="font-black text-brand-900 uppercase text-sm flex items-center">
+                                <MapPin size={12} className="mr-1 text-brand-400" /> {order.destinationLocation}
+                              </h4>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">ID: {order.id} • {new Date(order.createdAt).toLocaleDateString()}</span>
-                            <h4 className="font-black text-brand-900 uppercase text-sm flex items-center">
-                              <MapPin size={12} className="mr-1 text-brand-400" /> {order.destinationLocation}
-                            </h4>
+                          <div className="flex items-center space-x-4">
+                             <div className="text-right">
+                               <p className="text-[9px] font-black text-slate-400 uppercase">Total</p>
+                               <p className="text-sm font-black text-brand-900">${order.totalAmount.toLocaleString()}</p>
+                             </div>
+                             <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border shadow-sm ${isQuote ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-brand-50 text-brand-900'}`}>{order.status}</span>
                           </div>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                           <div className="text-right">
-                             <p className="text-[9px] font-black text-slate-400 uppercase">Total</p>
-                             <p className="text-sm font-black text-brand-900">${order.totalAmount.toLocaleString()}</p>
-                           </div>
-                           <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border shadow-sm ${isQuote ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-brand-50 text-brand-900'}`}>{order.status}</span>
                         </div>
                       </div>
-                    </div>
-                    {isExpanded && (
-                      <div className="p-8 bg-slate-50/50 border-t border-slate-100 animate-in slide-in-from-top-2">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                           <div className="space-y-4">
-                              <h5 className="text-[10px] font-black text-brand-900 uppercase mb-4 border-b pb-2">Artículos Solicitados</h5>
-                              <div className="space-y-2 max-h-[250px] overflow-y-auto pr-2 no-scrollbar">
-                                 {order.items.map(i => (
-                                   <div key={i.id} className="bg-white p-3 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
-                                      <div className="flex items-center space-x-3">
-                                        <img src={i.image} className="w-8 h-8 rounded-lg object-cover" alt="" />
-                                        <span className="text-[11px] font-bold text-slate-700">{i.name}</span>
-                                      </div>
-                                      <span className="text-[11px] font-black text-brand-900 bg-brand-50 px-2 py-1 rounded-lg">x{i.quantity}</span>
-                                   </div>
-                                 ))}
-                              </div>
-                           </div>
-                           
-                           <div className="space-y-6">
-                              <h5 className="text-[10px] font-black text-brand-900 uppercase mb-4 border-b pb-2">Acciones de Gestión</h5>
-                              
-                              {isApprovable ? (
-                                <div className="bg-white p-6 rounded-[2rem] border-2 border-emerald-100 shadow-xl shadow-emerald-500/5 space-y-4">
-                                   <div className="space-y-2">
-                                      <label className="text-[9px] font-black text-emerald-600 uppercase tracking-widest flex items-center">
-                                        <UserCheck size={12} className="mr-1" /> Coordinador Responsable
-                                      </label>
-                                      <select 
-                                        value={selectedCoordinator} 
-                                        onChange={(e) => setSelectedCoordinator(e.target.value)}
-                                        className="w-full p-4 bg-emerald-50/30 border border-emerald-100 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                      {isExpanded && (
+                        <div className="p-8 bg-slate-50/50 border-t border-slate-100 animate-in slide-in-from-top-2">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                             <div className="space-y-4">
+                                <h5 className="text-[10px] font-black text-brand-900 uppercase mb-4 border-b pb-2">Artículos Solicitados</h5>
+                                <div className="space-y-2 max-h-[250px] overflow-y-auto pr-2 no-scrollbar">
+                                   {order.items.map(i => (
+                                     <div key={i.id} className="bg-white p-3 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
+                                        <div className="flex items-center space-x-3">
+                                          <img src={i.image} className="w-8 h-8 rounded-lg object-cover" alt="" />
+                                          <span className="text-[11px] font-bold text-slate-700">{i.name}</span>
+                                        </div>
+                                        <span className="text-[11px] font-black text-brand-900 bg-brand-50 px-2 py-1 rounded-lg">x{i.quantity}</span>
+                                     </div>
+                                   ))}
+                                </div>
+                             </div>
+                             
+                             <div className="space-y-6">
+                                <h5 className="text-[10px] font-black text-brand-900 uppercase mb-4 border-b pb-2">Acciones de Gestión</h5>
+                                
+                                {isApprovable ? (
+                                  <div className="bg-white p-6 rounded-[2rem] border-2 border-emerald-100 shadow-xl shadow-emerald-500/5 space-y-4">
+                                     <div className="space-y-2">
+                                        <label className="text-[9px] font-black text-emerald-600 uppercase tracking-widest flex items-center">
+                                          <UserCheck size={12} className="mr-1" /> Coordinador Responsable
+                                        </label>
+                                        <select 
+                                          value={selectedCoordinator} 
+                                          onChange={(e) => setSelectedCoordinator(e.target.value)}
+                                          className="w-full p-4 bg-emerald-50/30 border border-emerald-100 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                                        >
+                                          <option value="">-- Seleccionar Coordinador --</option>
+                                          {coordinators.map(u => (
+                                            <option key={u.email} value={u.email}>{u.name} ({u.email})</option>
+                                          ))}
+                                        </select>
+                                     </div>
+  
+                                     <button 
+                                        disabled={!selectedCoordinator}
+                                        onClick={() => {
+                                          onApproveOrder(order.id, selectedCoordinator);
+                                          setSelectedCoordinator('');
+                                        }} 
+                                        className="w-full py-5 bg-emerald-500 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest flex items-center justify-center space-x-2 shadow-lg disabled:opacity-30 disabled:grayscale transition-all hover:scale-[1.02] active:scale-95"
                                       >
-                                        <option value="">-- Seleccionar Coordinador --</option>
-                                        {coordinators.map(u => (
-                                          <option key={u.email} value={u.email}>{u.name} ({u.email})</option>
-                                        ))}
-                                      </select>
-                                   </div>
-
-                                   <button 
-                                      disabled={!selectedCoordinator}
-                                      onClick={() => {
-                                        onApproveOrder(order.id, selectedCoordinator);
-                                        setSelectedCoordinator('');
-                                      }} 
-                                      className="w-full py-5 bg-emerald-500 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest flex items-center justify-center space-x-2 shadow-lg disabled:opacity-30 disabled:grayscale transition-all hover:scale-[1.02] active:scale-95"
-                                    >
-                                      <CheckCircle size={18} /> <span>Aprobar y Notificar Equipo</span>
-                                   </button>
-                                </div>
-                              ) : (
-                                <div className="bg-brand-900 p-8 rounded-[2rem] text-white space-y-4">
-                                   <div className="flex items-center space-x-3 text-brand-400">
-                                      <UserCheck size={20} />
-                                      <div>
-                                         <p className="text-[8px] font-black uppercase tracking-widest opacity-50">Coordinador Asignado</p>
-                                         <p className="text-[11px] font-bold text-white">{order.assignedCoordinatorEmail || 'Pendiente'}</p>
-                                      </div>
-                                   </div>
-                                   <Link to={`/tracking/${order.id}`} className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center space-x-2 border border-white/10 transition-all">
-                                      <Eye size={16} /> <span>Ver Gestión Logística</span>
-                                   </Link>
-                                </div>
-                              )}
-
-                              <div className="grid grid-cols-2 gap-3">
-                                <button onClick={() => onCancelOrder?.(order.id)} className="py-4 bg-red-50 text-red-600 rounded-2xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center space-x-2 border border-red-100 hover:bg-red-600 hover:text-white transition-all">
-                                  <XCircle size={14} /> <span>Anular Registro</span>
-                                </button>
-                                {order.status === 'Finalizado' && (
-                                  <button onClick={() => onDeleteOrder?.(order.id)} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center space-x-2 border border-slate-200 hover:bg-red-500 hover:text-white transition-all">
-                                    <Trash2 size={14} /> <span>Archivar</span>
-                                  </button>
+                                        <CheckCircle size={18} /> <span>Aprobar y Notificar Equipo</span>
+                                     </button>
+                                  </div>
+                                ) : (
+                                  <div className="bg-brand-900 p-8 rounded-[2rem] text-white space-y-4">
+                                     <div className="flex items-start space-x-3 text-brand-400">
+                                        <UserCheck size={20} className="mt-1" />
+                                        <div className="flex-1">
+                                           <p className="text-[8px] font-black uppercase tracking-widest opacity-50">Coordinador Asignado</p>
+                                           {(() => {
+                                             const coord = users.find(u => u.email === order.assignedCoordinatorEmail);
+                                             return coord ? (
+                                               <div className="mt-1 space-y-1">
+                                                 <p className="text-[11px] font-bold text-white">{coord.name}</p>
+                                                 <p className="text-[9px] font-medium text-brand-400">{coord.email}</p>
+                                                 {coord.phone && (
+                                                   <p className="text-[9px] font-medium text-brand-400 flex items-center">
+                                                     <span className="opacity-50 mr-1">Tel:</span> {coord.phone}
+                                                   </p>
+                                                 )}
+                                               </div>
+                                             ) : (
+                                               <p className="text-[11px] font-bold text-white">{order.assignedCoordinatorEmail || 'Pendiente'}</p>
+                                             );
+                                           })()}
+                                        </div>
+                                     </div>
+                                     <Link to={`/tracking/${order.id}`} className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center space-x-2 border border-white/10 transition-all">
+                                        <Eye size={16} /> <span>Ver Gestión Logística</span>
+                                     </Link>
+                                  </div>
                                 )}
-                              </div>
-                           </div>
+  
+                                <div className="grid grid-cols-2 gap-3">
+                                  <button onClick={() => onCancelOrder?.(order.id)} className="py-4 bg-red-50 text-red-600 rounded-2xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center space-x-2 border border-red-100 hover:bg-red-600 hover:text-white transition-all">
+                                    <XCircle size={14} /> <span>Anular Registro</span>
+                                  </button>
+                                  {order.status === 'Finalizado' && (
+                                    <button onClick={() => onDeleteOrder?.(order.id)} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center space-x-2 border border-slate-200 hover:bg-red-500 hover:text-white transition-all">
+                                      <Trash2 size={14} /> <span>Archivar</span>
+                                    </button>
+                                  )}
+                                </div>
+                             </div>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                      )}
+                    </div>
+                  );
+                })}
+              {orders.filter(order => {
+                const user = users.find(u => u.email === order.userEmail);
+                const userName = user ? user.name.toLowerCase() : '';
+                const userEmail = order.userEmail.toLowerCase();
+                const orderId = order.id.toLowerCase();
+                const searchMatch = !filterCustomerName || 
+                  userName.includes(filterCustomerName.toLowerCase()) || 
+                  userEmail.includes(filterCustomerName.toLowerCase()) ||
+                  orderId.includes(filterCustomerName.toLowerCase());
+                
+                const statusMatch = !filterStatus || order.status === filterStatus;
+                
+                const orderStart = new Date(order.startDate).getTime();
+                const orderEnd = new Date(order.endDate).getTime();
+                const filterStart = filterStartDate ? new Date(filterStartDate).getTime() : null;
+                const filterEnd = filterEndDate ? new Date(filterEndDate).getTime() : null;
+                
+                const dateMatch = (!filterStart || orderStart >= filterStart) && 
+                                 (!filterEnd || orderEnd <= filterEnd);
+                
+                return searchMatch && statusMatch && dateMatch;
+              }).length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
+                  <ClipboardList size={40} className="text-slate-300 mb-4" />
+                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">No se encontraron pedidos con los filtros aplicados</p>
+                </div>
+              )}
             </div>
           </div>
         )}

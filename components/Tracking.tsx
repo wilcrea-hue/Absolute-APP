@@ -5,7 +5,7 @@ import {
   Check, Camera, X, Map as MapIcon, Navigation, Clock, 
   ArrowRight, CheckCircle2, List, Package, 
   UserCheck, AlertTriangle, FileText, MapPin as MapPinIcon,
-  ChevronRight, Save, Image as ImageIcon, PenTool
+  ChevronRight, Save, Image as ImageIcon, PenTool, Trash2 as TrashIcon, Maximize2
 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SignaturePad } from './SignaturePad';
@@ -35,12 +35,27 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
   const [tempStageData, setTempStageData] = useState<StageData | null>(null);
   const [activeSigningField, setActiveSigningField] = useState<'signature' | 'receivedBy' | null>(null);
   const [activeEmail, setActiveEmail] = useState<any>(null);
+  const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (order && order.workflow) {
+    if (order) {
       const data = order.workflow[activeStageKey];
-      // Clonamos para editar sin afectar el estado global hasta guardar
-      setTempStageData(data ? JSON.parse(JSON.stringify(data)) : null);
+      if (data) {
+        setTempStageData(JSON.parse(JSON.stringify(data)));
+      } else {
+        // Inicializar datos de etapa si no existen
+        setTempStageData({
+          status: 'pending',
+          itemChecks: order.items.reduce((acc, item) => ({ 
+            ...acc, 
+            [item.id]: { verified: false, notes: '' } 
+          }), {}),
+          photos: [],
+          files: []
+        });
+      }
     }
   }, [order, activeStageKey]);
 
@@ -75,15 +90,68 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
     setActiveSigningField(null);
   };
 
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !tempStageData) return;
+    
+    const currentPhotos = tempStageData.photos || [];
+    if (currentPhotos.length >= 5) {
+      alert("Límite de 5 fotos por etapa alcanzado.");
+      return;
+    }
+
+    const files = Array.from(e.target.files).slice(0, 5 - currentPhotos.length);
+    
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        
+        try {
+          // Subir al servidor para guardar en carpeta física
+          const res = await fetch('./api/upload_photo.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: base64, name: file.name })
+          });
+          const data = await res.json();
+          
+          if (data.url) {
+            setTempStageData(prev => {
+              if (!prev) return null;
+              const updatedPhotos = [...(prev.photos || []), data.url];
+              return { ...prev, photos: updatedPhotos };
+            });
+          } else {
+            alert("Error al subir foto: " + (data.error || 'Error desconocido'));
+          }
+        } catch (err) {
+          alert("Error de conexión al intentar subir la fotografía.");
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleSaveDraft = () => {
+    if (!tempStageData) return;
+    onUpdateStage(order.id, activeStageKey, tempStageData);
+    alert("Avance guardado correctamente en el servidor.");
+  };
+
   const handleCompleteStage = () => {
     if (!tempStageData) return;
     
-    // Validaciones básicas
+    // Validaciones estrictas solicitadas por Jefe de Bodega
     const allChecked = order.items.every(item => tempStageData.itemChecks[item.id]?.verified);
-    if (!allChecked && !confirm("Hay artículos no verificados. ¿Desea continuar con el cierre de etapa?")) return;
+    const hasSignature = tempStageData.signature || tempStageData.receivedBy;
 
-    if (!tempStageData.signature && !tempStageData.receivedBy) {
-      alert("Se requiere al menos una firma de responsabilidad para cerrar la etapa.");
+    if (!allChecked) {
+      alert("BLOQUEO DE SEGURIDAD: Todos los artículos deben estar marcados con el check de verificación antes de cerrar la etapa.");
+      return;
+    }
+
+    if (!hasSignature) {
+      alert("BLOQUEO DE SEGURIDAD: Es obligatorio capturar al menos una firma digital (Entrega o Recibido) para generar el acta y cerrar el proceso.");
       return;
     }
 
@@ -215,32 +283,59 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
           </div>
 
           <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
-             <h3 className="text-sm font-black text-brand-900 uppercase flex items-center tracking-widest mb-6">
-                <ImageIcon size={18} className="mr-2 text-brand-400" /> Evidencia Fotográfica
-             </h3>
-             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+             <div className="flex items-center justify-between mb-6">
+                <h3 className="text-sm font-black text-brand-900 uppercase flex items-center tracking-widest">
+                    <ImageIcon size={18} className="mr-2 text-brand-400" /> Evidencia Fotográfica
+                </h3>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                  {(tempStageData?.photos || []).length} / 5 Fotos
+                </span>
+             </div>
+             
+             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 {(tempStageData?.photos || []).map((photo, i) => (
-                  <div key={i} className="relative group aspect-square rounded-2xl overflow-hidden border border-slate-200">
+                  <div key={i} className="relative group aspect-square rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
                     <img src={photo} className="w-full h-full object-cover" alt="" />
-                    {!isCompleted && canEdit && (
+                    <div className="absolute inset-0 bg-brand-900/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center space-x-2">
                       <button 
-                        onClick={() => {
-                          const newPhotos = [...tempStageData!.photos];
-                          newPhotos.splice(i, 1);
-                          setTempStageData({...tempStageData!, photos: newPhotos});
-                        }}
-                        className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all"
+                        onClick={() => setPreviewPhoto(photo)}
+                        className="p-2 bg-white text-brand-900 rounded-xl hover:scale-110 transition-transform"
                       >
-                        <X size={12} />
+                        <Maximize2 size={14} />
                       </button>
-                    )}
+                      {!isCompleted && canEdit && (
+                        <button 
+                          onClick={() => {
+                            const newPhotos = [...tempStageData!.photos];
+                            newPhotos.splice(i, 1);
+                            setTempStageData({...tempStageData!, photos: newPhotos});
+                          }}
+                          className="p-2 bg-red-500 text-white rounded-xl hover:scale-110 transition-transform"
+                        >
+                          <TrashIcon size={14} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
-                {!isCompleted && canEdit && (
-                  <button className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-400 hover:bg-slate-100 transition-all">
-                    <Camera size={24} className="mb-2" />
-                    <span className="text-[9px] font-black uppercase">Subir Foto</span>
-                  </button>
+                {!isCompleted && canEdit && (tempStageData?.photos || []).length < 5 && (
+                  <>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      multiple 
+                      className="hidden" 
+                      ref={fileInputRef}
+                      onChange={handlePhotoUpload}
+                    />
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-400 hover:bg-slate-100 hover:border-brand-400 hover:text-brand-900 transition-all group"
+                    >
+                      <Camera size={24} className="mb-2 group-hover:scale-110 transition-transform" />
+                      <span className="text-[9px] font-black uppercase">Añadir Foto</span>
+                    </button>
+                  </>
                 )}
              </div>
           </div>
@@ -313,12 +408,19 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
 
             {/* Acciones Finales */}
             {!isCompleted && canEdit && (
-              <div className="pt-6 border-t border-slate-100">
+              <div className="pt-6 border-t border-slate-100 space-y-3">
+                <button 
+                  onClick={handleSaveDraft}
+                  className="w-full py-4 bg-white border border-brand-900 text-brand-900 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-50 transition-all flex items-center justify-center space-x-2"
+                >
+                  <Save size={16} />
+                  <span>Guardar Avance (Borrador)</span>
+                </button>
                 <button 
                   onClick={handleCompleteStage}
                   className="w-full py-5 bg-brand-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.3em] shadow-xl shadow-brand-900/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center space-x-3"
                 >
-                  <Save size={18} />
+                  <CheckCircle2 size={18} />
                   <span>Cerrar Etapa y Notificar</span>
                 </button>
               </div>
@@ -353,6 +455,25 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
         onClose={() => setActiveEmail(null)} 
         onSentSuccess={finalizeAndSave}
       />
+
+      {/* Galería Previsualizable */}
+      {previewPhoto && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-brand-900/95 backdrop-blur-xl animate-in fade-in duration-300">
+          <button 
+            onClick={() => setPreviewPhoto(null)}
+            className="absolute top-8 right-8 p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all"
+          >
+            <X size={24} />
+          </button>
+          <div className="max-w-4xl w-full h-[80vh] flex items-center justify-center p-4">
+            <img 
+              src={previewPhoto} 
+              className="max-w-full max-h-full object-contain rounded-3xl shadow-2xl animate-in zoom-in-95 duration-500" 
+              alt="Preview" 
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

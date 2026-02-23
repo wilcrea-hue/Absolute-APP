@@ -57,31 +57,31 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-xl md:text-2xl font-black text-brand-900 uppercase">Catálogo de Alquiler</h2>
-          <p className="text-gray-500 text-[12px] font-medium">Equipos y servicios exclusivos para eventos de alto impacto.</p>
+          <h2 className="text-lg md:text-2xl font-black text-brand-900 uppercase">Catálogo de Alquiler</h2>
+          <p className="text-gray-500 text-[10px] md:text-[12px] font-medium">Equipos y servicios exclusivos para eventos de alto impacto. (precios sin IVA.)</p>
         </div>
         
         <div className="relative w-full md:w-72">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
           <input 
             type="text" 
             placeholder="Buscar artículo..." 
-            className="w-full pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-xl focus:ring-2 focus:ring-brand-900 shadow-sm text-[13px] font-bold"
+            className="w-full pl-10 pr-4 py-2.5 md:py-3 bg-white border border-slate-100 rounded-xl focus:ring-2 focus:ring-brand-900 shadow-sm text-[12px] md:text-[13px] font-bold"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="bg-white/40 p-2 rounded-[1.5rem] border border-slate-200/50 backdrop-blur-sm">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="px-3 py-2 flex items-center space-x-2 border-r border-slate-200 mr-1 hidden sm:flex">
-            <Filter size={12} className="text-slate-400" />
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Filtrar:</span>
+      <div className="bg-white/40 p-1.5 md:p-2 rounded-[1.25rem] md:rounded-[1.5rem] border border-slate-200/50 backdrop-blur-sm">
+        <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+          <div className="px-2 md:px-3 py-1.5 md:py-2 flex items-center space-x-2 border-r border-slate-200 mr-1 hidden sm:flex">
+            <Filter size={10} className="text-slate-400" />
+            <span className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest">Filtrar:</span>
           </div>
           <button
             onClick={() => setSelectedCategory('Todos')}
-            className={`px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+            className={`px-3 md:px-5 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[8px] md:text-[9px] font-black uppercase tracking-widest transition-all ${
               selectedCategory === 'Todos' 
                 ? 'bg-brand-900 text-white shadow-lg' 
                 : 'bg-white text-gray-500 border border-slate-100 hover:bg-slate-50'
@@ -91,7 +91,7 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+              className={`px-3 md:px-5 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[8px] md:text-[9px] font-black uppercase tracking-widest transition-all ${
                 selectedCategory === cat 
                   ? 'bg-brand-900 text-white shadow-lg' 
                   : 'bg-white text-gray-500 border border-slate-100 hover:bg-slate-50'
@@ -162,6 +162,7 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                                 / {isM2 ? 'm²' : isMobiliario ? 'evento' : 'día'}
                             </span>
                             </p>
+                            <p className="text-[8px] font-black text-brand-500 uppercase mt-1 tracking-tighter">(precios sin IVA.)</p>
                         </div>
                         <div className="text-right">
                              <p className="text-[7px] font-black text-slate-400 uppercase mb-1">Subtotal {qty > 1 && `(${qty})`}</p>

@@ -173,6 +173,23 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, cartCount, onLog
         onClose={() => setIsInstallModalOpen(false)} 
         deferredPrompt={deferredPrompt} 
       />
+
+      {/* Floating Action Button for Mobile */}
+      {!isOperationalOnly && (
+        <Link 
+          to="/cart" 
+          className="md:hidden fixed bottom-6 right-6 z-[60] bg-brand-900 text-white w-12 h-12 rounded-2xl shadow-[0_15px_40px_rgba(0,0,51,0.4)] flex items-center justify-center border border-white/10 animate-in zoom-in duration-500 active:scale-90 transition-transform"
+        >
+          <div className="relative">
+            <ShoppingCart size={20} />
+            {cartCount > 0 && (
+              <span className="absolute -top-2.5 -right-2.5 bg-brand-400 text-brand-900 text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-brand-900 shadow-sm">
+                {cartCount}
+              </span>
+            )}
+          </div>
+        </Link>
+      )}
     </div>
   );
 };
