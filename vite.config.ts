@@ -6,7 +6,7 @@ import process from 'node:process';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   // Intentamos obtener la clave de varias fuentes posibles para asegurar compatibilidad
-  const apiKey = process.env.API_KEY || env.API_KEY || '';
+  const apiKey = process.env.API_KEY || env.API_KEY || process.env.GEMINI_API_KEY || env.GEMINI_API_KEY || '';
   
   return {
     plugins: [react()],

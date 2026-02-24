@@ -295,7 +295,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                      <div key={i.id} className="bg-white p-3 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
                                         <div className="flex items-center space-x-3">
                                           <img src={i.image} className="w-8 h-8 rounded-lg object-cover" alt="" />
-                                          <span className="text-[11px] font-bold text-slate-700">{i.name}</span>
+                                          <div className="flex flex-col">
+                                            <span className="text-[11px] font-bold text-slate-700">{i.name}</span>
+                                            {i.fileUrl && (
+                                              <a href={i.fileUrl} target="_blank" rel="noopener noreferrer" className="text-[9px] text-blue-500 font-bold uppercase flex items-center mt-0.5">
+                                                <FileText size={10} className="mr-1" /> Arte Final
+                                              </a>
+                                            )}
+                                          </div>
                                         </div>
                                         <span className="text-[11px] font-black text-brand-900 bg-brand-50 px-2 py-1 rounded-lg">x{i.quantity}</span>
                                      </div>
@@ -369,9 +376,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   <button onClick={() => onCancelOrder?.(order.id)} className="py-4 bg-red-50 text-red-600 rounded-2xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center space-x-2 border border-red-100 hover:bg-red-600 hover:text-white transition-all">
                                     <XCircle size={14} /> <span>Anular Registro</span>
                                   </button>
-                                  {order.status === 'Finalizado' && (
-                                    <button onClick={() => onDeleteOrder?.(order.id)} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center space-x-2 border border-slate-200 hover:bg-red-500 hover:text-white transition-all">
-                                      <Trash2 size={14} /> <span>Archivar</span>
+                                  {(order.status === 'Finalizado' || isAdmin) && (
+                                    <button onClick={() => { if(confirm('¿Está seguro de eliminar permanentemente este pedido?')) onDeleteOrder?.(order.id) }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center space-x-2 border border-slate-200 hover:bg-red-500 hover:text-white transition-all">
+                                      <Trash2 size={14} /> <span>{isAdmin ? 'Eliminar Pedido' : 'Archivar'}</span>
                                     </button>
                                   )}
                                 </div>

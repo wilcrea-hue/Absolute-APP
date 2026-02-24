@@ -5,7 +5,7 @@ import { Search, Plus, Clock, PackageX, AlertCircle, Info, Minus, ChevronDown, C
 
 interface CatalogProps {
   products: Product[];
-  onAddToCart: (product: Product, quantity: number) => void;
+  onAddToCart: (product: Product, quantity: number, width?: number, height?: number) => void;
 }
 
 const CATEGORIES: Category[] = ['Mobiliario', 'Electrónica', 'Arquitectura Efímera', 'Decoración', 'Servicios', 'Impresión'];
@@ -14,6 +14,7 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
   const [selectedCategory, setSelectedCategory] = useState<Category | 'Todos'>('Todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [localQuantities, setLocalQuantities] = useState<Record<string, number>>({});
+  const [localDimensions, setLocalDimensions] = useState<Record<string, { w: number, h: number }>>({});
   const [expandedPrices, setExpandedPrices] = useState<Record<string, boolean>>({});
   
   const filteredProducts = (products || []).filter(product => {
@@ -23,6 +24,14 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
   });
 
   const getQuantity = (id: string) => localQuantities[id] || 1;
+  const getDimensions = (id: string) => localDimensions[id] || { w: 1, h: 1 };
+
+  const updateLocalDimension = (id: string, field: 'w' | 'h', value: number) => {
+    setLocalDimensions(prev => ({
+      ...prev,
+      [id]: { ...(prev[id] || { w: 1, h: 1 }), [field]: value }
+    }));
+  };
 
   const updateLocalQuantity = (id: string, delta: number, stock: number) => {
     const current = getQuantity(id);
@@ -108,11 +117,16 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
             const isLowStock = product.stock > 0 && product.stock <= 3;
             const isMobiliario = product.category === 'Mobiliario';
             const isImpresion = product.category === 'Impresión';
-            const isM2 = isImpresion && product.name.includes('M2');
+            const isDiseno = product.category === 'Servicios' && product.name.toLowerCase().includes('diseño');
+            const isOneTime = isImpresion || isDiseno;
+            const isM2 = isImpresion; // All Impresión items should support m2 calculation based on user request
             const qty = getQuantity(product.id);
+            const dims = getDimensions(product.id);
             const isExpanded = expandedPrices[product.id];
 
             const displayPrice = isMobiliario && product.priceRent === 14000 ? 14800 : product.priceRent;
+            const area = dims.w * dims.h;
+            const itemTotal = isImpresion ? (displayPrice * area * qty) : (displayPrice * qty);
 
             return (
               <div key={product.id} className="bg-white rounded-[2rem] shadow-sm hover:shadow-xl transition-all duration-500 border border-slate-50 overflow-hidden flex flex-col group">
@@ -154,12 +168,12 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                     <div className="flex justify-between items-end">
                         <div>
                             <p className="text-[8px] font-black text-slate-400 uppercase flex items-center mb-1">
-                            <Clock size={10} className="mr-1.5" /> {isMobiliario ? 'Tarifa por evento' : isM2 ? 'Tarifa por m²' : 'Tarifa por día'}
+                            <Clock size={10} className="mr-1.5" /> {isMobiliario ? 'Tarifa por evento' : isOneTime ? 'Tarifa única' : 'Tarifa por día'}
                             </p>
                             <p className="text-xl font-black text-brand-900">
                             ${displayPrice?.toLocaleString()} 
                             <span className="text-[10px] text-slate-400 font-bold uppercase ml-1">
-                                / {isM2 ? 'm²' : isMobiliario ? 'evento' : 'día'}
+                                / {isImpresion ? 'm²' : isMobiliario ? 'evento' : 'día'}
                             </span>
                             </p>
                             <p className="text-[8px] font-black text-brand-500 uppercase mt-1 tracking-tighter">(precios sin IVA.)</p>
@@ -167,10 +181,39 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
                         <div className="text-right">
                              <p className="text-[7px] font-black text-slate-400 uppercase mb-1">Subtotal {qty > 1 && `(${qty})`}</p>
                              <p className="text-[10px] font-black text-brand-900">
-                                ${(displayPrice * qty).toLocaleString()}
+                                ${itemTotal.toLocaleString()}
                              </p>
                         </div>
                     </div>
+
+                    {isImpresion && (
+                      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Ancho (m)</label>
+                          <input 
+                            type="number" 
+                            step="0.01"
+                            value={dims.w}
+                            onChange={(e) => updateLocalDimension(product.id, 'w', parseFloat(e.target.value) || 0)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] font-black text-brand-900 outline-none focus:ring-1 focus:ring-brand-900"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Alto (m)</label>
+                          <input 
+                            type="number" 
+                            step="0.01"
+                            value={dims.h}
+                            onChange={(e) => updateLocalDimension(product.id, 'h', parseFloat(e.target.value) || 0)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] font-black text-brand-900 outline-none focus:ring-1 focus:ring-brand-900"
+                          />
+                        </div>
+                        <div className="col-span-2 flex justify-between items-center bg-brand-50 px-3 py-2 rounded-xl border border-brand-100">
+                          <span className="text-[9px] font-black text-brand-900 uppercase">Área Total:</span>
+                          <span className="text-[11px] font-black text-brand-900">{area.toFixed(2)} m²</span>
+                        </div>
+                      </div>
+                    )}
 
                     {isMobiliario && (
                       <div className="mt-3 border-t border-slate-200 pt-3">
@@ -220,7 +263,7 @@ export const Catalog: React.FC<CatalogProps> = ({ products, onAddToCart }) => {
 
                     <button 
                         onClick={() => {
-                            onAddToCart(product, qty);
+                            onAddToCart(product, qty, isImpresion ? dims.w : undefined, isImpresion ? dims.h : undefined);
                             setLocalQuantities(prev => ({ ...prev, [product.id]: 1 }));
                         }}
                         disabled={isOutOfStock}

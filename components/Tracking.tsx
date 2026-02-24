@@ -276,7 +276,14 @@ export const Tracking: React.FC<TrackingProps> = ({ orders, onUpdateStage, curre
                         <img src={item.image} className="w-12 h-12 rounded-xl object-cover shadow-sm" alt="" />
                         <div>
                           <h4 className="font-bold text-sm text-slate-900 uppercase">{item.name}</h4>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Cantidad Solicitada: {item.quantity}</p>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Cantidad Solicitada: {item.quantity}</p>
+                            {item.fileUrl && (
+                              <a href={item.fileUrl} target="_blank" rel="noopener noreferrer" className="text-[9px] text-blue-500 font-bold uppercase flex items-center">
+                                <FileText size={10} className="mr-1" /> Arte Final
+                              </a>
+                            )}
+                          </div>
                         </div>
                       </div>
                       

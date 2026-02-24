@@ -205,10 +205,10 @@ const App: React.FC = () => {
           )}
 
           <Routes>
-            <Route path="/" element={<Catalog products={products} onAddToCart={(p, q) => setCart(prev => {
+            <Route path="/" element={<Catalog products={products} onAddToCart={(p, q, w, h) => setCart(prev => {
               const ex = prev.find(i => i.id === p.id);
-              if (ex) return prev.map(i => i.id === p.id ? {...i, quantity: Math.min(i.quantity + q, p.stock)} : i);
-              return [...prev, {...p, quantity: q}];
+              if (ex) return prev.map(i => i.id === p.id ? {...i, quantity: Math.min(i.quantity + q, p.stock), width: w, height: h} : i);
+              return [...prev, {...p, quantity: q, width: w, height: h}];
             })} />} />
             
             <Route path="/cart" element={<Cart 
@@ -217,6 +217,7 @@ const App: React.FC = () => {
                 orders={orders}
                 onRemove={(id) => setCart(cart.filter(i => i.id !== id))}
                 onUpdateQuantity={(id, q) => setCart(cart.map(i => i.id === id ? {...i, quantity: q} : i))}
+                onUpdateItem={(id, updates) => setCart(cart.map(i => i.id === id ? {...i, ...updates} : i))}
                 getAvailableStock={getAvailableStock}
                 onCheckout={(start, end, origin, dest, type) => {
                   const newOrder: Order = {
@@ -232,6 +233,13 @@ const App: React.FC = () => {
                     destinationLocation: dest,
                     totalAmount: cart.reduce((acc, item) => {
                        const days = Math.ceil(Math.abs(new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                       if (item.category === 'Impresión') {
+                         const area = (item.width || 1) * (item.height || 1);
+                         return acc + (item.priceRent * area * item.quantity);
+                       }
+                       if (item.category === 'Servicios' && item.name.toLowerCase().includes('diseño')) {
+                         return acc + (item.priceRent * item.quantity);
+                       }
                        return acc + (item.priceRent * item.quantity * days);
                     }, 0),
                     workflow: {

@@ -13,6 +13,9 @@ export interface Product {
 
 export interface CartItem extends Product {
   quantity: number;
+  width?: number;
+  height?: number;
+  fileUrl?: string;
 }
 
 export type OrderStatus = 'Cotización' | 'Pendiente' | 'En Proceso' | 'Entregado' | 'Finalizado' | 'Cancelado';

@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { CartItem, OrderType, User, Order } from './types';
-import { Trash2, Calendar, ShoppingBag, Clock, MapPin, FileText, CheckCircle, Percent, AlertTriangle, RefreshCw, XCircle, Navigation, Info } from 'lucide-react';
+import { Trash2, Calendar, ShoppingBag, Clock, MapPin, FileText, CheckCircle, Percent, AlertTriangle, RefreshCw, XCircle, Navigation, Info, Upload, FileUp, FileCheck, Loader2, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface CartProps {
@@ -10,6 +10,7 @@ interface CartProps {
   orders: Order[];
   onRemove: (id: string) => void;
   onUpdateQuantity: (id: string, qty: number) => void;
+  onUpdateItem?: (id: string, updates: Partial<CartItem>) => void;
   onCheckout: (startDate: string, endDate: string, origin: string, destination: string, type: OrderType) => void;
   getAvailableStock: (productId: string, startDate: string, endDate: string) => number;
   
@@ -25,11 +26,14 @@ interface CartProps {
 }
 
 export const Cart: React.FC<CartProps> = ({ 
-  items, currentUser, orders, onRemove, onUpdateQuantity, onCheckout, getAvailableStock,
+  items, currentUser, orders, onRemove, onUpdateQuantity, onUpdateItem, onCheckout, getAvailableStock,
   startDate, setStartDate, endDate, setEndDate, origin, setOrigin, destination, setDestination
 }) => {
   const navigate = useNavigate();
   const [isReplenishing, setIsReplenishing] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
 
   const eventDays = useMemo(() => {
     if (!startDate || !endDate) return 1;
@@ -42,6 +46,15 @@ export const Cart: React.FC<CartProps> = ({
   }, [startDate, endDate]);
 
   const getTieredPrice = (item: CartItem, days: number) => {
+    if (item.category === 'Impresión') {
+      const area = (item.width || 1) * (item.height || 1);
+      return item.priceRent * area; // No days multiplier
+    }
+
+    if (item.category === 'Servicios' && item.name.toLowerCase().includes('diseño')) {
+      return item.priceRent; // No days multiplier
+    }
+
     if (item.category !== 'Mobiliario') {
       return item.priceRent * days; 
     }
@@ -101,6 +114,53 @@ export const Cart: React.FC<CartProps> = ({
     }, 1500);
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, itemId: string) => {
+    const file = e.target.files?.[0];
+    if (!file || !onUpdateItem) return;
+
+    // Validación de tamaño (200MB)
+    const MAX_SIZE = 200 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      alert("El archivo es demasiado grande. El tamaño máximo permitido es 200MB.");
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    // Validación de tipo de archivo
+    const allowedExtensions = ['pdf', 'ai', 'psd', 'jpg', 'jpeg', 'png', 'tiff', 'cdr', 'eps'];
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+      alert("Formato de archivo no permitido. Formatos aceptados: " + allowedExtensions.join(', '));
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    setIsUploading(itemId);
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64 = reader.result as string;
+      try {
+        const res = await fetch('./api/upload_impresion.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file: base64, name: file.name })
+        });
+        const data = await res.json();
+        if (data.url) {
+          onUpdateItem(itemId, { fileUrl: data.url });
+        } else {
+          alert("Error al subir archivo: " + (data.error || 'Error desconocido'));
+        }
+      } catch (err) {
+        alert("Error de conexión al intentar subir el archivo.");
+      } finally {
+        setIsUploading(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const getTierLabel = (days: number) => {
     if (days <= 3) return "Tramo 1-3 días";
     if (days <= 5) return "Tramo 3-5 días";
@@ -158,8 +218,22 @@ export const Cart: React.FC<CartProps> = ({
                       </div>
                       <p className="text-[9px] md:text-[10px] font-bold text-brand-500 uppercase mt-0.5 md:mt-1 tracking-widest flex items-center">
                         <Clock size={8} className="mr-1 md:mr-1.5" /> 
-                        {isMobiliario ? `${getTierLabel(eventDays)}: $${itemFinalPrice.toLocaleString()}` : `Alquiler/día: $${item.priceRent.toLocaleString()}`}
+                        {item.category === 'Impresión' 
+                          ? `Tarifa Única: $${item.priceRent.toLocaleString()} / m²`
+                          : (item.category === 'Servicios' && item.name.toLowerCase().includes('diseño'))
+                            ? `Tarifa Única: $${item.priceRent.toLocaleString()}`
+                            : isMobiliario 
+                              ? `${getTierLabel(eventDays)}: $${itemFinalPrice.toLocaleString()}` 
+                              : `Alquiler/día: $${item.priceRent.toLocaleString()}`
+                        }
                       </p>
+                      {item.category === 'Impresión' && item.width && item.height && (
+                        <div className="mt-1 flex items-center space-x-2 bg-brand-50 px-2 py-1 rounded-lg border border-brand-100 w-fit">
+                          <span className="text-[8px] font-black text-brand-900 uppercase tracking-tighter">
+                            {item.width}m x {item.height}m = {(item.width * item.height).toFixed(2)}m²
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -195,7 +269,7 @@ export const Cart: React.FC<CartProps> = ({
                      </div>
                      <div className="text-right min-w-[80px] md:min-w-[120px]">
                         <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                          {eventDays} {eventDays === 1 ? 'día' : 'días'}
+                          {(item.category === 'Impresión' || (item.category === 'Servicios' && item.name.toLowerCase().includes('diseño'))) ? 'Cobro Único' : `${eventDays} ${eventDays === 1 ? 'día' : 'días'}`}
                         </p>
                         <p className="font-black text-brand-900 text-sm md:text-base">${subtotal.toLocaleString()}</p>
                      </div>
@@ -207,6 +281,64 @@ export const Cart: React.FC<CartProps> = ({
                   <div className="flex items-center space-x-2 bg-slate-50 p-2 px-4 rounded-xl border border-slate-100">
                     <Info size={12} className="text-brand-900" />
                     <p className="text-[8px] font-bold text-slate-500 uppercase">Tarifa aplicada por tramo de días para mobiliario corporativo.</p>
+                  </div>
+                )}
+
+                {item.category === 'Impresión' && (
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-brand-50/50 p-4 rounded-2xl border border-brand-100/50">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.fileUrl ? 'bg-emerald-100 text-emerald-600' : 'bg-brand-100 text-brand-600'}`}>
+                        {item.fileUrl ? <FileCheck size={20} /> : <FileUp size={20} />}
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-brand-900 uppercase tracking-widest">Archivo de Impresión</p>
+                        <p className="text-[9px] text-slate-500 font-bold uppercase truncate max-w-[200px]">
+                          {item.fileUrl ? 'Archivo cargado correctamente' : 'Pendiente por subir (.pdf, .ai, .psd, .jpg)'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2 w-full sm:w-auto">
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        ref={uploadingItemId === item.id ? fileInputRef : null}
+                        onChange={(e) => handleFileUpload(e, item.id)}
+                        accept=".pdf,.ai,.psd,.jpg,.jpeg,.png,.tiff,.cdr,.eps"
+                      />
+                      <button 
+                        onClick={() => {
+                          setUploadingItemId(item.id);
+                          setTimeout(() => fileInputRef.current?.click(), 100);
+                        }}
+                        disabled={isUploading === item.id}
+                        className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center space-x-2 ${
+                          item.fileUrl 
+                            ? 'bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50' 
+                            : 'bg-brand-900 text-white shadow-lg shadow-brand-900/20 hover:bg-black'
+                        }`}
+                      >
+                        {isUploading === item.id ? (
+                          <><Loader2 size={14} className="animate-spin" /> <span>Subiendo...</span></>
+                        ) : (
+                          <>
+                            <Upload size={14} /> 
+                            <span>{item.fileUrl ? 'Cambiar Archivo' : 'Subir Arte Final'}</span>
+                          </>
+                        )}
+                      </button>
+                      {item.fileUrl && (
+                        <a 
+                          href={item.fileUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="p-2.5 bg-white text-brand-900 rounded-xl border border-slate-200 hover:bg-slate-50 transition-all"
+                          title="Ver archivo subido"
+                        >
+                          <ExternalLink size={14} />
+                        </a>
+                      )}
+                    </div>
                   </div>
                 )}
 

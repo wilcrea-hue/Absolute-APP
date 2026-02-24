@@ -39,15 +39,29 @@ export const EmailNotification: React.FC<EmailNotificationProps> = ({ email, onC
     const e = new Date(email.order?.endDate || '');
     const days = Math.ceil(Math.abs(e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-    const itemsHtml = email.order?.items.map(item => `
-      <tr>
-        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #334155;">${item.name}</td>
-        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; text-align: center; color: #334155;">$${item.priceRent.toLocaleString()}</td>
-        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; text-align: center; color: #334155;">${days}</td>
-        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; text-align: center; color: #334155;">${item.quantity}</td>
-        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; text-align: right; color: #000033;">$${(item.priceRent * item.quantity * days).toLocaleString()}</td>
-      </tr>
-    `).join('');
+    const itemsHtml = email.order?.items.map(item => {
+      const isImpresion = item.category === 'Impresión';
+      const isDiseno = item.category === 'Servicios' && item.name.toLowerCase().includes('diseño');
+      const isOneTime = isImpresion || isDiseno;
+      
+      const area = (item.width || 1) * (item.height || 1);
+      const itemPrice = isImpresion ? (item.priceRent * area) : item.priceRent;
+      const subtotal = itemPrice * item.quantity * (isOneTime ? 1 : days);
+
+      return `
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #334155;">
+            ${item.name}
+            ${isImpresion && item.width && item.height ? `<br/><span style="font-size: 10px; color: #64748b;">${item.width}m x ${item.height}m (${area.toFixed(2)}m²)</span>` : ''}
+            ${item.fileUrl ? `<br/><a href="${item.fileUrl}" style="font-size: 10px; color: #3b82f6; text-decoration: none;">Ver Arte Final</a>` : ''}
+          </td>
+          <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; text-align: center; color: #334155;">$${item.priceRent.toLocaleString()}${isImpresion ? '/m²' : ''}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; text-align: center; color: #334155;">${isOneTime ? 'Único' : days}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; text-align: center; color: #334155;">${item.quantity}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; text-align: right; color: #000033;">$${subtotal.toLocaleString()}</td>
+        </tr>
+      `;
+    }).join('');
 
     return `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #000033; background-color: #f1f5f9; padding: 40px;">

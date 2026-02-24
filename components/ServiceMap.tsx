@@ -34,9 +34,12 @@ export const ServiceMap: React.FC = () => {
   const [mapMode, setMapMode] = useState<'place' | 'directions'>('place');
   const navigate = useNavigate();
 
-  const apiKey = process.env.API_KEY;
+  const apiKey = process.env.API_KEY || (process.env as any).GEMINI_API_KEY;
 
   useEffect(() => {
+    if (!apiKey) {
+      console.warn("API Key not found. Please set API_KEY or GEMINI_API_KEY in environment variables.");
+    }
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -337,9 +340,25 @@ Recomendaciones:
                 </div>
               </>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center p-12 space-y-4">
-                <AlertTriangle size={48} className="text-amber-500" />
-                <h3 className="font-black text-brand-900 uppercase">Falta API Key</h3>
+              <div className="h-full flex flex-col items-center justify-center text-center p-12 space-y-6 bg-slate-50">
+                <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 border-4 border-white shadow-lg">
+                  <AlertTriangle size={40} />
+                </div>
+                <div className="max-w-md space-y-2">
+                  <h3 className="font-black text-brand-900 uppercase text-lg">Configuración Requerida</h3>
+                  <p className="text-slate-500 text-xs leading-relaxed">
+                    Para visualizar el mapa interactivo, debe configurar su <b>API_KEY</b> en las variables de entorno del proyecto.
+                  </p>
+                  <div className="pt-4">
+                    <button 
+                      onClick={openExternalMaps}
+                      className="px-6 py-3 bg-brand-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-black transition-all flex items-center mx-auto space-x-2"
+                    >
+                      <ExternalLink size={14} />
+                      <span>Usar Google Maps Externo</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
